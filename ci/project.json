@@ -1,0 +1,57 @@
+{
+  "app": "XXX_TIPO_DE_APP_XXX",
+  "project_name": "XXX_NOMBRE_DEL_PROYECTO_XXX",
+  "project_description": "XXX_DESCRIPCION_DEL_PROYECTO_XXX",
+  "developers_team": "XXX_EQUIPO_DE_DESARROLLO_XXX",
+  "project_domain": "awsinternal.mediaset.es",
+  "vulnerability_alerts": true,
+  "terraform": {
+    "vault_paths": ["staging/dev", "staging/int", "staging/pre", "common", "pro"],
+    "vault_main_path": "apps_multi",
+    "vault_role_policies": ["apps_multi_pro_read", "apps_multi_staging_read", "checkmk", "legacy", "read_sistemascorp_global", "read_sistemasweb_global"],
+    "approvers_members_team": ["XXX_USER01_XXX"],
+    "push_group": ["XXX_NOMBRE_DEL_GRUPO_XXX"],
+    "approvers_parent_team": "XXX_ID_PARENT_TEAM_XXX"
+  },
+  "k8s": {
+    "services": {
+      "front": {
+        "app_dirs": ["front"],
+        "vars": "front.j2",
+        "status_checks": [
+          "k8s_check_portal",
+          "k8s_check_simple"
+        ]
+      },
+      "back": {
+        "app_dirs": ["back"],
+        "vars": "back.j2",
+        "status_checks": [
+          "k8s_check_simple",
+          "k8s_check_complete"
+        ]
+      }
+    },
+    "secrets": {
+      "LDAP_USERNAME": {
+        "path": "sistemascorp/pro/data/SearchLDAP",
+        "field": "username"
+      },
+      "LDAP_PASSWORD": {
+        "path": "sistemascorp/pro/data/SearchLDAP",
+        "field": "password"
+      },
+      "JWT_SECRET": {
+        "path": "apps_multi/data/api/__ENV__",
+        "field": "api_jwt_secret"
+      }
+    },
+    "env_vars": {
+      "akamai_fastpurge_path": {
+        "int": "ccu/v3/invalidate/url/production",
+        "pre": "ccu/v3/invalidate/url/staging",
+        "pro": "ccu/v3/invalidate/url/production"
+      }
+    }
+  }
+}

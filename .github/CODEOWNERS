@@ -1,0 +1,3 @@
+.github/CODEOWNERS  @mediaset-sistemas-multiplataforma @desarrollo-multiplataforma
+ci/**               @mediaset-sistemas-multiplataforma
+Dockerfile          @mediaset-sistemas-multiplataforma @desarrollo-multiplataforma

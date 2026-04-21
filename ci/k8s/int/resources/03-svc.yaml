@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: __PRJ_NAME__
+spec:
+  type: ClusterIP
+  selector:
+    app: __PRJ_NAME__
+  ports:
+    - name: http-80
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: http-81
+      protocol: TCP
+      port: 81
+      targetPort: 81
+...

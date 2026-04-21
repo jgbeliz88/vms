@@ -1,0 +1,115 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: __PRJ_NAME__
+spec:
+  selector:
+    matchLabels:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: __PRJ_NAME__
+        env: int
+        role: __PRJ_NAME__
+        version: v_$TAG
+      name: __PRJ_NAME__
+      annotations:
+#        prometheus.io/scrape: "true"
+#        prometheus.io/path: "/metrics"
+#        prometheus.io/port: "9094"
+        proxy.istio.io/config: |
+          tracing:
+            sampling: 100
+            custom_tags:
+              my_tag_header:
+                header:
+                  name: host
+    spec:
+      serviceAccountName: __PRJ_NAME__
+      containers:
+      - name: __PRJ_NAME__
+        image: 088427993007.dkr.ecr.eu-west-1.amazonaws.com/__PRJ_NAME__:$TAG
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        - containerPort: 81
+#        readinessProbe:
+#          httpGet:
+#            path: /status-simple
+#            port: 80
+#            scheme: HTTP
+#          initialDelaySeconds: 5
+#          periodSeconds: 5
+#          successThreshold: 4
+#          timeoutSeconds: 2
+#          failureThreshold: 4
+#        livenessProbe:
+#          exec:
+#            command:
+#              - /bin/sh
+#              - -c
+#              - "[ -f /run/nginx.pid ] && ps -A | grep nginx"
+#          initialDelaySeconds: 10
+#          periodSeconds: 5
+#          successThreshold: 1
+#          timeoutSeconds: 2
+#          failureThreshold: 8
+        envFrom:
+          - configMapRef:
+              name: configuration
+        env:
+          - name: JAEGER_SERVICE_NAME
+            value: __PRJ_NAME__.__PRJ_NAME__
+          - name: OTEL_EXPORTER_JAEGER_AGENT_HOST
+            value: jaeger-udp.istio-system.svc.cluster.local
+        volumeMounts:
+          - name: nginx-conf
+            mountPath: /usr/local/openresty/nginx/conf/nginx.conf
+            readOnly: true
+            subPath: nginx.conf
+          - name: vhost-default-conf
+            mountPath: /etc/nginx/sites-enabled/vhost-default.conf
+            readOnly: true
+            subPath: vhost-default.conf
+          - name: vhost-01-telecinco-conf
+            mountPath: /etc/nginx/sites-enabled/vhost-01-telecinco.conf
+            readOnly: true
+            subPath: vhost-01-telecinco.conf
+        resources:
+          limits:
+            cpu: 500m
+          requests:
+            cpu: 200m
+      nodeSelector:
+        mds/role: APPS
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: vhost-default-conf
+          configMap:
+            name: nginx-conf
+            items:
+              - key: vhost-default.conf
+                path: vhost-default.conf
+        - name: vhost-01-telecinco-conf
+          configMap:
+            name: nginx-conf
+            items:
+              - key: vhost-01-telecinco.conf
+                path: vhost-01-telecinco.conf
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+...
+

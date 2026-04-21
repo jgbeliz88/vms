@@ -1,0 +1,6 @@
+ci/
+**/docker*
+**/.dockerignore
+**/Dockerfile*
+**/.git*
+**/README*

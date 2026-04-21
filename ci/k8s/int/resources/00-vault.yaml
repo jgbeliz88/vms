@@ -1,0 +1,37 @@
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: __PRJ_NAME__-vault
+spec:
+  provider: vault
+  secretObjects:
+    #### Cuidado si anadimos o cambiamos secretos es necesario borrar el secreto creado en kubernetes
+    #### para que lo recree con los nuevo valores https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/389
+    #### kubectl delete secret <secretName> -n <namespace>
+    - secretName: admincreds
+      type: Opaque
+      data:
+#        - objectName: GIGYA_SECRET
+#          key: GIGYA_SECRET
+  parameters:
+    roleName: __PRJ_NAME__
+    vaultKubernetesMountPath: eks-multiint #Autenticator
+    # no poner comillas, da error
+    # vaultAddress: https://awsvault.mediaset.es:8200
+
+    # Si ponemos la ruta del secret sin las keys nos lee todo el
+    # path entero y lo mete en un json.
+    # objects: |
+    #   - objectName: "searchldap"
+    #     secretPath: "sistemascorp/pro/data/SearchLDAP"
+    #   - objectName: "jenkins"
+    #     secretPath: "sistemasweb/generic/data/jenkins"
+    # Si necesitamos acceder a las keys de un path independientemente
+    # hay que especificar un objectName para cada uno, aunque sean del
+    # mismo path.
+    # Ver <https://www.vaultproject.io/docs/platform/k8s/csi/configurations#secret-provider-class-configurations>
+    objects: |
+#      - objectName: "GIGYA_SECRET"
+#        secretPath: "provider_multi/data/gigya/staging/pre"
+#        secretKey: "GIGYA_SECRET"

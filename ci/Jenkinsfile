@@ -1,0 +1,7 @@
+@Library('ci-library') _
+
+pipelineEKSMultibranch(
+    timeout_mins: 30,
+    app: '__PRJ_NAME__',
+    ci_branch: 'dev'
+)
