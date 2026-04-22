@@ -1,8 +1,8 @@
 {
-  "app": "XXX_TIPO_DE_APP_XXX",
-  "project_name": "XXX_NOMBRE_DEL_PROYECTO_XXX",
-  "project_description": "XXX_DESCRIPCION_DEL_PROYECTO_XXX",
-  "developers_team": "XXX_EQUIPO_DE_DESARROLLO_XXX",
+  "app": "vms",
+  "project_name": "vms",
+  "project_description": "Proyecto para la app: vms",
+  "developers_team": "dm",
   "project_domain": "awsinternal.mediaset.es",
   "vulnerability_alerts": true,
   "terraform": {

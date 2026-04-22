@@ -1,48 +1,35 @@
-# Inicializar con:
-#   terraform init \
-#     -backend-config="key=$(jq -r '.app' ../../project.json)/$(jq -r '.project_name' ../../project.json)/$(pwd |awk -F/ '{print $(NF)}')"
-#   terraform init -backend-config="workspace_key_prefix=$(jq -r '.app' ../../project.json)/$(jq -r '.project_name' ../../project.json)/$(pwd |awk -F/ '{print $(NF)}')"
-
-
 
 terraform {
-  required_version = "1.8.5"
+  required_version = "1.13.0"
 
-  backend "s3" {
-    bucket               = "terraform-remote-state-vault"
-    key                  = "terraform.tfstate"
-    region               = "eu-west-1"
-    dynamodb_table       = "terraform_statelock"
+  backend "azurerm" {
+    resource_group_name   = "euw-mes-sc-storage-multi-rg-pro"
+    storage_account_name  = "terraformremotestate1"
+    container_name        = "terraform-remote-state-vault"
+    key                   = "vms/terraform.tfstate"
+    subscription_id      = "13cf4c41-bb80-43a0-aa5d-ca00019354d8"
+    tenant_id            = "9c72562b-8077-4c0f-8444-ae87fb3a1fbb"
   }
 
   required_providers {
-    aws = {
-      source = "hashicorp/aws"
-      version = "5.53.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.11.0"
+    azurerm = {
+      source = "hashicorp/azurerm"
+      version = "= 4.69.0"
     }
     vault = {
       source  = "hashicorp/vault"
       version = "4.4.0"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.6.0"
+    }
   }
 }
 
-provider "aws" {
-  region = local.region
-  assume_role {
-    role_arn     = "arn:aws:iam::${local.account_number[terraform.workspace]}:role/MDSCrossAccountAdminRole"
-    session_name = "deployment-session"
-  }
-  default_tags {
-    tags = local.aws_default_tags
-  }
+# Use Vault provider
+provider "vault" {
 }
-
-data "aws_caller_identity" "current" {}
 
 locals {
   vault_addr = {
@@ -52,30 +39,7 @@ locals {
   }
 
 }
-provider "vault" {
-  alias  = "mds"
-  address = local.vault_addr["mds"]
-  token = var.token_vault_mds
-  skip_tls_verify = true
-  #  auth_login_oidc {
-  #    role = "Default"
-  #  }
-}
-provider "vault" {
-  alias  = "aws"
-  address = local.vault_addr["aws"]
-  token = var.token_vault_aws
-  skip_tls_verify = true
-  #  auth_login_oidc {
-  #    role = "Default"
-  #  }
-}
-provider "vault" {
-  alias  = "azr"
-  address = local.vault_addr["azr"]
-  token = var.token_vault_azr
-  skip_tls_verify = true
-  #  auth_login_oidc {
-  #    role = "Default"
-  #  }
+
+provider "azuread" {
+  tenant_id = "9c72562b-8077-4c0f-8444-ae87fb3a1fbb"
 }
