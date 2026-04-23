@@ -1,6 +1,6 @@
 @Library('ci-library') _
 
-pipelineMultibranchGeneric(
+pipelineMultibranchGenericAKS(
     timeout_mins: 30,
     app: 'vms',
     ci_branch: 'dev'
