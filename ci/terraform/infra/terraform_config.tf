@@ -44,5 +44,5 @@ provider "github" {
 }
 
 provider "vault" {
-  address = "https://vault.mediaset.es:8200"
+  # address = "https://vault.mediaset.es:8200"
 }

@@ -9,9 +9,9 @@
     "vault_paths": ["staging/dev", "staging/int", "staging/pre", "common", "pro"],
     "vault_main_path": "apps_multi",
     "vault_role_policies": ["apps_multi_pro_read", "apps_multi_staging_read", "checkmk", "legacy", "read_sistemascorp_global", "read_sistemasweb_global"],
-    "approvers_members_team": ["XXX_USER01_XXX"],
-    "push_group": ["XXX_NOMBRE_DEL_GRUPO_XXX"],
-    "approvers_parent_team": "XXX_ID_PARENT_TEAM_XXX"
+    "approvers_members_team": ["cruyra"],
+    "push_group": ["desarrollo-multiplataforma"],
+    "approvers_parent_team": "2918545"
   },
   "k8s": {
     "services": {
