@@ -127,7 +127,7 @@ resource "azuread_service_principal_token_signing_certificate" "app_saml_cert" {
 locals {
 
   redirect_uris = [
-    "http://localhost:3000/api/auth/callback/azure-ad"
+    "http://localhost:3000/api/auth/callback/microsoft-entra-id"
     # "https://doyfe${local.environment}-grupomediaset.msappproxy.net/",
     # "https://doyfe-${local.environment}.awsinternal.mediaset.es/vmsClient/samlCallback",
     # "https://${local.local_data.project_name}-${local.environment}.awsinternal.mediaset.es/app"

@@ -3,9 +3,9 @@ kind: Kustomization
 
 resources:
 - 00-ns.yaml
+- 01-sa.yaml
 
 labels:
 - includeSelectors: true
   pairs:
-    app: __PRJ_NAME__
-    role: __PRJ_NAME__
+    role: vms

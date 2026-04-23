@@ -2,10 +2,4 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: __PRJ_NAME__
-  labels:
-    name: __PRJ_NAME__
-    role: __PRJ_NAME__
-    application: __PRJ_NAME__
-    istio-injection: enabled
-...
+  name: vms
