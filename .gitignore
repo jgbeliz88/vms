@@ -5,9 +5,13 @@
 .settings
 .init_lock
 .husky
+.next
 
 build
 coverage
+
+.env
+.env.local
 
 **/.packer.d
 ci/packer/ansible/roles
