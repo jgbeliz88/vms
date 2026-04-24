@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getFastChannelsUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 export async function GET() {
   const endpoint = getFastChannelsUrl();
   try {
-    const response = await fetch(`${endpoint}/transitions`, { cache: "no-store" });
+    const response = await fetchVMS(`${endpoint}/transitions`, { cache: "no-store" });
     if (!response.ok) return NextResponse.json({});
     return NextResponse.json(await response.json());
   } catch {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const endpoint = getFastChannelsUrl();
   try {
     const body = await request.json();
-    const response = await fetch(`${endpoint}/transitions`, {
+    const response = await fetchVMS(`${endpoint}/transitions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

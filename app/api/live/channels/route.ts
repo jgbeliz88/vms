@@ -5,6 +5,7 @@ import type { Channel, Encoder, ResolvedChannel, ResolvedPod } from "@/features/
 import { resolveDataPath, readJsonFile, writeJsonFile } from "@/app/api/_lib/store";
 import { zodError } from "@/app/api/_lib/responses";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -71,7 +72,7 @@ export async function GET() {
   const storePath = resolveDataPath("live-channels");
   const [channels, encoders] = await Promise.all([
     readJsonFile(storePath, mockChannels),
-    fetch(`${getEnigmaBaseUrl()}/live/encoders`)
+    fetchVMS(`${getEnigmaBaseUrl()}/live/encoders`)
       .then((r) => (r.ok ? (r.json() as Promise<Encoder[]>) : Promise.resolve([] as Encoder[])))
       .catch(() => [] as Encoder[]),
   ]);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 const requestSchema = z.object({
   actionId: z.enum(["sync", "clean", "delete-flow"]),
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   if (authHeader) headers["Authorization"] = authHeader;
 
   try {
-    const response = await fetch(url, { method, headers });
+    const response = await fetchVMS(url, { method, headers });
     const text = await response.text();
     let data: unknown;
     try {

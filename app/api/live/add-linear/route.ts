@@ -4,6 +4,7 @@ import path from "path";
 import { z } from "zod";
 import type { Channel, Linear } from "@/features/live/types";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 const schema = z.object({
   channelInternalId: z.string().min(1),
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
     contentId,
   } = parsed.data;
 
-  const enigmaResponse = await fetch(`${getEnigmaBaseUrl()}/live/${podName}`, {
+  const enigmaResponse = await fetchVMS(`${getEnigmaBaseUrl()}/live/${podName}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ channelId: linearName, drm, adsReplacement, fragmentLength, disableDrmManifests, drmVendor, contentId }),
