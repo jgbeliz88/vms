@@ -1,4 +1,4 @@
-FROM 088427993007.dkr.ecr.eu-west-1.amazonaws.com/nodejs:22.21.0-trixie-slim_mdsv20260128170413 AS base
+FROM euwestmeswebacr.azurecr.io/node:22.21.0-trixie-slim_mdsv20260128170413 AS base
 ARG NPM_REGISTRY=https://nexus.awsinternal.mediaset.es/repository/npm-group/
 ARG APP_LOCATION=/app
 WORKDIR $APP_LOCATION
@@ -45,5 +45,6 @@ ENV APP_ENV=production
 RUN npm prune --production
 
 EXPOSE 3000
+USER node
 
 CMD ["npm", "run", "start"]
