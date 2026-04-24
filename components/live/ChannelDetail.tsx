@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { PlaybackPanel } from "./PlaybackPanel";
 import { LinearsPanel } from "./LinearsPanel";
-import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
 import { deriveOverallStatus, deriveStatusParts } from "@/features/live/status";
 import { ChannelConfigEditor } from "./ChannelConfigEditor";
@@ -42,7 +40,6 @@ export function ChannelDetail({
   actions,
   onAction,
   onAdAction,
-  onUpdate,
   configLayout,
   onSaveConfig,
   savingConfig,
@@ -54,16 +51,9 @@ export function ChannelDetail({
   channel: ResolvedChannel;
   actions: ChannelAction[];
   onAction: (action: ChannelAction) => void;
-  onAdAction: (channelId: string, actionId: string) => void;
-  onUpdate: (values: {
-    id: string;
-    name: string;
-    channelPath: string;
-    platform: string;
-    metadata: Record<string, unknown>;
-  }) => void;
+  onAdAction: (channelId: number, actionId: string) => void;
   configLayout?: ConfigLayout;
-  onSaveConfig?: (channelId: string, rows: ChannelConfigRow[]) => Promise<void>;
+  onSaveConfig?: (channelId: number, rows: ChannelConfigRow[]) => Promise<void>;
   savingConfig?: boolean;
   encoders?: Encoder[];
   onCreateLinear?: (data: AddLinearData) => Promise<void>;
@@ -71,10 +61,6 @@ export function ChannelDetail({
   onDeletePod?: (pod: ResolvedPod, linearName: string | null) => Promise<void>;
 }) {
   const canOperate = usePermission([ROLES.OPERATOR]);
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(channel.name);
-  const [channelPath, setChannelPath] = useState(channel.channelPath ?? "");
-  const [metadata, setMetadata] = useState(JSON.stringify(channel.metadata, null, 2));
   const [pendingAdAction, setPendingAdAction] = useState<{ id: string; label: string } | null>(null);
   const [blackoutOpen, setBlackoutOpen] = useState(false);
   const blackoutRef = useRef<HTMLDivElement>(null);
@@ -90,16 +76,6 @@ export function ChannelDetail({
     return () => document.removeEventListener("mousedown", handler);
   }, [blackoutOpen]);
 
-  const metadataError = useMemo(() => {
-    if (!editing) return "";
-    try {
-      JSON.parse(metadata);
-      return "";
-    } catch {
-      return "Invalid JSON";
-    }
-  }, [metadata, editing]);
-
   const partStatus = useMemo(() => {
     const parts = (channel.metadata as Record<string, unknown>)?.statusParts;
     return deriveStatusParts(parts, channel.status);
@@ -107,64 +83,22 @@ export function ChannelDetail({
 
   const overallStatus = useMemo(() => deriveOverallStatus(partStatus), [partStatus]);
 
-  const handleSave = () => {
-    if (metadataError) return;
-    const parsed = metadata ? JSON.parse(metadata) : {};
-    onUpdate({
-      id: channel.id,
-      name,
-      channelPath,
-      platform: channel.platform,
-      metadata: parsed
-    });
-    setEditing(false);
-  };
-
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Channel Metadata Information
-          </div>
-          <Button variant="secondary" onClick={() => setEditing((prev) => !prev)}>
-            {editing ? "Cancel" : "Edit"}
-          </Button>
+        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Channel Metadata Information
         </div>
         <div className="mt-3 space-y-3">
-          {editing ? (
-            <>
-              <Input label="Channel Name" value={name} onChange={(e) => setName(e.target.value)} />
-              <Input
-                label="Channel Path"
-                value={channelPath}
-                onChange={(e) => setChannelPath(e.target.value)}
-              />
-              <Textarea
-                label="Metadata (JSON)"
-                value={metadata}
-                onChange={(e) => setMetadata(e.target.value)}
-                error={metadataError}
-              />
-              <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={Boolean(metadataError)}>
-                  Save Changes
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="grid gap-2 text-xs text-slate-600 dark:text-slate-300">
-                <div>
-                  <span className="font-semibold">Name:</span> {channel.name}
-                </div>
-                <div>
-                  <span className="font-semibold">Channel Path:</span> {channel.channelPath || "—"}
-                </div>
-              </div>
-              <JsonViewer data={channel.metadata} />
-            </>
-          )}
+          <div className="grid gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <div>
+              <span className="font-semibold">Name:</span> {channel.name}
+            </div>
+            <div>
+              <span className="font-semibold">Channel Path:</span> {channel.channelPath || "—"}
+            </div>
+          </div>
+          <JsonViewer data={channel.metadata} />
         </div>
       </div>
 

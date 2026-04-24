@@ -2,14 +2,17 @@ import type { Role } from "@/lib/auth/permissions";
 
 export type ChannelStatus = "ok" | "warning" | "error";
 
+// Shape from Enigma GET /live/channels — linearName is null when the linear has been cleared
 export type Linear = {
-  linearName: string;
-  drm: boolean;
-  adsReplacement: boolean;
-  fragmentLength: string;
-  disableDrmManifests: boolean;
-  drmVendor: string;
-  contentId: string;
+  podId: number;
+  channelId: number;
+  linearName: string | null;
+  drm: number | null;
+  adsReplacement: number | null;
+  fragmentLength: string | null;
+  disableDrmManifests: number | null;
+  drmVendor: string | null;
+  contentId: string | null;
 };
 
 // ── Encoder / Pod infrastructure types ────────────────────────────────────────
@@ -28,39 +31,34 @@ export type Encoder = {
   pods: EncoderPod[];
 };
 
-// Reference stored inside each channel (raw storage format)
-export type ChannelEncoderPodRef = {
-  encoderId: number;
-  podId: number;
-  linear: Linear | null;
-};
-
 // Runtime-resolved view (joined by BFF) — used by UI
 export type ResolvedPod = EncoderPod & {
   encoderName: string;
   linear: Linear | null;
 };
 
-// Internal channel shape (written to / read from JSON store)
+// Channel shape from Enigma API
 export type Channel = {
-  id: string;
+  id: number;
   name: string;
   channelPath?: string;
   platform: string;
   status: ChannelStatus;
-  linears: ChannelEncoderPodRef[];
+  linears: Linear[];
   cacheState: "warm" | "cold" | "stale";
-  lastSync: string;
-  metadata: Record<string, unknown>;
+  lastSync: string | null;
+  metadata: Record<string, unknown> | null;
+  channelConfigs: ChannelConfigRow[];
+};
+
+// Shape returned by GET /api/live/channels (pods joined from encoder data)
+export type ResolvedChannel = Omit<Channel, "linears" | "channelConfigs"> & {
+  pods: ResolvedPod[];
   config?: ChannelConfigRow[];
 };
 
-// Shape returned by the GET /api/live/channels endpoint (pods joined from encoder store)
-export type ResolvedChannel = Omit<Channel, "linears"> & {
-  pods: ResolvedPod[];
-};
-
 export type ChannelConfigRow = {
+  channelId?: number;
   platform: string;
   device: string;
   source?: string;

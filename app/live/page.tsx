@@ -9,11 +9,9 @@ import {
   useBatchAction,
   useBatchPodDelete,
   useCreateChannel,
-  useUpdateChannel,
   useDeleteChannel,
   useConfigLayoutQuery,
   useAddLinear,
-  useDeleteLinear,
   useDeleteLinearAction,
   useUpdateChannelConfig,
   type ConfigLayout,
@@ -51,7 +49,7 @@ function ChannelConfigOverview({
   showConfig: boolean;
   setShowConfig: (fn: (v: boolean) => boolean) => void;
 }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -127,32 +125,30 @@ function ChannelConfigOverview({
 export default function LivePage() {
   const { notify } = useToast();
   const canAdmin = usePermission([ROLES.ADMIN]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [confirmAction, setConfirmAction] = useState<ChannelAction | null>(null);
   const [confirmChannel, setConfirmChannel] = useState<ResolvedChannel | null>(null);
   const [selectedPodIndices, setSelectedPodIndices] = useState<number[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deletePodLoading, setDeletePodLoading] = useState(false); // kept for batch delete flow
+  const [deletePodLoading, setDeletePodLoading] = useState(false);
   const [batchConfirm, setBatchConfirm] = useState<BatchAction | null>(null);
   const [deleteConfirmChannel, setDeleteConfirmChannel] = useState<ResolvedChannel | null>(null);
   const [batchResults, setBatchResults] = useState<
-    Array<{ channelId: string; status: "success" | "error"; actionId: string }>
+    Array<{ channelId: number; status: "success" | "error"; actionId: string }>
   >([]);
 
   const channelsQuery = useChannelsQuery();
   const configLayoutQuery = useConfigLayoutQuery();
   const encodersQuery = useEncodersQuery();
-  const [savingConfigId, setSavingConfigId] = useState<string | null>(null);
+  const [savingConfigId, setSavingConfigId] = useState<number | null>(null);
   const [showConfig, setShowConfig] = useState(false);
   const [channelFilter, setChannelFilter] = useState("");
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
-  const updateChannel = useUpdateChannel();
   const actionMutation = useChannelAction();
   const batchMutation = useBatchAction();
   const batchPodDelete = useBatchPodDelete();
   const addLinear = useAddLinear();
-  const deleteLinearMutation = useDeleteLinear();
   const deleteLinearAction = useDeleteLinearAction();
   const updateChannelConfig = useUpdateChannelConfig();
   const createEncoder = useCreateEncoder();
@@ -179,7 +175,7 @@ export default function LivePage() {
     }
   };
 
-  const toggleOne = (id: string) => {
+  const toggleOne = (id: number) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
@@ -197,7 +193,7 @@ export default function LivePage() {
     );
   };
 
-  const handleAdAction = async (channelId: string, actionId: string) => {
+  const handleAdAction = async (channelId: number, actionId: string) => {
     const channel = channels.find((c) => c.id === channelId);
     if (!channel) return;
     try {
@@ -212,9 +208,19 @@ export default function LivePage() {
     }
   };
 
-  const handleCreateLinearForChannel = async (channelId: string, data: AddLinearData) => {
+  const handleCreateLinearForChannel = async (channelId: number, data: AddLinearData) => {
     try {
-      await addLinear.mutateAsync({ ...data, channelInternalId: channelId });
+      await addLinear.mutateAsync({
+        channelEntityId: channelId,
+        podName: data.podName,
+        linearName: data.linearName,
+        drm: data.drm,
+        adsReplacement: data.adsReplacement,
+        fragmentLength: data.fragmentLength,
+        disableDrmManifests: data.disableDrmManifests,
+        drmVendor: data.drmVendor,
+        contentId: data.contentId,
+      });
       notify({ title: "Linear created", description: `${data.linearName} added.` });
     } catch (error) {
       notify({
@@ -227,16 +233,12 @@ export default function LivePage() {
   };
 
   const handleDeleteLinearForChannel = async (
-    channelId: string,
+    _channelId: number,
     pod: ResolvedPod,
     linearName: string
   ) => {
     try {
-      await deleteLinearAction.mutateAsync({ podName: pod.name, linearName });
-      await deleteLinearMutation.mutateAsync({
-        channelInternalId: channelId,
-        pods: [{ encoderId: pod.encoderId, podId: pod.id, removeRef: false }],
-      });
+      await deleteLinearAction.mutateAsync({ podName: pod.name, linearName, action: "clear" });
       notify({ title: "Linear deleted", description: `${linearName} removed.` });
     } catch (error) {
       notify({
@@ -249,18 +251,13 @@ export default function LivePage() {
   };
 
   const handleDeletePodForChannel = async (
-    channelId: string,
+    _channelId: number,
     pod: ResolvedPod,
     linearName: string | null
   ) => {
+    if (!linearName) return; // button is disabled when no active linear
     try {
-      if (linearName) {
-        await deleteLinearAction.mutateAsync({ podName: pod.name, linearName });
-      }
-      await deleteLinearMutation.mutateAsync({
-        channelInternalId: channelId,
-        pods: [{ encoderId: pod.encoderId, podId: pod.id, removeRef: true }],
-      });
+      await deleteLinearAction.mutateAsync({ podName: pod.name, linearName, action: "delete" });
       notify({ title: "Pod removed", description: `${pod.name} removed.` });
     } catch (error) {
       notify({
@@ -277,26 +274,17 @@ export default function LivePage() {
     setDeletePodLoading(true);
     try {
       const results = await Promise.all(
-        deletions.map(async ({ podName, encoderId, podId, linearName, deletePod }) => {
-          // Delete linear via Enigma API if one is selected
-          if (linearName) {
-            try {
-              await deleteLinearAction.mutateAsync({ podName, linearName });
-            } catch (e) {
-              return { podName, status: "error" as const, message: e instanceof Error ? e.message : `HTTP error` };
-            }
-          }
-
-          // Update local store
+        deletions.map(async ({ podName, linearName, deletePod }) => {
+          if (!linearName) return { podName, status: "success" as const };
           try {
-            await deleteLinearMutation.mutateAsync({
-              channelInternalId: confirmChannel.id,
-              pods: [{ encoderId, podId, removeRef: deletePod }],
+            await deleteLinearAction.mutateAsync({
+              podName,
+              linearName,
+              action: deletePod ? "delete" : "clear",
             });
           } catch (e) {
-            return { podName, status: "error" as const, message: e instanceof Error ? e.message : "Store update failed" };
+            return { podName, status: "error" as const, message: e instanceof Error ? e.message : `HTTP error` };
           }
-
           return { podName, status: "success" as const };
         })
       );
@@ -333,7 +321,7 @@ export default function LivePage() {
     config: LinearFormConfig
   ): Promise<CreateLinearResult[]> => {
     const results = await Promise.all(
-      items.map(async ({ channelId, encoderId, podId, podName, linearName }) => {
+      items.map(async ({ channelEntityId, podName, linearName }) => {
         const enigmaPayload = {
           channelId: linearName,
           drm: config.drm,
@@ -342,13 +330,12 @@ export default function LivePage() {
           disableDrmManifests: config.disableDrmManifests,
           drmVendor: config.drmVendor,
           contentId: config.contentId,
+          channelEntityId,
         };
         const curlCommand = `curl -X POST "${enigmaBaseUrl}/${podName}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(enigmaPayload)}'`;
         try {
           await addLinear.mutateAsync({
-            channelInternalId: channelId,
-            encoderId,
-            podId,
+            channelEntityId,
             podName,
             linearName,
             ...config,
@@ -401,35 +388,26 @@ export default function LivePage() {
   };
 
   const handleBatchDeleteLinear = async (
-    groups: Array<{ channelId: string; pods: Array<{ podName: string; podId: number; encoderId: number; linear: import("@/features/live/types").Linear | null }> }>
+    groups: Array<{ channelId: number; pods: Array<{ podName: string; podId: number; linear: import("@/features/live/types").Linear | null }> }>
   ) => {
     const allPods = groups.flatMap((g) => g.pods.map((p) => ({ name: p.podName, linear: p.linear })));
-    const results = await batchPodDelete.mutateAsync(allPods);
-
-    // Only update the local store for pods where Enigma returned 200
-    const successfulPodNames = new Set(
-      results.filter((r) => r.status >= 200 && r.status < 300).map((r) => r.podName)
-    );
-
-    const storeUpdates = groups
-      .map((g) => {
-        const successfulPods = g.pods.filter((pod) => successfulPodNames.has(pod.podName));
-        if (successfulPods.length === 0) return null;
-        return deleteLinearMutation.mutateAsync({
-          channelInternalId: g.channelId,
-          pods: successfulPods.map((pod) => ({ encoderId: pod.encoderId, podId: pod.podId, removeRef: false })),
-        });
-      })
-      .filter(Boolean);
-
-    await Promise.all(storeUpdates);
-    return results;
+    return await batchPodDelete.mutateAsync(allPods);
   };
 
   const handleAddPod = async (data: AddLinearData) => {
     if (!confirmChannel) return;
     try {
-      await addLinear.mutateAsync({ ...data, channelInternalId: confirmChannel.id });
+      await addLinear.mutateAsync({
+        channelEntityId: confirmChannel.id,
+        podName: data.podName,
+        linearName: data.linearName,
+        drm: data.drm,
+        adsReplacement: data.adsReplacement,
+        fragmentLength: data.fragmentLength,
+        disableDrmManifests: data.disableDrmManifests,
+        drmVendor: data.drmVendor,
+        contentId: data.contentId,
+      });
       notify({ title: "Pod added", description: `Linear ${data.linearName} added.` });
       setConfirmAction(null);
       setConfirmChannel(null);
@@ -454,7 +432,7 @@ export default function LivePage() {
         channels: selectedChannels,
         actionId: batchConfirm.id
       });
-      setBatchResults(result as Array<{ channelId: string; status: "success" | "error"; actionId: string }>);
+      setBatchResults(result as Array<{ channelId: number; status: "success" | "error"; actionId: string }>);
       const failures = result.filter((item) => item.status === "error");
       if (failures.length > 0) {
         notify({
@@ -495,20 +473,12 @@ export default function LivePage() {
     }
   };
 
-  const handleSaveConfig = async (channelId: string, rows: ChannelConfigRow[]) => {
-    const channel = channels.find((c) => c.id === channelId);
-    if (!channel) return;
+  const handleSaveConfig = async (channelId: number, rows: ChannelConfigRow[]) => {
     setSavingConfigId(channelId);
     try {
-      await updateChannelConfig.mutateAsync({
-        id: channelId,
-        name: channel.name,
-        channelPath: channel.channelPath ?? "",
-        platform: channel.platform,
-        metadata: channel.metadata,
-        config: rows,
-      });
-      notify({ title: "Config saved", description: `${channel.name} configuration updated.` });
+      await updateChannelConfig.mutateAsync({ id: channelId, config: rows });
+      const channel = channels.find((c) => c.id === channelId);
+      notify({ title: "Config saved", description: `${channel?.name ?? ""} configuration updated.` });
     } catch (error) {
       notify({
         title: "Save failed",
@@ -532,25 +502,6 @@ export default function LivePage() {
         title: "Delete failed",
         description: error instanceof Error ? error.message : "Unable to delete channel",
         variant: "error",
-      });
-    }
-  };
-
-  const handleUpdate = async (values: {
-    id: string;
-    name: string;
-    channelPath: string;
-    platform: string;
-    metadata: Record<string, unknown>;
-  }) => {
-    try {
-      await updateChannel.mutateAsync(values);
-      notify({ title: "Channel updated", description: `${values.name} saved.` });
-    } catch (error) {
-      notify({
-        title: "Update failed",
-        description: error instanceof Error ? error.message : "Unable to update channel",
-        variant: "error"
       });
     }
   };
@@ -617,7 +568,6 @@ export default function LivePage() {
               onToggleAll={toggleAll}
               onAction={handleAction}
               onAdAction={handleAdAction}
-              onUpdate={handleUpdate}
               onDelete={setDeleteConfirmChannel}
               configLayout={configLayoutQuery.data}
               onSaveConfig={handleSaveConfig}

@@ -2,6 +2,7 @@
 // Re-export under the existing name so all callers remain untouched.
 export { getCachedToken as getToken } from "@/lib/session/provider";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function setToken(_token: string): void {
   // No-op: tokens are managed by NextAuth, not stored manually.
 }

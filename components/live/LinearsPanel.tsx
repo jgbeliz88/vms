@@ -111,7 +111,7 @@ export function LinearsPanel({
   const selectedPod = podOptions.find((p) => p.id === form.podId) ?? null;
   const duplicatePod =
     selectedPod !== null &&
-    channel.pods.some((p) => p.name === selectedPod.name && p.linear !== null);
+    channel.pods.some((p) => p.name === selectedPod.name && p.linear !== null && p.linear.linearName !== null);
 
   const formValid =
     form.encoderId !== 0 &&
@@ -271,7 +271,8 @@ export function LinearsPanel({
                             <button
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-60"
                               onClick={() => setConfirmDeletePodKey(pod.name)}
-                              disabled={deletingPodKey !== null || deletingKey !== null}
+                              disabled={deletingPodKey !== null || deletingKey !== null || !pod.linear?.linearName}
+                              title={!pod.linear?.linearName ? "No active linear to delete" : undefined}
                             >
                               Delete
                             </button>
@@ -280,7 +281,7 @@ export function LinearsPanel({
                       </div>
                       {/* Linear row */}
                       <div className="mt-0.5 border-l-2 border-slate-100 pl-3 dark:border-slate-700">
-                        {pod.linear ? (
+                        {pod.linear?.linearName ? (
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-600 dark:text-slate-300">
                               {pod.linear.linearName}
@@ -294,7 +295,7 @@ export function LinearsPanel({
                                   <button
                                     className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
                                     onClick={() =>
-                                      handleDelete(pod, pod.linear!.linearName)
+                                      handleDelete(pod, pod.linear!.linearName!)
                                     }
                                     disabled={isLinearDeleting}
                                   >
@@ -335,7 +336,9 @@ export function LinearsPanel({
                               </button>
                             )}
                             {!canManageLinears && (
-                              <span className="text-xs italic text-slate-400">no linear</span>
+                              <span className="text-xs italic text-slate-400">
+                                {pod.linear ? "Cleared" : "no linear"}
+                              </span>
                             )}
                             {/* Configure inline form */}
                             {isConfiguringThis && (
