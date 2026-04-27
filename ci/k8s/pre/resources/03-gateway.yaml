@@ -1,0 +1,51 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: vms-gateway-internal
+spec:
+  selector:
+    istio: int-gateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - vms-pre.azrinternal.mediaset.es
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: wildcard-azrinternal-tls
+    hosts:
+    - vms-pre.azrinternal.mediaset.es
+...
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: vms
+spec:
+  hosts:
+  - vms-pre.azrinternal.mediaset.es
+  gateways:
+  - vms-gateway-internal
+  http:
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: vms
+        port:
+          number: 80
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: vms
+        port:
+          number: 80
+...

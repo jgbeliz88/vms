@@ -3,9 +3,11 @@ kind: Kustomization
 
 
 resources:
-- resources
 - ../common
+- resources
+
 labels:
 - includeSelectors: true
   pairs:
-    environment: int
+    environment: pre
+
