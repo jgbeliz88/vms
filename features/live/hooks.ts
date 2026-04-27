@@ -23,7 +23,7 @@ export function useCreateChannel() {
     mutationFn: async (payload: {
       name: string;
       channelPath: string;
-      metadata: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
     }) => {
       const response = await fetch("/api/live/channels", {
         method: "POST",
@@ -42,39 +42,11 @@ export function useCreateChannel() {
   });
 }
 
-export function useUpdateChannel() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (payload: {
-      id: string;
-      name: string;
-      channelPath: string;
-      platform: string;
-      metadata: Record<string, unknown>;
-    }) => {
-      const response = await fetch("/api/live/channels", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Unable to update channel");
-      }
-      return (await response.json()) as ResolvedChannel;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
-    },
-  });
-}
-
 export function useDeleteChannel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: { id: string }) => {
+    mutationFn: async (payload: { id: number }) => {
       const response = await fetch("/api/live/channels", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -84,28 +56,11 @@ export function useDeleteChannel() {
         const message = await response.text();
         throw new Error(message || "Unable to delete channel");
       }
-      return (await response.json()) as { ok: boolean };
+      return (await response.json()) as Record<string, unknown>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
     },
-  });
-}
-
-export function useDeleteFlowChannel() {
-  return useMutation({
-    mutationFn: async (payload: { id: string }) => {
-      const response = await fetch("/api/live/delete-flow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Unable to delete flow channel");
-      }
-      return (await response.json()) as { ok: boolean; id: string };
-    }
   });
 }
 
@@ -120,7 +75,8 @@ export type PodActionResult = {
 async function runPodAction(
   pod: { name: string; linear?: Linear | null },
   actionId: string,
-  token: string | null
+  token: string | null,
+  deleteAction: "clear" | "delete" = "clear"
 ): Promise<PodActionResult> {
   const podName = pod.name;
 
@@ -132,13 +88,13 @@ async function runPodAction(
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   if (actionId === "delete-flow") {
-    if (!pod.linear) {
+    if (!pod.linear || !pod.linear.linearName) {
       return { podName, podNode: podName, status: 200, data: { ok: true } };
     }
     const response = await fetch("/api/live/action", {
       method: "POST",
       headers,
-      body: JSON.stringify({ actionId, podName, linearName: pod.linear.linearName }),
+      body: JSON.stringify({ actionId, podName, linearName: pod.linear.linearName, action: deleteAction }),
     });
     if (!response.ok) {
       const json = await response.json().catch(() => ({}));
@@ -204,7 +160,7 @@ export function useBatchPodDelete() {
       return Promise.all(
         pods.map(async (pod) => {
           try {
-            return await runPodAction(pod, "delete-flow", token);
+            return await runPodAction(pod, "delete-flow", token, "clear");
           } catch (error) {
             return {
               podName: pod.name,
@@ -241,15 +197,15 @@ export type PodManifestResult = { podName: string; manifests: ManifestCheck[] };
 export type ManifestStatusResult = { ok: boolean; pods: PodManifestResult[] };
 
 export function useChannelManifestStatus(
-  channelId: string,
-  pods: { name: string; linear: { linearName: string } | null }[],
+  channelId: number,
+  pods: { name: string; linear: { linearName: string | null } | null }[],
   originBaseUrl: string
 ) {
   return useQuery({
-    queryKey: queryKeys.manifestStatus(channelId, originBaseUrl),
+    queryKey: queryKeys.manifestStatus(String(channelId), originBaseUrl),
     queryFn: async (): Promise<ManifestStatusResult> => {
       const podsWithLinear = pods
-        .filter((p): p is typeof p & { linear: { linearName: string } } => p.linear !== null)
+        .filter((p): p is typeof p & { linear: { linearName: string } } => p.linear !== null && p.linear.linearName !== null)
         .map((p) => ({ podName: p.name, linearName: p.linear.linearName }));
       const uniquePods = Array.from(new Map(podsWithLinear.map((p) => [p.podName, p])).values());
       const response = await fetch("/api/live/manifest-status", {
@@ -310,11 +266,16 @@ export function useVodManifestQuery(id: string, url: string | null, originBase: 
 }
 
 type AddLinearPayload = {
-  channelInternalId: string;
-  encoderId: number;
-  podId: number;
+  channelEntityId: number;
   podName: string;
-} & Record<string, unknown>;
+  linearName: string;
+  drm: boolean;
+  adsReplacement: boolean;
+  fragmentLength: string;
+  disableDrmManifests: boolean;
+  drmVendor: string;
+  contentId: string;
+};
 
 export function useAddLinear() {
   const queryClient = useQueryClient();
@@ -337,25 +298,19 @@ export function useAddLinear() {
   });
 }
 
-type DeleteLinearPayload = {
-  channelInternalId: string;
-  pods: Array<{ encoderId: number; podId: number; removeRef: boolean }>;
-};
-
-export function useDeleteLinear() {
+export function useDeleteLinearAction() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: DeleteLinearPayload) => {
-      const response = await fetch("/api/live/delete-linear", {
+    mutationFn: async ({ podName, linearName, action }: { podName: string; linearName: string; action: "clear" | "delete" }) => {
+      const response = await fetch("/api/live/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ actionId: "delete-flow", podName, linearName, action }),
       });
       if (!response.ok) {
         const json = await response.json().catch(() => ({}));
-        throw new Error(json.message || `HTTP ${response.status}`);
+        throw new Error(json.data?.msg ?? json.data?.message ?? json.message ?? `HTTP ${response.status}`);
       }
-      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
@@ -363,28 +318,8 @@ export function useDeleteLinear() {
   });
 }
 
-export function useDeleteLinearAction() {
-  return useMutation({
-    mutationFn: async ({ podName, linearName }: { podName: string; linearName: string }) => {
-      const response = await fetch("/api/live/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actionId: "delete-flow", podName, linearName }),
-      });
-      if (!response.ok) {
-        const json = await response.json().catch(() => ({}));
-        throw new Error(json.data?.msg ?? json.data?.message ?? json.message ?? `HTTP ${response.status}`);
-      }
-    },
-  });
-}
-
 type UpdateChannelConfigPayload = {
-  id: string;
-  name: string;
-  channelPath: string;
-  platform: string;
-  metadata: Record<string, unknown>;
+  id: number;
   config: ChannelConfigRow[];
 };
 
@@ -392,10 +327,10 @@ export function useUpdateChannelConfig() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: UpdateChannelConfigPayload) => {
-      const response = await fetch("/api/live/channels", {
+      const response = await fetch(`/api/live/channels/${payload.id}/config`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ config: payload.config }),
       });
       if (!response.ok) {
         const json = await response.json().catch(() => ({}));

@@ -13,13 +13,12 @@ import { ROLES } from "@/lib/auth/permissions";
 type PodFilter = "all" | "main" | "backup";
 
 type DeleteLinearGroup = {
-  channelId: string;
-  pods: Array<{ podName: string; podId: number; encoderId: number; linear: Linear | null }>;
+  channelId: number;
+  pods: Array<{ podName: string; podId: number; linear: Linear | null }>;
 };
 
 export type CreateLinearItem = {
-  channelId: string;
-  encoderId: number;
+  channelEntityId: number;
   podId: number;
   podName: string;
   linearName: string;
@@ -186,7 +185,7 @@ export function BatchActionBar({
     .filter((ch) => ch.pods.length > 0);
 
   const deleteTotalLinears = deleteGroupedChannels.reduce(
-    (sum, ch) => sum + ch.pods.reduce((s, p) => s + (p.linear ? 1 : 0), 0),
+    (sum, ch) => sum + ch.pods.reduce((s, p) => s + (p.linear && p.linear.linearName ? 1 : 0), 0),
     0
   );
 
@@ -221,7 +220,7 @@ export function BatchActionBar({
   const handleConfirmDelete = async () => {
     const groups: DeleteLinearGroup[] = deleteGroupedChannels.map((ch) => ({
       channelId: ch.channelId,
-      pods: ch.pods.map((pod) => ({ podName: pod.name, podId: pod.id, encoderId: pod.encoderId, linear: pod.linear })),
+      pods: ch.pods.map((pod) => ({ podName: pod.name, podId: pod.id, linear: pod.linear })),
     }));
     setLastDeleteGroups(groups);
     try {
@@ -292,8 +291,7 @@ export function BatchActionBar({
             skipped.push({ podName: pod.name, linearName, status: "skipped" });
           } else {
             items.push({
-              channelId: channel.id,
-              encoderId: pod.encoderId,
+              channelEntityId: channel.id,
               podId: pod.id,
               podName: pod.name,
               linearName,
@@ -441,8 +439,10 @@ export function BatchActionBar({
                               </span>
                               <PodStatusBadge status={pod.status} />
                             </div>
-                            {!pod.linear ? (
-                              <div className="py-1 pl-12 pr-3 text-xs italic text-slate-400">No linear</div>
+                            {!pod.linear || !pod.linear.linearName ? (
+                              <div className="py-1 pl-12 pr-3 text-xs italic text-slate-400">
+                                {pod.linear ? "Cleared" : "No linear"}
+                              </div>
                             ) : (
                               <div
                                 className="py-1 pl-12 pr-3 text-xs text-slate-600 dark:text-slate-400"

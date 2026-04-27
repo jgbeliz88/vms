@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { zodError } from "@/app/api/_lib/responses";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 const createEncoderSchema = z.object({
   encoderChannel: z.string().min(1),
@@ -9,7 +10,7 @@ const createEncoderSchema = z.object({
 });
 
 export async function GET() {
-  const response = await fetch(`${getEnigmaBaseUrl()}/live/encoders`);
+  const response = await fetchVMS(`${getEnigmaBaseUrl()}/live/encoders`);
   if (!response.ok) {
     return NextResponse.json([]);
   }
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     return zodError(parsed.error.issues);
   }
 
-  const response = await fetch(`${getEnigmaBaseUrl()}/live/encoders`, {
+  const response = await fetchVMS(`${getEnigmaBaseUrl()}/live/encoders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),
@@ -47,7 +48,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "encoderId is required" }, { status: 400 });
   }
 
-  const response = await fetch(`${getEnigmaBaseUrl()}/live/encoders/${encoderId}`, {
+  const response = await fetchVMS(`${getEnigmaBaseUrl()}/live/encoders/${encoderId}`, {
     method: "DELETE",
   });
 

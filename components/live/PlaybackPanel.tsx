@@ -86,7 +86,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const originBase = distOriginLive;
   const activeCdnLive = distCdnLive;
   const cdnBase = activeCdnLive?.[cdnKey] || "";
-  const path = channel.channelPath && channel.channelPath.trim().length > 0 ? channel.channelPath : channel.id;
+  const path = channel.channelPath && channel.channelPath.trim().length > 0 ? channel.channelPath : String(channel.id);
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
 
   const runDiagnostics = async (nextMode: PlaybackMode) => {

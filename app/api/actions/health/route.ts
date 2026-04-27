@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 export async function GET(request: Request) {
   const enigmaBase = getEnigmaBaseUrl();
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   if (authHeader) headers["Authorization"] = authHeader;
 
   try {
-    const response = await fetch(`${enigmaBase}/health`, { method: "GET", headers });
+    const response = await fetchVMS(`${enigmaBase}/health`, { method: "GET", headers });
     const text = await response.text();
     let data: unknown;
     try { data = JSON.parse(text); } catch { data = text; }
