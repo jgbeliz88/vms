@@ -8,6 +8,7 @@ const PRO_URL = process.env.NEXT_PUBLIC_VMS_PRO_SELECTOR_URL ?? "";
 function getActiveEnv(): "pre" | "pro" | null {
   if (typeof window === "undefined") return null;
   const currentOrigin = window.location.origin;
+  console.log("[EnvironmentSelector]", { PRE_URL, PRO_URL, currentOrigin });
   try {
     if (PRE_URL && new URL(PRE_URL).origin === currentOrigin) return "pre";
     if (PRO_URL && new URL(PRO_URL).origin === currentOrigin) return "pro";
