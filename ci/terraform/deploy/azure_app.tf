@@ -127,8 +127,8 @@ resource "azuread_service_principal_token_signing_certificate" "app_saml_cert" {
 locals {
 
   redirect_uris = [
-    "http://localhost:3000/api/auth/callback/microsoft-entra-id"
-    # "https://doyfe${local.environment}-grupomediaset.msappproxy.net/",
+    "http://localhost:3000/api/auth/callback/microsoft-entra-id",
+    "https://vms-${terraform.workspace}.azrinternal.mediaset.es/api/auth/callback/microsoft-entra-id"
     # "https://doyfe-${local.environment}.awsinternal.mediaset.es/vmsClient/samlCallback",
     # "https://${local.local_data.project_name}-${local.environment}.awsinternal.mediaset.es/app"
   ]
@@ -242,13 +242,21 @@ locals {
     # }
 
     pre = {
-      "G_Desarrollo_Multiplataforma" = {
-        descripcion = "Acceso completo al entorno VMS."
-        roles       = ["admin", "operator", "viewer"]
-      }
+      "G_AZ_VMS_viewer" = {
+        descripcion = "Acceso Viewer al entorno VMS."
+        roles       = ["viewer"]
+      },
+      G_AZ_VMS_operator = {
+        descripcion = "Acceso Operator al entorno VMS."
+        roles       = ["viewer", "operator"]
+      },
+      G_AZ_VMS_admin = {
+        descripcion = "Acceso Admin al entorno VMS."
+        roles       = ["viewer", "operator", "admin"]
+      },
       "T1-Operators_Multiplataforma" = {
         descripcion = "Acceso total a todas las categorías y funcionalidades."
-        roles       = ["admin"]
+        roles       = ["admin", "operator", "viewer"]
       }
     }
 
@@ -264,22 +272,25 @@ locals {
       "G_AZ_VMS_operator" = {
         descripcion = "Permite la visualización de la actividad y las métricas en el entorno VMS."
         roles       = ["viewer", "operator"]
+      },
+      "T1-Operators_Multiplataforma" = {
+        descripcion = "Acceso total a todas las categorías y funcionalidades."
+        roles       = ["admin", "operator", "viewer"]
       }
     }
   }
   grupo_ids_by_env = {
-    # dev = {
-    #   "G_Desarrollo_Multiplataforma" = "2ff7a6fd-039e-4720-ae0c-cb8a2c125721"
-    #   "T1-Operators_Multiplataforma" = "2d7f54ce-9fba-44a4-9eac-5d479ba99126"
-    # }
     pre = {
-      "G_Desarrollo_Multiplataforma" = "2ff7a6fd-039e-4720-ae0c-cb8a2c125721"
       "T1-Operators_Multiplataforma" = "2d7f54ce-9fba-44a4-9eac-5d479ba99126"
+      "G_AZ_VMS_admin" = "14c55b61-67c4-4228-9eef-5e7cb4297951"
+      "G_AZ_VMS_viewer" = "168d3ef6-1647-4211-a67c-fb77fe9c8b50"
+      "G_AZ_VMS_operator" = "0c396c04-f2b2-42a0-9eab-43588ce8622c"
     }
     pro = {
       "G_AZ_VMS_admin" = "14c55b61-67c4-4228-9eef-5e7cb4297951"
       "G_AZ_VMS_viewer" = "168d3ef6-1647-4211-a67c-fb77fe9c8b50"
       "G_AZ_VMS_operator" = "0c396c04-f2b2-42a0-9eab-43588ce8622c"
+      "T1-Operators_Multiplataforma" = "2d7f54ce-9fba-44a4-9eac-5d479ba99126"
     }
   }
 
