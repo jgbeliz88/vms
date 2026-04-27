@@ -36,7 +36,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
-import { getEnigmaBaseUrl } from "@/lib/utils/enigma-url";
 
 function ChannelConfigOverview({
   channels,
@@ -314,25 +313,12 @@ export default function LivePage() {
     }
   };
 
-  const enigmaBaseUrl = `${getEnigmaBaseUrl()}/live`;
-
   const handleCreateLinear = async (
     items: CreateLinearItem[],
     config: LinearFormConfig
   ): Promise<CreateLinearResult[]> => {
     const results = await Promise.all(
       items.map(async ({ channelEntityId, podName, linearName }) => {
-        const enigmaPayload = {
-          channelId: linearName,
-          drm: config.drm,
-          adsReplacement: config.adsReplacement,
-          fragmentLength: config.fragmentLength,
-          disableDrmManifests: config.disableDrmManifests,
-          drmVendor: config.drmVendor,
-          contentId: config.contentId,
-          channelEntityId,
-        };
-        const curlCommand = `curl -X POST "${enigmaBaseUrl}/${podName}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(enigmaPayload)}'`;
         try {
           await addLinear.mutateAsync({
             channelEntityId,
@@ -342,12 +328,13 @@ export default function LivePage() {
           });
           return { podName, linearName, status: "created" as const };
         } catch (e) {
+          const err = e as Error & { curlCommand?: string };
           return {
             podName,
             linearName,
             status: "error" as const,
-            message: e instanceof Error ? e.message : "Failed",
-            curlCommand,
+            message: err.message || "Failed",
+            curlCommand: err.curlCommand,
           };
         }
       })
