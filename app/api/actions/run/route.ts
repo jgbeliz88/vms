@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 export async function POST(request: Request) {
   const enigmaBase = getEnigmaBaseUrl();
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.text();
-    const response = await fetch(`${enigmaBase}/action/run`, {
+    const response = await fetchVMS(`${enigmaBase}/action/run`, {
       method: "POST",
       headers,
       body,

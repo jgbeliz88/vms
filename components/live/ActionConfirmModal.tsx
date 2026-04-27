@@ -23,7 +23,6 @@ export type AddLinearData = {
 export type DeleteFlowDeletion = {
   podIndex: number;
   podName: string;
-  encoderId: number;
   podId: number;
   linearName: string | null;
   deletePod: boolean;
@@ -373,7 +372,6 @@ function DeleteFlowContent({
       deletions.push({
         podIndex,
         podName: pod.name,
-        encoderId: pod.encoderId,
         podId: pod.id,
         linearName: linearSelected && pod.linear ? pod.linear.linearName : null,
         deletePod: podSelected,
@@ -434,7 +432,7 @@ function DeleteFlowContent({
                     </span>
                   </label>
 
-                  {pod.linear ? (
+                  {pod.linear && pod.linear.linearName ? (
                     <div className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
                       <label className="flex cursor-pointer items-center gap-3 py-2 pl-10 pr-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <input
@@ -453,7 +451,9 @@ function DeleteFlowContent({
                       </label>
                     </div>
                   ) : (
-                    <p className="py-1.5 pl-10 pr-3 text-xs italic text-slate-400">No linear</p>
+                    <p className="py-1.5 pl-10 pr-3 text-xs italic text-slate-400">
+                      {pod.linear ? "Cleared" : "No linear"}
+                    </p>
                   )}
                 </div>
               );

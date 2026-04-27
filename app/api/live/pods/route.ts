@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 const createPodSchema = z.object({
   encoderId: z.number(),
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid payload", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const response = await fetch(`${getEnigmaBaseUrl()}/live/pods`, {
+  const response = await fetchVMS(`${getEnigmaBaseUrl()}/live/pods`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),
@@ -38,7 +39,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "podId is required" }, { status: 400 });
   }
 
-  const response = await fetch(`${getEnigmaBaseUrl()}/live/pods/${podId}`, {
+  const response = await fetchVMS(`${getEnigmaBaseUrl()}/live/pods/${podId}`, {
     method: "DELETE",
   });
 

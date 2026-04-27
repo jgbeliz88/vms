@@ -21,7 +21,8 @@ function getClient() {
   client = axios.create({
     baseURL: getEnigmaBaseUrl(),
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "User-Agent": "VMS"
     }
   });
 

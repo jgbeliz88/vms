@@ -26,7 +26,6 @@ export function ChannelTable({
   onToggleAll,
   onAction,
   onAdAction,
-  onUpdate,
   onDelete,
   configLayout,
   onSaveConfig,
@@ -38,39 +37,32 @@ export function ChannelTable({
 }: {
   channels: ResolvedChannel[];
   actions: ChannelAction[];
-  selectedIds: string[];
-  onToggle: (id: string) => void;
+  selectedIds: number[];
+  onToggle: (id: number) => void;
   onToggleAll: () => void;
   onAction: (channel: ResolvedChannel, action: ChannelAction) => void;
-  onAdAction: (channelId: string, actionId: string) => void;
-  onUpdate: (values: {
-    id: string;
-    name: string;
-    channelPath: string;
-    platform: string;
-    metadata: Record<string, unknown>;
-  }) => void;
+  onAdAction: (channelId: number, actionId: string) => void;
   onDelete: (channel: ResolvedChannel) => void;
   configLayout?: ConfigLayout;
-  onSaveConfig?: (channelId: string, rows: ChannelConfigRow[]) => Promise<void>;
-  savingConfigId?: string | null;
+  onSaveConfig?: (channelId: number, rows: ChannelConfigRow[]) => Promise<void>;
+  savingConfigId?: number | null;
   encoders?: Encoder[];
-  onCreateLinear?: (channelId: string, data: AddLinearData) => Promise<void>;
-  onDeleteLinear?: (channelId: string, pod: ResolvedPod, linearName: string) => Promise<void>;
-  onDeletePod?: (channelId: string, pod: ResolvedPod, linearName: string | null) => Promise<void>;
+  onCreateLinear?: (channelId: number, data: AddLinearData) => Promise<void>;
+  onDeleteLinear?: (channelId: number, pod: ResolvedPod, linearName: string) => Promise<void>;
+  onDeletePod?: (channelId: number, pod: ResolvedPod, linearName: string | null) => Promise<void>;
 }) {
   const canAdmin = usePermission([ROLES.ADMIN]);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedConfigId, setExpandedConfigId] = useState<string | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedConfigId, setExpandedConfigId] = useState<number | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
-  const toggleDetails = (id: string) => {
+  const toggleDetails = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id));
     setExpandedConfigId(null);
   };
 
-  const toggleConfig = (id: string) => {
+  const toggleConfig = (id: number) => {
     setExpandedConfigId((prev) => (prev === id ? null : id));
     setExpandedId(null);
   };
@@ -176,7 +168,6 @@ export function ChannelTable({
                       actions={actions}
                       onAction={(action) => onAction(channel, action)}
                       onAdAction={onAdAction}
-                      onUpdate={onUpdate}
                       configLayout={configLayout}
                       onSaveConfig={onSaveConfig}
                       savingConfig={savingConfigId === channel.id}

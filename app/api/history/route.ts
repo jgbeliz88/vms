@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 export async function GET(request: Request) {
   const enigmaBase = getEnigmaBaseUrl();
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 
   try {
     const url = query ? `${enigmaBase}/history?${query}` : `${enigmaBase}/history`;
-    const response = await fetch(url, { method: "GET", headers });
+    const response = await fetchVMS(url, { method: "GET", headers });
     const text = await response.text();
     let data: unknown;
     try { data = JSON.parse(text); } catch { data = text; }

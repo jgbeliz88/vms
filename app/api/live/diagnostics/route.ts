@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { fetchVMS } from "@/app/api/_lib/fetch";
 
 const requestSchema = z.object({
   url: z.string().url()
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   const url = parsed.data.url;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchVMS(url, {
       signal: AbortSignal.timeout(10000),
       cache: "no-store"
     });
