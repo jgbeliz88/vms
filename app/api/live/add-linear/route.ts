@@ -35,25 +35,27 @@ export async function POST(request: Request) {
   } = parsed.data;
 
   const enigmaBase = getEnigmaBaseUrl();
+  const enigmaPayload = {
+    channelId: linearName,
+    drm,
+    adsReplacement,
+    fragmentLength,
+    disableDrmManifests,
+    drmVendor,
+    contentId,
+    channelEntityId,
+  };
   const enigmaResponse = await fetchVMS(`${enigmaBase}/live/${podName}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      channelId: linearName,
-      drm,
-      adsReplacement,
-      fragmentLength,
-      disableDrmManifests,
-      drmVendor,
-      contentId,
-      channelEntityId,
-    }),
+    body: JSON.stringify(enigmaPayload),
   });
 
   if (!enigmaResponse.ok) {
     const text = await enigmaResponse.text();
+    const curlCommand = `curl -X POST "${enigmaBase}/live/${podName}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(enigmaPayload)}'`;
     return NextResponse.json(
-      { message: `Enigma API error (${enigmaResponse.status}): ${text}` },
+      { message: `Enigma API error (${enigmaResponse.status}): ${text}`, curlCommand },
       { status: enigmaResponse.status }
     );
   }

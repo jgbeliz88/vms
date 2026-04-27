@@ -288,7 +288,9 @@ export function useAddLinear() {
       });
       if (!response.ok) {
         const json = await response.json().catch(() => ({}));
-        throw new Error(json.message || `HTTP ${response.status}`);
+        const err = new Error(json.message || `HTTP ${response.status}`);
+        (err as Error & { curlCommand?: string }).curlCommand = json.curlCommand;
+        throw err;
       }
       return await response.json();
     },
