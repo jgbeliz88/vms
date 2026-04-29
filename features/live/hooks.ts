@@ -42,6 +42,28 @@ export function useCreateChannel() {
   });
 }
 
+export function useUpdateChannelMetadata() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, metadata }: { id: number; metadata: Record<string, unknown> }) => {
+      const response = await fetch(`/api/live/channels/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Unable to update metadata");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
 export function useDeleteChannel() {
   const queryClient = useQueryClient();
 
