@@ -55,6 +55,16 @@ const ADMODE_OUT = `{
   }
 }`;
 
+const ADMODE_EVENT = `{
+  "mode": "ad",
+  "action": "event",
+  "parameters": {
+    "provider": "freewheel",
+    "eventType": "id3",
+    "data": ""
+  }
+}`;
+
 const BLACKOUT_REPLACE = `{
   "action": "replace",
   "asset": {
@@ -94,17 +104,18 @@ const COMMAND_CONFIG: Record<
     desc: "Splice events",
     payloadType: "xml",
     subtypes: [
-      { id: "in", label: "In", template: SCTE_IN, desc: "Start ad break" },
-      { id: "out", label: "Out", template: SCTE_OUT, desc: "End ad break" },
+      { id: "out", label: "Out", template: SCTE_OUT, desc: "Start ad break" },
+      { id: "in", label: "In", template: SCTE_IN, desc: "End ad break" },
     ],
   },
   admode: {
-    label: "AdMode",
-    desc: "Ad mode switch",
+    label: "ID3",
+    desc: "ID3 ad mode",
     payloadType: "json",
     subtypes: [
-      { id: "in", label: "In", template: ADMODE_IN, desc: "Enable ad mode" },
-      { id: "out", label: "Out", template: ADMODE_OUT, desc: "Disable ad mode" },
+      { id: "out", label: "Out", template: ADMODE_OUT, desc: "Start ID3 Ad Break" },
+      { id: "in", label: "In", template: ADMODE_IN, desc: "End ID3 Ad Break" },
+      { id: "event", label: "Event", template: ADMODE_EVENT, desc: "Send Current ID3 Event" },
     ],
   },
   blackout: {
@@ -359,7 +370,7 @@ function ActionsColumn({
 
 function AdReplacementColumn({ selectedPodNames }: { selectedPodNames: string[] }) {
   const [activeCmd, setActiveCmd] = useState<CommandKey>("scte");
-  const [activeSubtype, setActiveSubtype] = useState("in");
+  const [activeSubtype, setActiveSubtype] = useState(COMMAND_CONFIG.scte.subtypes[0].id);
   const [payloads, setPayloads] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -641,7 +652,7 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
             <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
               Ad Replacement
             </span>
-            <span className="text-[10px] text-slate-400">SCTE, AdMode, or Blackout events</span>
+            <span className="text-[10px] text-slate-400">SCTE, ID3, or Blackout events</span>
           </div>
           <AdReplacementColumn selectedPodNames={selectedPodNames} />
         </div>
