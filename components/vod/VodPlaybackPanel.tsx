@@ -6,21 +6,18 @@ import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
 import { StreamPlayer, AdEvent, BufferStats } from "@/components/live/StreamPlayer";
 import { usePlaybackDiagnostics } from "@/features/live/hooks";
-import { getSettings, CdnProviderSettings } from "@/lib/storage/settings";
+import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
 import { usePlaybackSettings, formatOptions, drmOptions, cdnOptions, FormatKey, DrmKey, CdnKey } from "@/features/playback/hooks";
 
 type PlaybackMode = "direct" | "cdn";
 
-const defaultCdn: CdnProviderSettings = { akamai: "", fastly: "" };
-
 export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; encoder?: string }) {
   const { formatKey, setFormatKey, drmKey, setDrmKey, cdnKey, setCdnKey, extension, drmSegment } =
     usePlaybackSettings();
+  const { data: vmsSettings } = useVmsSettingsQuery();
   const [mode, setMode] = useState<PlaybackMode>("direct");
-  const [distOriginVod, setDistOriginVod] = useState<string>("");
-  const [distCdnVod, setDistCdnVod] = useState<CdnProviderSettings>(defaultCdn);
   const [playerActive, setPlayerActive] = useState(false);
   const [adEvents, setAdEvents] = useState<AdEvent[]>([]);
   const [bufferStats, setBufferStats] = useState<BufferStats | null>(null);
@@ -32,18 +29,14 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
   }, []);
 
   useEffect(() => {
-    const settings = getSettings();
-    setDistOriginVod(settings.distribution?.origin?.vod ?? "");
-    setDistCdnVod(settings.distribution?.cdn?.vod ?? defaultCdn);
-  }, []);
-
-  useEffect(() => {
     setPlayerActive(false);
   }, [contentId]);
 
+  const distOriginVod = vmsSettings?.origin.vod ?? "";
+  const distCdnVod = { akamai: vmsSettings?.akamai.vod ?? "", fastly: vmsSettings?.fastly.vod ?? "" };
   const originBase = distOriginVod;
   const activeCdnVod = distCdnVod;
-  const cdnBase = activeCdnVod?.[cdnKey] ?? "";
+  const cdnBase = activeCdnVod[cdnKey] ?? "";
   const seg1 = contentId.slice(0, 2);
   const seg2 = contentId.slice(2, 4);
   const encoderSegment = encoder ? `/${encoder}` : "";
