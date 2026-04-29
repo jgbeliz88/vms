@@ -13,77 +13,104 @@ import { cn } from "@/lib/utils/cn";
 
 // ── Payload templates ─────────────────────────────────────────────────────────
 
-const SCTE_IN = `<?xml version="1.0" encoding="UTF-8"?>
-<SpliceInfoSection>
-  <SpliceInsert spliceEventId="1234567890"
-    outOfNetworkIndicator="true"
-    spliceImmediateFlag="true">
-    <BreakDuration autoReturn="true">
-      <Duration>27000000</Duration>
-    </BreakDuration>
-    <AvailDescriptor providerAvailId="0"/>
-  </SpliceInsert>
-</SpliceInfoSection>`;
+function utcPlus1Min() {
+  return new Date(Date.now() + 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
 
-const SCTE_OUT = `<?xml version="1.0" encoding="UTF-8"?>
-<SpliceInfoSection>
-  <SpliceInsert spliceEventId="1234567890"
-    outOfNetworkIndicator="false"
-    spliceImmediateFlag="true">
-  </SpliceInsert>
-</SpliceInfoSection>`;
+const SCTE_OUT = (channelName: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<SignalProcessingNotification acquisitionPointIdentity="${channelName}">
+    <ResponseSignal action="create">
+        <UTCPoint utcPoint="${utcPlus1Min()}"/>
+        <SCTE35PointDescriptor spliceCommandType="5">
+            <SpliceInsert
+                spliceEventID="1645197575"
+                spliceEventCancelIndicator="false"
+                outOfNetworkIndicator="true"
+                duration="PT06M49S"
+                uniqueProgramID="1645197575"
+            />
+        </SCTE35PointDescriptor>
+    </ResponseSignal>
+</SignalProcessingNotification>`;
 
-const ADMODE_IN = `{
-  "mode": "ad",
-  "action": "enable",
-  "parameters": {
-    "provider": "freewheel",
-    "adBreakDuration": 30,
-    "targeting": {
-      "region": "US",
-      "contentType": "live"
-    }
-  }
+const SCTE_IN = (channelName: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<SignalProcessingNotification acquisitionPointIdentity="${channelName}">
+    <ResponseSignal action="create">
+        <UTCPoint utcPoint="${utcPlus1Min()}"/>
+        <SCTE35PointDescriptor spliceCommandType="5">
+            <SpliceInsert
+                spliceEventID="1645197575"
+                spliceEventCancelIndicator="false"
+                outOfNetworkIndicator="false"
+                duration="PT06M49S"
+                uniqueProgramID="1645197575"
+            />
+        </SCTE35PointDescriptor>
+    </ResponseSignal>
+</SignalProcessingNotification>`;
+
+const SCTE_CUSTOM = (channelName: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<SignalProcessingNotification acquisitionPointIdentity="${channelName}">
+    <ResponseSignal action="create">
+        <UTCPoint utcPoint="${utcPlus1Min()}"/>
+        <SCTE35PointDescriptor spliceCommandType="6">
+            <SegmentationDescriptorInfo
+                segmentationEventID="1573337"
+                segmentationTypeID="52"
+                pidType="12"
+                upid="eyJldmVudElEIjoiMTU3MzMzNyIsImdlb1Jlc3RyaWN0aW9uIjoiYWxsIiwgImR0IjoiMjAyMy0wMi0yN1QxNToxNjoyNFoiLCJkZCI6IjI2LTIzLTAwMDExIiwiZGRlIjoicHJ1ZWJhIn0="
+                duration="PT0M60S"
+            />
+        </SCTE35PointDescriptor>
+    </ResponseSignal>
+</SignalProcessingNotification>`;
+
+const ADMODE_OUT = () => `{
+    "duration": 4,
+    "interval": 0,
+    "start": 0,
+    "frames": [
+        {
+            "owner": "admode",
+            "information": "out_30000",
+            "id": "TXXX"
+        }
+    ]
 }`;
 
-const ADMODE_OUT = `{
-  "mode": "content",
-  "action": "disable",
-  "parameters": {
-    "provider": "freewheel",
-    "restoreStream": true
-  }
+const ADMODE_IN = () => `{
+    "duration": 4,
+    "interval": 0,
+    "start": 0,
+    "frames": [
+        {
+            "owner": "admode",
+            "information": "in",
+            "id": "TXXX"
+        }
+    ]
 }`;
 
-const ADMODE_EVENT = `{
-  "mode": "ad",
-  "action": "event",
-  "parameters": {
-    "provider": "freewheel",
-    "eventType": "id3",
-    "data": ""
-  }
+const ADMODE_EVENT = () => `{
+    "duration": 4,
+    "interval": 0,
+    "start": 0,
+    "frames": [
+        {
+            "owner": "event",
+            "information": "1234567_es",
+            "id": "TXXX"
+        }
+    ]
 }`;
 
-const BLACKOUT_REPLACE = `{
-  "action": "replace",
-  "asset": {
-    "url": "https://static.cdn.example.com/blackout-slate.mp4",
-    "loop": true,
-    "fadeIn": 500
-  },
-  "metadata": {
-    "reason": "scheduled_blackout",
-    "region": "US"
-  }
+const BLACKOUT_REPLACE = () => `{
+    "operation": "replace",
+    "playlist": "cartelaadlive"
 }`;
 
-const BLACKOUT_REMOVE = `{
-  "action": "remove",
-  "restore": {
-    "stream": "live",
-    "fadeIn": 500
-  }
+const BLACKOUT_REMOVE = () => `{
+    "operation": "restore"
 }`;
 
 // ── Command configuration ─────────────────────────────────────────────────────
@@ -96,7 +123,7 @@ const COMMAND_CONFIG: Record<
     label: string;
     desc: string;
     payloadType: "xml" | "json";
-    subtypes: { id: string; label: string; template: string; desc: string }[];
+    subtypes: { id: string; label: string; template: (channelName: string) => string; desc: string }[];
   }
 > = {
   scte: {
@@ -106,6 +133,7 @@ const COMMAND_CONFIG: Record<
     subtypes: [
       { id: "out", label: "Out", template: SCTE_OUT, desc: "Start ad break" },
       { id: "in", label: "In", template: SCTE_IN, desc: "End ad break" },
+      { id: "custom", label: "Custom", template: SCTE_CUSTOM, desc: "Send Custom SCTE Event" },
     ],
   },
   admode: {
@@ -368,7 +396,7 @@ function ActionsColumn({
 
 // ── AdReplacementColumn ───────────────────────────────────────────────────────
 
-function AdReplacementColumn({ selectedPodNames }: { selectedPodNames: string[] }) {
+function AdReplacementColumn({ selectedPodNames, channelName }: { selectedPodNames: string[]; channelName: string }) {
   const [activeCmd, setActiveCmd] = useState<CommandKey>("scte");
   const [activeSubtype, setActiveSubtype] = useState(COMMAND_CONFIG.scte.subtypes[0].id);
   const [payloads, setPayloads] = useState<Record<string, string>>({});
@@ -378,7 +406,7 @@ function AdReplacementColumn({ selectedPodNames }: { selectedPodNames: string[] 
   const cfg = COMMAND_CONFIG[activeCmd];
   const subtypeCfg = cfg.subtypes.find((s) => s.id === activeSubtype) ?? cfg.subtypes[0];
   const payloadKey = `${activeCmd}_${activeSubtype}`;
-  const payload = payloads[payloadKey] ?? subtypeCfg.template;
+  const payload = payloads[payloadKey] ?? subtypeCfg.template(channelName);
   const noTarget = selectedPodNames.length === 0;
 
   const switchCmd = (cmd: CommandKey) => {
@@ -474,7 +502,7 @@ function AdReplacementColumn({ selectedPodNames }: { selectedPodNames: string[] 
           <button
             type="button"
             onClick={() =>
-              setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template }))
+              setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
             }
             className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           >
@@ -654,7 +682,7 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
             </span>
             <span className="text-[10px] text-slate-400">SCTE, ID3, or Blackout events</span>
           </div>
-          <AdReplacementColumn selectedPodNames={selectedPodNames} />
+          <AdReplacementColumn selectedPodNames={selectedPodNames} channelName={channel.name} />
         </div>
       </div>
 
