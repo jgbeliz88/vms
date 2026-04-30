@@ -22,7 +22,7 @@ const vmsSettingsSchema = z.object({
 });
 
 export async function GET() {
-  const response = await fetchVMS(`${getEnigmaBaseUrl()}/setting-vms`);
+  const response = await fetchVMS(`${getEnigmaBaseUrl()}/setting-vms/list`);
   if (!response.ok) {
     const text = await response.text();
     return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
   const response = await fetchVMS(`${getEnigmaBaseUrl()}/setting-vms`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
+    body: JSON.stringify({ data: parsed.data }),
   });
 
   if (!response.ok) {
