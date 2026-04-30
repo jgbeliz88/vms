@@ -12,12 +12,16 @@ import {
   LogOut,
   Bell,
   Menu,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { EnvironmentSelector } from "@/components/EnvironmentSelector";
 import { useSession } from "@/lib/session/provider";
-import { hasRole, type Role } from "@/lib/auth/permissions";
-import { useState } from "react";
+import { hasRole, ROLES, type Role } from "@/lib/auth/permissions";
+import { useState, useEffect } from "react";
+import { getDarkMode } from "@/lib/storage/settings";
+import { toggleDarkMode } from "@/components/ThemeProvider";
 
 type NavItem = {
   href: string;
@@ -31,7 +35,7 @@ const navItems: NavItem[] = [
   { href: "/live", label: "Live", icon: Radio },
   { href: "/vod", label: "VOD", icon: Film },
   { href: "/fast-channels", label: "Fast Channels", icon: Tv2 },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/settings", label: "Settings", icon: Settings, allowedRoles: [ROLES.ADMIN] },
 ];
 
 function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -62,6 +66,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [darkMode, setDarkModeState] = useState(false);
+
+  useEffect(() => {
+    setDarkModeState(getDarkMode());
+  }, []);
+
+  const handleToggleDarkMode = () => {
+    const next = !darkMode;
+    toggleDarkMode(next);
+    setDarkModeState(next);
+  };
 
   const visibleNavItems = navItems.filter(
     (item) => !item.allowedRoles || hasRole(user, item.allowedRoles)
@@ -146,6 +161,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3">
             <EnvironmentSelector />
+            <button
+              onClick={handleToggleDarkMode}
+              className="relative rounded-full p-2 text-[#637381] hover:bg-[#F1F5F9] dark:hover:bg-[#1A222C]"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <button
               className="relative rounded-full p-2 text-[#637381] hover:bg-[#F1F5F9] dark:hover:bg-[#1A222C]"
               aria-label="Notifications"

@@ -11,4 +11,5 @@ export const queryKeys = {
   vodManifest: (id: string, originBase: string) => ["vod-manifest", id, originBase],
   health: () => ["health"],
   history: (page: number, pageSize: number) => ["history", page, pageSize],
+  vmsSettings: () => ["vms-settings"],
 } as const;
