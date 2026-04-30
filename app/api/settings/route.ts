@@ -48,5 +48,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
   }
 
-  return NextResponse.json(await response.json());
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return NextResponse.json(await response.json());
+  }
+  const text = await response.text();
+  return NextResponse.json({ message: text });
 }
