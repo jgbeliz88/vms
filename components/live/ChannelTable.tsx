@@ -14,7 +14,7 @@ import { ChannelConfigReadOnlyTable } from "./ChannelConfigReadOnlyTable";
 import { deriveOverallStatus, deriveStatusParts } from "@/features/live/status";
 import type { ConfigLayout } from "@/features/live/hooks";
 
-const CELL = "px-4 py-3";
+const CELL = "px-4 py-3 flex items-center";
 const HEADER_CELL = cn(CELL, "border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500 dark:border-slate-800 dark:bg-slate-950");
 const ROW_BORDER = "border-b border-slate-100 dark:border-slate-800";
 
@@ -75,16 +75,17 @@ export function ChannelTable({
         {/*
           All header cells and row cells live in one shared grid so CSS grid
           sizes every column (including the auto-width actions column) the same
-          across header and rows. The col-span-6 detail panels use overflow-x-clip
+          across header and rows. The col-span-7 detail panels use overflow-x-clip
           + min-w-0 so their content never expands the grid tracks.
         */}
-        <div className="grid min-w-[640px] grid-cols-[2.5rem_1fr_7rem_10rem_8rem_auto]">
+        <div className="grid min-w-[640px] grid-cols-[2.5rem_1fr_8rem_7rem_10rem_8rem_auto]">
 
           {/* ── Header ── */}
           <div className={HEADER_CELL}>
             <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
           </div>
           <div className={HEADER_CELL}>Channel</div>
+          <div className={HEADER_CELL}>Channel ID</div>
           <div className={HEADER_CELL}>Status</div>
           <div className={HEADER_CELL}>Pods</div>
           <div className={HEADER_CELL}>Last Sync</div>
@@ -115,7 +116,9 @@ export function ChannelTable({
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
                   <div className="font-semibold text-slate-900 dark:text-slate-100">{channel.name}</div>
-                  <div className="text-xs text-slate-500">{channel.id}</div>
+                </div>
+                <div className={cn(CELL, ROW_BORDER, "text-xs text-slate-500", hoverClass)} {...rowEvents}>
+                  {channel.id}
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
                   <StatusPill status={overall} />
@@ -162,7 +165,7 @@ export function ChannelTable({
                 {/* Detail panel — spans all 6 columns, sits outside the row grid cells
                     overflow-x-clip + min-w-0 prevent it from expanding grid tracks */}
                 {isExpanded && (
-                  <div className={cn("col-span-6 min-w-0 overflow-x-clip", ROW_BORDER, "bg-slate-50 px-4 py-4 dark:bg-slate-950")}>
+                  <div className={cn("col-span-7 min-w-0 overflow-x-clip", ROW_BORDER, "bg-slate-50 px-4 py-4 dark:bg-slate-950")}>
                     <ChannelDetail
                       channel={channel}
                       actions={actions}
@@ -181,7 +184,7 @@ export function ChannelTable({
 
                 {/* Config panel */}
                 {isConfigExpanded && configLayout && (
-                  <div className={cn("col-span-6 min-w-0 overflow-x-auto", ROW_BORDER, "bg-slate-50 px-4 py-4 dark:bg-slate-950")}>
+                  <div className={cn("col-span-7 min-w-0 overflow-x-auto", ROW_BORDER, "bg-slate-50 px-4 py-4 dark:bg-slate-950")}>
                     <ChannelConfigReadOnlyTable channel={channel} layout={configLayout} />
                   </div>
                 )}

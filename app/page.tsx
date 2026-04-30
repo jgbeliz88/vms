@@ -9,7 +9,7 @@ import type { ManifestStatusResult } from "@/features/live/hooks";
 import type { ResolvedChannel } from "@/features/live/types";
 import { useFastChannelsQuery, useFastChannelStreamStatusQuery } from "@/features/fast-channels/hooks";
 import { Badge } from "@/components/ui/Badge";
-import { getSettings } from "@/lib/storage/settings";
+import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { DataTable } from "@/components/ui/DataTable";
 import type { ColumnDef } from "@/components/ui/DataTable";
 import { useBitmovinVodQuery } from "@/features/vod/hooks";
@@ -239,14 +239,9 @@ export default function DashboardPage() {
   const channels = channelsQuery.data ?? [];
   const fastChannels = fastChannelsQuery.data ?? [];
 
-  const [originLiveUrl, setOriginLiveUrl] = useState("");
-  const [vodOriginUrl, setVodOriginUrl] = useState("");
-
-  useEffect(() => {
-    const settings = getSettings();
-    setOriginLiveUrl(settings.distribution?.origin?.live ?? "");
-    setVodOriginUrl(settings.distribution?.origin?.vod ?? "");
-  }, []);
+  const { data: vmsSettings } = useVmsSettingsQuery();
+  const originLiveUrl = vmsSettings?.origin.live ?? "";
+  const vodOriginUrl = vmsSettings?.origin.vod ?? "";
 
   // VOD manifest results for sorting
   const [vodManifestResults, setVodManifestResults] = useState<Record<string, boolean | null>>({});

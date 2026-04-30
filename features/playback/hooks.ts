@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getSettings, StreamingFormatMapping, DrmPathMapping } from "@/lib/storage/settings";
+import { useState } from "react";
+import type { StreamingFormatMapping, DrmPathMapping } from "@/lib/storage/settings";
+import { useVmsSettingsQuery } from "@/features/settings/hooks";
 
 const defaultFormats: StreamingFormatMapping = { hls: ".m3u8", dash: ".mpd", smooth: ".Manifest" };
 const defaultDrm: DrmPathMapping = { clear: "", widevine: "", fairplay: "", playready: "" };
@@ -29,18 +30,13 @@ export const cdnOptions = [
 ];
 
 export function usePlaybackSettings() {
-  const [formats, setFormats] = useState<StreamingFormatMapping>(defaultFormats);
+  const { data } = useVmsSettingsQuery();
   const [formatKey, setFormatKey] = useState<FormatKey>("hls");
-  const [drmPaths, setDrmPaths] = useState<DrmPathMapping>(defaultDrm);
   const [drmKey, setDrmKey] = useState<DrmKey>("clear");
   const [cdnKey, setCdnKey] = useState<CdnKey>("akamai");
 
-  useEffect(() => {
-    const settings = getSettings();
-    setFormats(settings.streamingFormats ?? defaultFormats);
-    setDrmPaths(settings.drmPaths ?? defaultDrm);
-  }, []);
-
+  const formats = data?.streamingFormats ?? defaultFormats;
+  const drmPaths = data?.drmPaths ?? defaultDrm;
   const extension = formats[formatKey] ?? defaultFormats[formatKey];
   const drmPath = drmPaths[drmKey] ?? defaultDrm[drmKey];
   const drmSegment = drmPath ? `/${drmPath.replace(/^\//, "")}` : "";

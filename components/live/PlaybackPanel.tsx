@@ -5,7 +5,7 @@ import { ResolvedChannel, PlaybackMode } from "@/features/live/types";
 import { Button } from "@/components/ui/Button";
 import { usePlaybackDiagnostics } from "@/features/live/hooks";
 import { Badge } from "@/components/ui/Badge";
-import { getSettings, CdnProviderSettings } from "@/lib/storage/settings";
+import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
 import { Select } from "@/components/ui/Select";
@@ -20,14 +20,11 @@ import {
   CdnKey,
 } from "@/features/playback/hooks";
 
-const defaultCdn: CdnProviderSettings = { akamai: "", fastly: "" };
-
 export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const { formatKey, setFormatKey, drmKey, setDrmKey, cdnKey, setCdnKey, extension, drmSegment } =
     usePlaybackSettings();
+  const { data: vmsSettings } = useVmsSettingsQuery();
   const [mode, setMode] = useState<PlaybackMode>("direct");
-  const [distOriginLive, setDistOriginLive] = useState<string | undefined>();
-  const [distCdnLive, setDistCdnLive] = useState<CdnProviderSettings>(defaultCdn);
   const [playerActive, setPlayerActive] = useState(false);
   const [selectedLinearIdx, setSelectedLinearIdx] = useState(0);
   const [adEvents, setAdEvents] = useState<AdEvent[]>([]);
@@ -68,12 +65,6 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   }, []);
 
   useEffect(() => {
-    const settings = getSettings();
-    setDistOriginLive(settings.distribution?.origin?.live);
-    setDistCdnLive(settings.distribution?.cdn?.live ?? defaultCdn);
-  }, []);
-
-  useEffect(() => {
     const platform = channel.platform.toLowerCase();
     if (platform.includes("dash")) setFormatKey("dash");
     else if (platform.includes("smooth")) setFormatKey("smooth");
@@ -83,9 +74,11 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     setShowNoLinearWarning(false);
   }, [channel.platform, setFormatKey]);
 
+  const distOriginLive = vmsSettings?.origin.live;
+  const distCdnLive = { akamai: vmsSettings?.akamai.live ?? "", fastly: vmsSettings?.fastly.live ?? "" };
   const originBase = distOriginLive;
   const activeCdnLive = distCdnLive;
-  const cdnBase = activeCdnLive?.[cdnKey] || "";
+  const cdnBase = activeCdnLive[cdnKey] || "";
   const path = channel.channelPath && channel.channelPath.trim().length > 0 ? channel.channelPath : String(channel.id);
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
 

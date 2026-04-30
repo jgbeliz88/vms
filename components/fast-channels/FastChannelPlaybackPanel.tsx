@@ -6,21 +6,18 @@ import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
 import { StreamPlayer, AdEvent, BufferStats } from "@/components/live/StreamPlayer";
 import { usePlaybackDiagnostics } from "@/features/live/hooks";
-import { getSettings, CdnProviderSettings } from "@/lib/storage/settings";
+import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
 import { usePlaybackSettings, formatOptions, drmOptions, cdnOptions, FormatKey, DrmKey, CdnKey } from "@/features/playback/hooks";
 
 type PlaybackMode = "direct" | "cdn";
 
-const defaultCdn: CdnProviderSettings = { akamai: "", fastly: "" };
-
 export function FastChannelPlaybackPanel({ channelName }: { channelName: string }) {
   const { formatKey, setFormatKey, drmKey, setDrmKey, cdnKey, setCdnKey, extension, drmSegment } =
     usePlaybackSettings();
+  const { data: vmsSettings } = useVmsSettingsQuery();
   const [mode, setMode] = useState<PlaybackMode>("direct");
-  const [distOriginFast, setDistOriginFast] = useState<string>("");
-  const [distCdnFast, setDistCdnFast] = useState<CdnProviderSettings>(defaultCdn);
   const [playerActive, setPlayerActive] = useState(false);
   const [adEvents, setAdEvents] = useState<AdEvent[]>([]);
   const [bufferStats, setBufferStats] = useState<BufferStats | null>(null);
@@ -32,18 +29,14 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
   }, []);
 
   useEffect(() => {
-    const settings = getSettings();
-    setDistOriginFast(settings.distribution?.origin?.fast ?? "");
-    setDistCdnFast(settings.distribution?.cdn?.fast ?? defaultCdn);
-  }, []);
-
-  useEffect(() => {
     setPlayerActive(false);
   }, [channelName]);
 
+  const distOriginFast = vmsSettings?.origin.fast ?? "";
+  const distCdnFast = { akamai: vmsSettings?.akamai.fast ?? "", fastly: vmsSettings?.fastly.fast ?? "" };
   const originBase = distOriginFast;
   const activeCdnFast = distCdnFast;
-  const cdnBase = activeCdnFast?.[cdnKey] ?? "";
+  const cdnBase = activeCdnFast[cdnKey] ?? "";
 
   const originUrl = `${originBase}/${channelName}.isml${drmSegment}/${extension}`;
   const cdnUrl = `${cdnBase}/${channelName}.isml${drmSegment}/${extension}`;

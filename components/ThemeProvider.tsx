@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSettings, setSettings } from "@/lib/storage/settings";
+import { getDarkMode, setDarkMode } from "@/lib/storage/settings";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const settings = getSettings();
-    if (settings.darkMode) {
+    if (getDarkMode()) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
@@ -19,8 +18,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     const handleStorage = () => {
-      const settings = getSettings();
-      if (settings.darkMode) {
+      if (getDarkMode()) {
         document.documentElement.classList.add("dark");
       } else {
         document.documentElement.classList.remove("dark");
@@ -34,7 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function toggleDarkMode(next: boolean) {
-  setSettings({ darkMode: next });
+  setDarkMode(next);
   if (next) {
     document.documentElement.classList.add("dark");
   } else {
