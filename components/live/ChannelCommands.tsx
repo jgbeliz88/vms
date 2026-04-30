@@ -243,7 +243,7 @@ function StatusDot({ status }: { status: ResolvedPod["status"] }) {
   );
 }
 
-// ── TargetBar ─────────────────────────────────────────────────────────────────
+// ── TargetBar (Actions — blue accent) ─────────────────────────────────────────
 
 function TargetBar({
   pods,
@@ -328,75 +328,195 @@ function TargetBar({
   );
 }
 
-// ── ActionsColumn ─────────────────────────────────────────────────────────────
+// ── JulesIdsBar (Ad Replacement — violet accent) ──────────────────────────────
 
-function ActionsColumn({
-  selectedPodNames,
-  onRequestConfirm,
+function JulesIdsBar({
+  julesIds,
+  selected,
+  onToggle,
+  onSelectAll,
 }: {
-  selectedPodNames: string[];
-  onRequestConfirm: (action: ChannelAction) => void;
+  julesIds: string[] | null;
+  selected: string[];
+  onToggle: (id: string) => void;
+  onSelectAll: () => void;
 }) {
-  const noTarget = selectedPodNames.length === 0;
+  if (julesIds === null) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3.5 dark:border-slate-700 dark:bg-slate-950">
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Jules IDs
+        </span>
+        <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+          Configure the{" "}
+          <code className="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">jules-ids</code>{" "}
+          property in the channel metadata to enable Ad Replacement.
+        </p>
+      </div>
+    );
+  }
+
+  const allSelected = julesIds.length > 0 && selected.length === julesIds.length;
 
   return (
-    <div className="flex flex-col gap-2.5 p-4">
-      {channelActions.map((action) => {
-        const meta = ACTION_META[action.id as keyof typeof ACTION_META];
-        return (
-          <button
-            key={action.id}
-            type="button"
-            disabled={noTarget}
-            onClick={() => onRequestConfirm(action)}
-            className={cn(
-              "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
-              noTarget
-                ? "cursor-not-allowed border-slate-200 opacity-45 dark:border-slate-700"
-                : "border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-500 dark:hover:bg-brand-900/10"
-            )}
-          >
-            <span
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                meta?.iconBg
-              )}
-            >
-              <span className={meta?.iconColor}>{meta?.icon}</span>
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                {action.label}
-              </span>
-              <span className="block text-[10px] text-slate-400">{action.description}</span>
-            </span>
-            <svg
-              className="shrink-0 text-slate-300 dark:text-slate-600"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        );
-      })}
+    <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3.5 dark:border-slate-700 dark:bg-slate-950">
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        Jules IDs
+      </span>
 
-      {noTarget && (
-        <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-          Select target linears above to enable actions
-        </p>
+      <div className="flex flex-1 flex-wrap gap-2">
+        {julesIds.length === 0 ? (
+          <span className="text-xs text-slate-400">No Jules IDs configured</span>
+        ) : (
+          julesIds.map((id) => {
+            const active = selected.includes(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onToggle(id)}
+                className={cn(
+                  "flex select-none items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-all",
+                  active
+                    ? "border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-violet-900/20"
+                    : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-600 dark:hover:bg-violet-900/10"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                    active
+                      ? "border-violet-600 bg-violet-600 dark:border-violet-400 dark:bg-violet-500"
+                      : "border-slate-300 dark:border-slate-600"
+                  )}
+                >
+                  {active && (
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{id}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {selected.length === 0 && julesIds.length > 0 && (
+        <span className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
+          ⚠ No target selected
+        </span>
+      )}
+
+      {julesIds.length > 0 && (
+        <button
+          type="button"
+          onClick={onSelectAll}
+          className="shrink-0 text-[11px] font-medium text-violet-600 hover:underline dark:text-violet-400"
+        >
+          {allSelected ? "Deselect all" : "Select all"}
+        </button>
       )}
     </div>
   );
 }
 
+// ── ActionsColumn ─────────────────────────────────────────────────────────────
+
+function ActionsColumn({
+  pods,
+  selectedPodNames,
+  onToggle,
+  onSelectAll,
+  onRequestConfirm,
+}: {
+  pods: ResolvedPod[];
+  selectedPodNames: string[];
+  onToggle: (name: string) => void;
+  onSelectAll: () => void;
+  onRequestConfirm: (action: ChannelAction) => void;
+}) {
+  const noTarget = selectedPodNames.length === 0;
+
+  return (
+    <>
+      <TargetBar
+        pods={pods}
+        selected={selectedPodNames}
+        onToggle={onToggle}
+        onSelectAll={onSelectAll}
+      />
+      <div className="flex flex-col gap-2.5 p-4">
+        {channelActions.map((action) => {
+          const meta = ACTION_META[action.id as keyof typeof ACTION_META];
+          return (
+            <button
+              key={action.id}
+              type="button"
+              disabled={noTarget}
+              onClick={() => onRequestConfirm(action)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
+                noTarget
+                  ? "cursor-not-allowed border-slate-200 opacity-45 dark:border-slate-700"
+                  : "border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-500 dark:hover:bg-brand-900/10"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                  meta?.iconBg
+                )}
+              >
+                <span className={meta?.iconColor}>{meta?.icon}</span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  {action.label}
+                </span>
+                <span className="block text-[10px] text-slate-400">{action.description}</span>
+              </span>
+              <svg
+                className="shrink-0 text-slate-300 dark:text-slate-600"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          );
+        })}
+
+        {noTarget && (
+          <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+            Select target linears above to enable actions
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ── AdReplacementColumn ───────────────────────────────────────────────────────
 
-function AdReplacementColumn({ selectedPodNames, channelName }: { selectedPodNames: string[]; channelName: string }) {
+function AdReplacementColumn({
+  channelName,
+  julesIds,
+  selectedJules,
+  onToggleJules,
+  onSelectAllJules,
+}: {
+  channelName: string;
+  julesIds: string[] | null;
+  selectedJules: string[];
+  onToggleJules: (id: string) => void;
+  onSelectAllJules: () => void;
+}) {
   const [activeCmd, setActiveCmd] = useState<CommandKey>("scte");
   const [activeSubtype, setActiveSubtype] = useState(COMMAND_CONFIG.scte.subtypes[0].id);
   const [payloads, setPayloads] = useState<Record<string, string>>({});
@@ -407,7 +527,7 @@ function AdReplacementColumn({ selectedPodNames, channelName }: { selectedPodNam
   const subtypeCfg = cfg.subtypes.find((s) => s.id === activeSubtype) ?? cfg.subtypes[0];
   const payloadKey = `${activeCmd}_${activeSubtype}`;
   const payload = payloads[payloadKey] ?? subtypeCfg.template(channelName);
-  const noTarget = selectedPodNames.length === 0;
+  const noTarget = julesIds === null || selectedJules.length === 0;
 
   const switchCmd = (cmd: CommandKey) => {
     setActiveCmd(cmd);
@@ -425,170 +545,193 @@ function AdReplacementColumn({ selectedPodNames, channelName }: { selectedPodNam
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {/* Command tabs */}
-      <div className="flex gap-2">
-        {(Object.entries(COMMAND_CONFIG) as [CommandKey, (typeof COMMAND_CONFIG)[CommandKey]][]).map(
-          ([key, c]) => (
+    <>
+      <JulesIdsBar
+        julesIds={julesIds}
+        selected={selectedJules}
+        onToggle={onToggleJules}
+        onSelectAll={onSelectAllJules}
+      />
+
+      <div className="flex flex-col gap-4 p-4">
+        {/* Command tabs */}
+        <div className="flex gap-2">
+          {(Object.entries(COMMAND_CONFIG) as [CommandKey, (typeof COMMAND_CONFIG)[CommandKey]][]).map(
+            ([key, c]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => switchCmd(key)}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center transition-all",
+                  activeCmd === key
+                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-900/20 dark:text-brand-400"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-md",
+                    activeCmd === key
+                      ? "bg-brand-100 dark:bg-brand-900/40"
+                      : "bg-slate-100 dark:bg-slate-800"
+                  )}
+                >
+                  {CMD_ICONS[key]}
+                </span>
+                <span className="text-[11px] font-semibold">{c.label}</span>
+                <span
+                  className={cn(
+                    "text-[9px]",
+                    activeCmd === key ? "text-brand-400" : "text-slate-400"
+                  )}
+                >
+                  {c.desc}
+                </span>
+              </button>
+            )
+          )}
+        </div>
+
+        {/* Subtype selector */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Event type
+          </span>
+          {cfg.subtypes.map((s) => (
             <button
-              key={key}
+              key={s.id}
               type="button"
-              onClick={() => switchCmd(key)}
+              onClick={() => {
+                setActiveSubtype(s.id);
+                setSent(false);
+              }}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center transition-all",
-                activeCmd === key
-                  ? "border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-900/20 dark:text-brand-400"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                "rounded-md border px-4 py-1.5 text-xs font-medium transition-all",
+                activeSubtype === s.id
+                  ? "border-brand-500 bg-brand-500 text-white"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
               )}
             >
-              <span
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-md",
-                  activeCmd === key
-                    ? "bg-brand-100 dark:bg-brand-900/40"
-                    : "bg-slate-100 dark:bg-slate-800"
-                )}
-              >
-                {CMD_ICONS[key]}
-              </span>
-              <span className="text-[11px] font-semibold">{c.label}</span>
-              <span
-                className={cn(
-                  "text-[9px]",
-                  activeCmd === key ? "text-brand-400" : "text-slate-400"
-                )}
-              >
-                {c.desc}
-              </span>
+              {s.label}
+              {activeSubtype === s.id && (
+                <span className="ml-1.5 text-[10px] opacity-75">— {s.desc}</span>
+              )}
             </button>
-          )
-        )}
-      </div>
-
-      {/* Subtype selector */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Event type
-        </span>
-        {cfg.subtypes.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => {
-              setActiveSubtype(s.id);
-              setSent(false);
-            }}
-            className={cn(
-              "rounded-md border px-4 py-1.5 text-xs font-medium transition-all",
-              activeSubtype === s.id
-                ? "border-brand-500 bg-brand-500 text-white"
-                : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-            )}
-          >
-            {s.label}
-            {activeSubtype === s.id && (
-              <span className="ml-1.5 text-[10px] opacity-75">— {s.desc}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Payload editor */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Payload · {cfg.payloadType.toUpperCase()}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
-            }
-            className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-          >
-            Reset template
-          </button>
+          ))}
         </div>
-        <textarea
-          value={payload}
-          onChange={(e) =>
-            setPayloads((p) => ({ ...p, [payloadKey]: e.target.value }))
-          }
-          spellCheck={false}
-          rows={8}
-          className={cn(
-            "w-full resize-y rounded-lg border bg-slate-50 px-3.5 py-3 font-mono text-[11px] leading-relaxed outline-none transition-all focus:bg-white focus:ring-2 dark:bg-slate-950 dark:focus:bg-slate-900",
-            cfg.payloadType === "xml"
-              ? "border-slate-200 text-teal-700 focus:border-teal-400 focus:ring-teal-400/10 dark:border-slate-700 dark:text-teal-300 dark:focus:border-teal-500"
-              : "border-slate-200 text-purple-700 focus:border-purple-400 focus:ring-purple-400/10 dark:border-slate-700 dark:text-purple-300 dark:focus:border-purple-500"
-          )}
-        />
-      </div>
 
-      {/* Send button */}
-      <button
-        type="button"
-        disabled={noTarget || sending}
-        onClick={handleSend}
-        className={cn(
-          "flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-all",
-          sent
-            ? "bg-emerald-600 dark:bg-emerald-700"
-            : sending
-            ? "cursor-wait bg-brand-400"
-            : noTarget
-            ? "cursor-not-allowed bg-brand-400 opacity-50"
-            : "bg-brand-500 hover:-translate-y-px hover:bg-brand-600 hover:shadow-md dark:bg-brand-600 dark:hover:bg-brand-500"
+        {/* Payload editor */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Payload · {cfg.payloadType.toUpperCase()}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
+              }
+              className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+            >
+              Reset template
+            </button>
+          </div>
+          <textarea
+            value={payload}
+            onChange={(e) =>
+              setPayloads((p) => ({ ...p, [payloadKey]: e.target.value }))
+            }
+            spellCheck={false}
+            rows={8}
+            className={cn(
+              "w-full resize-y rounded-lg border bg-slate-50 px-3.5 py-3 font-mono text-[11px] leading-relaxed outline-none transition-all focus:bg-white focus:ring-2 dark:bg-slate-950 dark:focus:bg-slate-900",
+              cfg.payloadType === "xml"
+                ? "border-slate-200 text-teal-700 focus:border-teal-400 focus:ring-teal-400/10 dark:border-slate-700 dark:text-teal-300 dark:focus:border-teal-500"
+                : "border-slate-200 text-purple-700 focus:border-purple-400 focus:ring-purple-400/10 dark:border-slate-700 dark:text-purple-300 dark:focus:border-purple-500"
+            )}
+          />
+        </div>
+
+        {/* Send button */}
+        <button
+          type="button"
+          disabled={noTarget || sending}
+          onClick={handleSend}
+          className={cn(
+            "flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-all",
+            sent
+              ? "bg-emerald-600 dark:bg-emerald-700"
+              : sending
+              ? "cursor-wait bg-brand-400"
+              : noTarget
+              ? "cursor-not-allowed bg-brand-400 opacity-50"
+              : "bg-brand-500 hover:-translate-y-px hover:bg-brand-600 hover:shadow-md dark:bg-brand-600 dark:hover:bg-brand-500"
+          )}
+        >
+          {sending ? (
+            <>
+              <svg
+                className="animate-spin"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M21 12a9 9 0 11-6.219-8.56" />
+              </svg>
+              Sending…
+            </>
+          ) : sent ? (
+            <>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Sent!
+            </>
+          ) : (
+            <>
+              Send {cfg.label} {subtypeCfg.label} Event
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </>
+          )}
+        </button>
+
+        {noTarget && julesIds !== null && (
+          <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+            Select Jules IDs above to enable sending events
+          </p>
         )}
-      >
-        {sending ? (
-          <>
-            <svg
-              className="animate-spin"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <path d="M21 12a9 9 0 11-6.219-8.56" />
-            </svg>
-            Sending…
-          </>
-        ) : sent ? (
-          <>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Sent!
-          </>
-        ) : (
-          <>
-            Send {cfg.label} {subtypeCfg.label} Event
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </>
-        )}
-      </button>
-    </div>
+      </div>
+    </>
   );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function extractJulesIds(metadata: Record<string, unknown> | null): string[] | null {
+  const val = metadata?.["jules-ids"];
+  if (!Array.isArray(val)) return null;
+  return val.map(String);
 }
 
 // ── ChannelCommands ───────────────────────────────────────────────────────────
@@ -598,9 +741,12 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
   const channelAction = useChannelAction();
   const { notify } = useToast();
 
+  const julesIds = extractJulesIds(channel.metadata);
+
   const [selectedPodNames, setSelectedPodNames] = useState<string[]>(() =>
     channel.pods.map((p) => p.name)
   );
+  const [selectedJules, setSelectedJules] = useState<string[]>(() => julesIds ?? []);
   const [confirmingAction, setConfirmingAction] = useState<ChannelAction | null>(null);
 
   const togglePod = (name: string) => {
@@ -613,6 +759,17 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
     setSelectedPodNames(
       selectedPodNames.length === channel.pods.length ? [] : channel.pods.map((p) => p.name)
     );
+  };
+
+  const toggleJules = (id: string) => {
+    setSelectedJules((prev) =>
+      prev.includes(id) ? prev.filter((j) => j !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllJules = () => {
+    if (!julesIds) return;
+    setSelectedJules(selectedJules.length === julesIds.length ? [] : [...julesIds]);
   };
 
   const selectedPods = channel.pods.filter((p) => selectedPodNames.includes(p.name));
@@ -652,14 +809,6 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
         </div>
       </div>
 
-      {/* Shared target bar */}
-      <TargetBar
-        pods={channel.pods}
-        selected={selectedPodNames}
-        onToggle={togglePod}
-        onSelectAll={handleSelectAll}
-      />
-
       {/* Two-column layout */}
       <div className="grid grid-cols-[300px_1fr]">
         {/* Left: Actions */}
@@ -669,7 +818,10 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
             <span className="text-[10px] text-slate-400">Send commands to linears</span>
           </div>
           <ActionsColumn
+            pods={channel.pods}
             selectedPodNames={selectedPodNames}
+            onToggle={togglePod}
+            onSelectAll={handleSelectAll}
             onRequestConfirm={setConfirmingAction}
           />
         </div>
@@ -682,7 +834,13 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
             </span>
             <span className="text-[10px] text-slate-400">SCTE, ID3, or Blackout events</span>
           </div>
-          <AdReplacementColumn selectedPodNames={selectedPodNames} channelName={channel.name} />
+          <AdReplacementColumn
+            channelName={channel.name}
+            julesIds={julesIds}
+            selectedJules={selectedJules}
+            onToggleJules={toggleJules}
+            onSelectAllJules={handleSelectAllJules}
+          />
         </div>
       </div>
 
