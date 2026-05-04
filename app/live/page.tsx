@@ -420,15 +420,22 @@ export default function LivePage() {
         actionId: batchConfirm.id
       });
       setBatchResults(result as Array<{ channelId: number; status: "success" | "error"; actionId: string }>);
-      const failures = result.filter((item) => item.status === "error");
-      if (failures.length > 0) {
-        notify({
-          title: "Batch completed with errors",
-          description: `${failures.length} channels failed.`,
-          variant: "error"
-        });
+
+      const coreActionId = batchConfirm.id.replace(/^batch-/, "");
+      const allFailedPods = result.flatMap((r) =>
+        (r.podResults ?? []).filter((p) => p.error)
+      );
+
+      if (allFailedPods.length === 0) {
+        const verb =
+          coreActionId === "sync" ? "synchronized" :
+          coreActionId === "clean" ? "cleaned" : "processed";
+        notify({ title: `Linears ${verb}` });
       } else {
-        notify({ title: "Batch completed", description: "All channels processed." });
+        const description = allFailedPods
+          .map((p) => `${p.linearName ?? p.podName} (${p.podName}) - Failed ${batchConfirm.label}: ${p.error}`)
+          .join(" · ");
+        notify({ title: "Batch completed with errors", description, variant: "error" });
       }
     } catch (error) {
       notify({
