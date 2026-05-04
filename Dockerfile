@@ -56,7 +56,6 @@ $CA_CINCONET
 EOF
 RUN update-ca-certificates
 RUN wc -c /usr/local/share/ca-certificates/ca-cinconet-jules.crt
-RUN cat /usr/local/share/ca-certificates/ca-cinconet-jules.crt
 ARG NEXT_PUBLIC_VMS_PRE_SELECTOR_URL
 ARG NEXT_PUBLIC_VMS_PRO_SELECTOR_URL
 ENV NEXT_PUBLIC_VMS_PRE_SELECTOR_URL=$NEXT_PUBLIC_VMS_PRE_SELECTOR_URL
