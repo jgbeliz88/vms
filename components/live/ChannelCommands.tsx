@@ -799,8 +799,18 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
         channel: filteredChannel,
         actionId: confirmingAction.id,
       });
-      const summary = result.podResults.map((p) => `${p.podName}: ${p.status}`).join(" · ");
-      notify({ title: "Action executed", description: `${confirmingAction.label} — ${summary}` });
+      const failures = result.podResults.filter((p) => p.error);
+      if (failures.length === 0) {
+        const verb =
+          confirmingAction.id === "sync" ? "synchronized" :
+          confirmingAction.id === "clean" ? "cleaned" : "executed";
+        notify({ title: `Linears ${verb}`, variant: "success" });
+      } else {
+        const description = failures
+          .map((p) => `${p.linearName ?? p.podName} (${p.podName}) - Failed ${confirmingAction.label}: ${p.error}`)
+          .join(" · ");
+        notify({ title: "Action failed", description, variant: "error" });
+      }
     } catch (error) {
       notify({
         title: "Action failed",

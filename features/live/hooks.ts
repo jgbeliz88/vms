@@ -89,9 +89,11 @@ export function useDeleteChannel() {
 export type PodActionResult = {
   podName: string;
   podNode: string;
+  linearName?: string;
   status: number;
   message?: string;
   data: unknown;
+  error?: string;
 };
 
 async function runPodAction(
@@ -127,20 +129,30 @@ async function runPodAction(
   }
 
   // sync or clean
-  const response = await fetch("/api/live/action", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ actionId, podName, podNode: podName }),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    const msg = json?.message ?? `HTTP ${response.status}`;
-    throw new Error(`Pod ${podName}: ${msg}`);
+  const linearName = pod.linear?.linearName ?? undefined;
+  if (!linearName) {
+    return { podName, podNode: podName, linearName, status: 200, data: { ok: true } };
   }
 
-  return { podName, podNode: podName, status: json.status ?? response.status, message: json.message, data: json.data };
+  try {
+    const response = await fetch("/api/live/action", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ actionId, podName, linearName }),
+    });
+
+    const json = await response.json();
+
+    if (!response.ok) {
+      const msg = json?.message ?? `HTTP ${response.status}`;
+      return { podName, podNode: podName, linearName, status: response.status, data: json, error: msg };
+    }
+
+    return { podName, podNode: podName, linearName, status: json.status ?? response.status, message: json.message, data: json.data };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { podName, podNode: podName, linearName, status: 0, data: null, error: msg };
+  }
 }
 
 export function useChannelAction() {
@@ -163,11 +175,19 @@ export function useBatchAction() {
       return Promise.all(
         channels.map(async (channel) => {
           try {
-            await Promise.all(channel.pods.map((pod) => runPodAction(pod, coreActionId, token)));
-            return { channelId: channel.id, actionId, status: "success" as const };
+            const podResults = await Promise.all(
+              channel.pods.map((pod) => runPodAction(pod, coreActionId, token))
+            );
+            const hasPodError = podResults.some((r) => r.error);
+            return {
+              channelId: channel.id,
+              actionId,
+              status: hasPodError ? "error" as const : "success" as const,
+              podResults,
+            };
           } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : String(error);
-            return { channelId: channel.id, actionId, status: "error" as const, error: msg };
+            return { channelId: channel.id, actionId, status: "error" as const, podResults: [] as PodActionResult[], error: msg };
           }
         })
       );

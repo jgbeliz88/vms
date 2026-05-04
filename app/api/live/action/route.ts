@@ -14,16 +14,15 @@ const requestSchema = z.object({
 function buildTarget(
   actionId: string,
   podName: string,
-  podNode: string,
   linearName: string,
   action: "clear" | "delete"
 ): { url: string; method: string } {
   const enigmaBase = getEnigmaBaseUrl();
   if (actionId === "sync") {
-    return { url: `${enigmaBase}/live/synchronize/${podName}/${podNode}`, method: "GET" };
+    return { url: `${enigmaBase}/live/synchronize/${podName}/${linearName}`, method: "GET" };
   }
   if (actionId === "clean") {
-    return { url: `${enigmaBase}/live/clean/${podName}/${podNode}`, method: "GET" };
+    return { url: `${enigmaBase}/live/clean/${podName}/${linearName}`, method: "GET" };
   }
   // delete-flow
   return { url: `${enigmaBase}/live/${podName}/${linearName}?action=${action}`, method: "DELETE" };
@@ -36,14 +35,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
-  const { actionId, podName, podNode, linearName, action } = parsed.data;
-  const resolvedPodNode = podNode ?? podName;
+  const { actionId, podName, linearName, action } = parsed.data;
 
   if (actionId === "delete-flow" && !linearName) {
     return NextResponse.json({ message: "linearName is required for delete-flow" }, { status: 400 });
   }
 
-  const { url, method } = buildTarget(actionId, podName, resolvedPodNode, linearName!, action);
+  if ((actionId === "sync" || actionId === "clean") && !linearName) {
+    return NextResponse.json({ message: "linearName is required for sync/clean" }, { status: 400 });
+  }
+
+  const { url, method } = buildTarget(actionId, podName, linearName!, action);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
