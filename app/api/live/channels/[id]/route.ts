@@ -26,7 +26,7 @@ export async function PATCH(
 
   const enigmaBase = getEnigmaBaseUrl();
   const response = await fetchVMS(`${enigmaBase}/live/channels/${channelId}`, {
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),
   });
