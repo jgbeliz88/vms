@@ -322,6 +322,30 @@ export function useAddLinear() {
   });
 }
 
+type JulesEventResult = { julesId: string; success: boolean; error?: string };
+
+export function useSendJulesEvent() {
+  return useMutation({
+    mutationFn: async (vars: {
+      julesIds: string[];
+      command: "scte" | "admode" | "blackout";
+      payload: string;
+    }) => {
+      const token = getToken();
+      const res = await fetch("/api/live/jules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(vars),
+      });
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      return res.json() as Promise<{ results: JulesEventResult[] }>;
+    },
+  });
+}
+
 export function useDeleteLinearAction() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ResolvedChannel, ResolvedPod, ChannelAction } from "@/features/live/types";
 import { channelActions } from "@/features/live/config";
-import { useChannelAction } from "@/features/live/hooks";
+import { useChannelAction, useSendJulesEvent } from "@/features/live/hooks";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
@@ -520,14 +520,17 @@ function AdReplacementColumn({
   const [activeCmd, setActiveCmd] = useState<CommandKey>("scte");
   const [activeSubtype, setActiveSubtype] = useState(COMMAND_CONFIG.scte.subtypes[0].id);
   const [payloads, setPayloads] = useState<Record<string, string>>({});
-  const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+
+  const sendEvent = useSendJulesEvent();
+  const { notify } = useToast();
 
   const cfg = COMMAND_CONFIG[activeCmd];
   const subtypeCfg = cfg.subtypes.find((s) => s.id === activeSubtype) ?? cfg.subtypes[0];
   const payloadKey = `${activeCmd}_${activeSubtype}`;
   const payload = payloads[payloadKey] ?? subtypeCfg.template(channelName);
   const noTarget = julesIds === null || selectedJules.length === 0;
+  const sending = sendEvent.isPending;
 
   const switchCmd = (cmd: CommandKey) => {
     setActiveCmd(cmd);
@@ -537,11 +540,25 @@ function AdReplacementColumn({
 
   const handleSend = async () => {
     if (noTarget || sending) return;
-    setSending(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setSending(false);
-    setSent(true);
-    setTimeout(() => setSent(false), 2500);
+    try {
+      const { results } = await sendEvent.mutateAsync({
+        julesIds: selectedJules,
+        command: activeCmd,
+        payload,
+      });
+      const failed = results.filter((r) => !r.success);
+      if (failed.length === 0) {
+        notify({ title: `${cfg.label} sent successfully`, variant: "success" });
+        setSent(true);
+        setTimeout(() => setSent(false), 2500);
+      } else {
+        const ids = failed.map((r) => r.julesId).join(", ");
+        const description = failed.map((r) => `${r.julesId}: ${r.error ?? "unknown error"}`).join(" · ");
+        notify({ title: `Failed to send ${cfg.label} to: ${ids}`, description, variant: "error" });
+      }
+    } catch {
+      notify({ title: `Failed to send ${cfg.label}`, variant: "error" });
+    }
   };
 
   return (
