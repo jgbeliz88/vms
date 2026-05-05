@@ -16,13 +16,16 @@ export function useFastChannelsQuery() {
 export function useCreateFastChannel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (values: { name: string; uri: string }) => {
-      const response = await fetch("/api/fast-channels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+    mutationFn: async (values: { name: string; smil: string }) => {
+      const response = await fetch(`/api/fast-channels/${encodeURIComponent(values.name)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/xml" },
+        body: values.smil,
       });
-      if (!response.ok) throw new Error("Failed to create fast channel");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to create fast channel");
+      }
       return response.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.fastChannels() })

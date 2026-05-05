@@ -143,12 +143,19 @@ export function FastChannelTable({
                           </a>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="secondary"
-                            onClick={() => setExpandedName(isExpanded ? null : ch.name)}
-                          >
-                            Details
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="secondary"
+                              onClick={() => setExpandedName(isExpanded ? null : ch.name)}
+                            >
+                              Details
+                            </Button>
+                            {onDelete && (
+                              <Button variant="danger" onClick={() => onDelete(ch.name)}>
+                                Delete
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                       {isExpanded && (
@@ -156,20 +163,13 @@ export function FastChannelTable({
                           <td colSpan={3} className="bg-slate-50 px-4 py-4 dark:bg-slate-950">
                             <div className="space-y-4">
                               <FastChannelPlaybackPanel channelName={ch.name} />
-                              {(onCreateTransition || onDelete) && (
+                              {onCreateTransition && (
                                 <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Actions</div>
                                   <div className="mt-3 flex flex-wrap gap-2">
-                                    {onCreateTransition && (
-                                      <Button variant="secondary" onClick={() => onCreateTransition(ch.name)}>
-                                        Create Transition
-                                      </Button>
-                                    )}
-                                    {onDelete && (
-                                      <Button variant="danger" onClick={() => onDelete(ch.name)}>
-                                        Delete Channel
-                                      </Button>
-                                    )}
+                                    <Button variant="secondary" onClick={() => onCreateTransition(ch.name)}>
+                                      Create Transition
+                                    </Button>
                                   </div>
                                 </div>
                               )}

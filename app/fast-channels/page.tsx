@@ -29,7 +29,7 @@ export default function FastChannelsPage() {
   const [deleteTarget, setDeleteTarget] = useState("");
   const [transitionTarget, setTransitionTarget] = useState("");
 
-  const handleCreate = async (values: { name: string; uri: string }) => {
+  const handleCreate = async (values: { name: string; smil: string }) => {
     try {
       await createChannel.mutateAsync(values);
       notify({ title: "Channel created", description: `${values.name} added.` });
@@ -98,14 +98,15 @@ export default function FastChannelsPage() {
           open={createOpen}
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
+          isSubmitting={createChannel.isPending}
         />
 
         <DeleteFastChannelModal
           open={deleteOpen}
           onClose={() => setDeleteOpen(false)}
-          channels={channels ?? []}
-          onDelete={handleDelete}
-          defaultChannel={deleteTarget}
+          channelName={deleteTarget}
+          onDelete={() => handleDelete(deleteTarget)}
+          isSubmitting={deleteChannel.isPending}
         />
 
         <CreateTransitionPanel
