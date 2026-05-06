@@ -271,8 +271,7 @@ export function LinearsPanel({
                             <button
                               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-60"
                               onClick={() => setConfirmDeletePodKey(pod.name)}
-                              disabled={deletingPodKey !== null || deletingKey !== null || !pod.linear?.linearName}
-                              title={!pod.linear?.linearName ? "No active linear to delete" : undefined}
+                              disabled={deletingPodKey !== null || deletingKey !== null}
                             >
                               Delete
                             </button>

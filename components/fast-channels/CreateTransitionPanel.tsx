@@ -1,110 +1,170 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { z } from "zod";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { SlideOverPanel } from "@/components/ui/SlideOverPanel";
-import type { FastChannel } from "@/features/fast-channels/types";
+import { Textarea } from "@/components/ui/Textarea";
+import { Button } from "@/components/ui/Button";
 
-const schema = z.object({
-  channel: z.string().min(1, "Select a channel"),
-  type: z.string().min(1, "Select a transition type"),
-  duration: z.coerce.number().min(1, "Duration must be at least 1 second"),
-  description: z.string().optional()
-});
+const VOD2LIVE_RE = /(name="vod2live_start_time"\s+content=")[^"]*(")/;
 
-const transitionTypes = [
-  { label: "Cut", value: "cut" },
-  { label: "Fade", value: "fade" },
-  { label: "Wipe", value: "wipe" },
-  { label: "Dissolve", value: "dissolve" }
-];
+export type TransitionPayload =
+  | { mode: "json"; payload: object }
+  | { mode: "xml"; transitionName: string; xml: string };
 
-export function CreateTransitionPanel({
-  open,
-  onClose,
-  channels,
-  onCreate,
-  defaultChannel
+export function CreateTransitionForm({
+  channelName,
+  onSubmit,
+  isSubmitting,
+  initialMode = "json",
+  onModeChange,
 }: {
-  open: boolean;
-  onClose: () => void;
-  channels: FastChannel[];
-  onCreate: (values: { channel: string; type: string; duration: number; description: string }) => void;
-  defaultChannel?: string;
+  channelName: string;
+  onSubmit: (values: TransitionPayload) => void;
+  isSubmitting?: boolean;
+  initialMode?: "json" | "xml";
+  onModeChange?: (mode: "json" | "xml") => void;
 }) {
-  const [channel, setChannel] = useState(defaultChannel ?? "");
+  const [mode, setMode] = useState<"json" | "xml">(initialMode);
 
-  useEffect(() => {
-    if (open) setChannel(defaultChannel ?? "");
-  }, [open, defaultChannel]);
+  const handleModeChange = (next: "json" | "xml") => {
+    setMode(next);
+    onModeChange?.(next);
+  };
+  const [jsonText, setJsonText] = useState("");
+  const [jsonError, setJsonError] = useState("");
+  const [transitionName, setTransitionName] = useState("");
+  const [xml, setXml] = useState("");
+  const [xmlErrors, setXmlErrors] = useState<{ transitionName?: string; xml?: string }>({});
 
-  const [type, setType] = useState("");
-  const [duration, setDuration] = useState("");
-  const [description, setDescription] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const syncingFromXml = useRef(false);
 
-  const channelOptions = [
-    { label: "— Select a channel —", value: "" },
-    ...channels.map((ch) => ({ label: ch.name, value: ch.name }))
-  ];
+  const handleTransitionNameChange = (value: string) => {
+    setTransitionName(value);
+    if (xml && !syncingFromXml.current) {
+      setXml((prev) => prev.replace(VOD2LIVE_RE, `$1${value}$2`));
+    }
+  };
+
+  const handleXmlChange = (value: string) => {
+    setXml(value);
+    const match = value.match(VOD2LIVE_RE);
+    if (match) {
+      const extracted = match[0].match(/content="([^"]*)"/)?.[1] ?? "";
+      syncingFromXml.current = true;
+      setTransitionName(extracted);
+      setTimeout(() => { syncingFromXml.current = false; }, 0);
+    }
+  };
 
   const handleSubmit = () => {
-    const result = schema.safeParse({ channel, type, duration, description });
-    if (!result.success) {
-      const next: Record<string, string> = {};
-      result.error.issues.forEach((issue) => {
-        next[String(issue.path[0])] = issue.message;
-      });
-      setErrors(next);
-      return;
+    if (mode === "json") {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        setJsonError("Invalid JSON");
+        return;
+      }
+      const body = parsed as Record<string, unknown>;
+      const epg = body?.epg as Record<string, unknown> | undefined;
+      const channels = epg?.channel as Array<Record<string, unknown>> | undefined;
+      const found = channels?.[0]?.channel as string | undefined;
+      if (found !== channelName) {
+        setJsonError(
+          `Channel name mismatch: expected '${channelName}', got '${found ?? "(missing)"}'`
+        );
+        return;
+      }
+      setJsonError("");
+      onSubmit({ mode: "json", payload: body });
+    } else {
+      const errors: { transitionName?: string; xml?: string } = {};
+      if (!transitionName.trim()) errors.transitionName = "Transition name is required";
+      if (!xml.trim()) errors.xml = "SMIL / XML is required";
+      if (Object.keys(errors).length > 0) {
+        setXmlErrors(errors);
+        return;
+      }
+      setXmlErrors({});
+      onSubmit({ mode: "xml", transitionName: transitionName.trim(), xml: xml.trim() });
     }
-    onCreate({ channel, type, duration: Number(duration), description });
-    setChannel("");
-    setType("");
-    setDuration("");
-    setDescription("");
-    setErrors({});
   };
 
   return (
-    <SlideOverPanel
-      open={open}
-      onClose={onClose}
-      title="Create Transition"
-      subtitle="Schedule a transition for a fast channel."
-      submitLabel="Create Transition"
-      onSubmit={handleSubmit}
-    >
-      <Select
-        label="Channel"
-        options={channelOptions}
-        value={channel}
-        onChange={(e) => setChannel(e.target.value)}
-        error={errors.channel}
-      />
-      <Select
-        label="Transition Type"
-        options={[{ label: "— Select type —", value: "" }, ...transitionTypes]}
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-        error={errors.type}
-      />
-      <Input
-        label="Duration (seconds)"
-        type="number"
-        placeholder="5"
-        value={duration}
-        onChange={(e) => setDuration(e.target.value)}
-        error={errors.duration}
-      />
-      <Input
-        label="Description (optional)"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        error={errors.description}
-      />
-    </SlideOverPanel>
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant={mode === "json" ? "primary" : "secondary"}
+          onClick={() => handleModeChange("json")}
+          disabled={isSubmitting}
+        >
+          JSON
+        </Button>
+        <Button
+          type="button"
+          variant={mode === "xml" ? "primary" : "secondary"}
+          onClick={() => handleModeChange("xml")}
+          disabled={isSubmitting}
+        >
+          SMIL / XML
+        </Button>
+      </div>
+
+      {mode === "json" && (
+        <Textarea
+          label="EPG JSON"
+          placeholder='{ "epg": { "channel": [{ "channel": "..." }], ... } }'
+          value={jsonText}
+          onChange={(e) => { setJsonText(e.target.value); setJsonError(""); }}
+          error={jsonError}
+          className="min-h-[240px] font-mono text-xs"
+          disabled={isSubmitting}
+        />
+      )}
+
+      {mode === "xml" && (
+        <>
+          <Input
+            label="Transition Name (UTC)"
+            placeholder="2022-04-14T06:00:00Z"
+            value={transitionName}
+            onChange={(e) => handleTransitionNameChange(e.target.value)}
+            error={xmlErrors.transitionName}
+            disabled={isSubmitting}
+          />
+          <Textarea
+            label="SMIL / XML"
+            placeholder="<?xml version='1.0' encoding='UTF-8'?>..."
+            value={xml}
+            onChange={(e) => handleXmlChange(e.target.value)}
+            error={xmlErrors.xml}
+            className="min-h-[240px] font-mono text-xs"
+            disabled={isSubmitting}
+          />
+        </>
+      )}
+
+      <div className="flex justify-end">
+        <Button onClick={handleSubmit} disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <svg
+                className="animate-spin"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M21 12a9 9 0 11-6.219-8.56" />
+              </svg>
+              Creating…
+            </>
+          ) : "Create Transition"}
+        </Button>
+      </div>
+    </div>
   );
 }

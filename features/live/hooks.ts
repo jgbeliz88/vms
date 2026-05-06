@@ -386,6 +386,24 @@ export function useDeleteLinearAction() {
   });
 }
 
+export function useDeletePodReference() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ podName }: { podName: string }) => {
+      const response = await fetch(`/api/live/linears/${podName}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.data?.msg ?? json.data?.message ?? json.message ?? `HTTP ${response.status}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
 type UpdateChannelConfigPayload = {
   id: number;
   config: ChannelConfigRow[];

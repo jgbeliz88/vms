@@ -152,8 +152,6 @@ export function ChannelTable({
                     {canAdmin && (
                       <Button
                         variant="danger"
-                        disabled={channel.pods.length > 0}
-                        title={channel.pods.length > 0 ? "Remove all pods before deleting" : undefined}
                         onClick={() => onDelete(channel)}
                       >
                         Delete

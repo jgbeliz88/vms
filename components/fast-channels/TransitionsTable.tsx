@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { useDeleteFastChannelTransition } from "@/features/fast-channels/hooks";
 import type { FastChannelTransitions } from "@/features/fast-channels/types";
 
 function statusTone(status: string) {
@@ -32,7 +35,16 @@ function sortKey(key: string): number {
   return isNaN(d.getTime()) ? Infinity : d.getTime();
 }
 
-export function TransitionsTable({ transitions }: { transitions: FastChannelTransitions }) {
+export function TransitionsTable({
+  channelName,
+  transitions,
+}: {
+  channelName: string;
+  transitions: FastChannelTransitions;
+}) {
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const deleteMutation = useDeleteFastChannelTransition();
+
   const entries = Object.entries(transitions).sort(([a], [b]) => sortKey(a) - sortKey(b));
 
   if (entries.length === 0) {
@@ -43,6 +55,13 @@ export function TransitionsTable({ transitions }: { transitions: FastChannelTran
     );
   }
 
+  function smilUrl(key: string): string {
+    if (key === "creation") {
+      return `/api/fast-channels/${encodeURIComponent(channelName)}/smil`;
+    }
+    return `/api/fast-channels/${encodeURIComponent(channelName)}/transitions/${encodeURIComponent(key)}/smil`;
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
       <table className="w-full text-xs">
@@ -50,6 +69,7 @@ export function TransitionsTable({ transitions }: { transitions: FastChannelTran
           <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
             <th className="px-4 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Nombre</th>
             <th className="px-4 py-3 text-left font-semibold text-slate-500 dark:text-slate-400">Status</th>
+            <th className="px-4 py-3 text-right font-semibold text-slate-500 dark:text-slate-400">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -58,6 +78,42 @@ export function TransitionsTable({ transitions }: { transitions: FastChannelTran
               <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{formatKey(key)}</td>
               <td className="px-4 py-3">
                 <Badge label={status} tone={statusTone(status)} />
+              </td>
+              <td className="px-4 py-3 text-right">
+                {deleteConfirm === key ? (
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-slate-500">Delete?</span>
+                    <Button
+                      variant="danger"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => {
+                        deleteMutation.mutate(
+                          { channelName, transitionName: key },
+                          { onSettled: () => setDeleteConfirm(null) }
+                        );
+                      }}
+                    >
+                      {deleteMutation.isPending ? "Deleting…" : "Yes"}
+                    </Button>
+                    <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => window.open(smilUrl(key), "_blank", "noopener,noreferrer")}
+                    >
+                      SMIL
+                    </Button>
+                    {key !== "creation" && (
+                      <Button variant="danger" onClick={() => setDeleteConfirm(key)}>
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                )}
               </td>
             </tr>
           ))}

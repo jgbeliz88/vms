@@ -13,6 +13,7 @@ import {
   useConfigLayoutQuery,
   useAddLinear,
   useDeleteLinearAction,
+  useDeletePodReference,
   useUpdateChannelConfig,
   type ConfigLayout,
 } from "@/features/live/hooks";
@@ -149,6 +150,7 @@ export default function LivePage() {
   const batchPodDelete = useBatchPodDelete();
   const addLinear = useAddLinear();
   const deleteLinearAction = useDeleteLinearAction();
+  const deletePodReference = useDeletePodReference();
   const updateChannelConfig = useUpdateChannelConfig();
   const createEncoder = useCreateEncoder();
   const deleteEncoder = useDeleteEncoder();
@@ -254,7 +256,20 @@ export default function LivePage() {
     pod: ResolvedPod,
     linearName: string | null
   ) => {
-    if (!linearName) return; // button is disabled when no active linear
+    if (!linearName) {
+      try {
+        await deletePodReference.mutateAsync({ podName: pod.name });
+        notify({ title: "Pod removed", description: `${pod.name} removed.` });
+      } catch (error) {
+        notify({
+          title: "Delete pod failed",
+          description: error instanceof Error ? error.message : "Unable to delete pod",
+          variant: "error",
+        });
+        throw error;
+      }
+      return;
+    }
     try {
       await deleteLinearAction.mutateAsync({ podName: pod.name, linearName, action: "delete" });
       notify({ title: "Pod removed", description: `${pod.name} removed.` });
