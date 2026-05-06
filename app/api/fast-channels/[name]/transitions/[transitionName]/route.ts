@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
-import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
+import { getEnigmaBaseUrl, getFastChannelsUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ name: string; transitionName: string }> }
+) {
+  const { name, transitionName } = await params;
+  const endpoint = getFastChannelsUrl();
+  try {
+    const response = await fetchVMS(
+      `${endpoint}/${encodeURIComponent(name)}/transitions/${encodeURIComponent(transitionName)}`,
+      { method: "DELETE", cache: "no-store" }
+    );
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return NextResponse.json({ message: text || "Failed to delete transition" }, { status: response.status });
+    }
+    return NextResponse.json({});
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Error";
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}
 
 export async function POST(
   request: Request,

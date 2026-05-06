@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getFastChannelsUrl } from "@/app/api/_lib/env-urls";
+import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
-  const endpoint = getFastChannelsUrl();
+  const base = getEnigmaBaseUrl();
   try {
-    const response = await fetchVMS(`${endpoint}/${encodeURIComponent(name)}/transitions`, {
+    const response = await fetchVMS(`${base}/virtual-channel/status/${encodeURIComponent(name)}`, {
       cache: "no-store"
     });
     if (!response.ok) return NextResponse.json({});

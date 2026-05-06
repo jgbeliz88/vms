@@ -103,6 +103,24 @@ export function useFastChannelStreamStatusQuery(uri: string) {
   });
 }
 
+export function useDeleteFastChannelTransition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ channelName, transitionName }: { channelName: string; transitionName: string }) => {
+      const response = await fetch(
+        `/api/fast-channels/${encodeURIComponent(channelName)}/transitions/${encodeURIComponent(transitionName)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to delete transition");
+      }
+    },
+    onSuccess: (_data, { channelName }) =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.fastChannelTransitions(channelName) })
+  });
+}
+
 export function useFastChannelTransitionsQuery(channelName: string) {
   return useQuery({
     queryKey: queryKeys.fastChannelTransitions(channelName),

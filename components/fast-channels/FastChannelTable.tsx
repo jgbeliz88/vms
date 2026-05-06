@@ -5,26 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { FastChannelPlaybackPanel } from "./FastChannelPlaybackPanel";
 import { FastChannelActions } from "./FastChannelActions";
 import { TransitionsTable } from "./TransitionsTable";
+import { useFastChannelTransitionsQuery } from "@/features/fast-channels/hooks";
 import type { FastChannel } from "@/features/fast-channels/types";
-
-
-const MOCK_TRANSITIONS: Record<string, string> = {
-  "creation": "Success",
-  "2026-02-26T05:00:00Z": "Success",
-  "2026-02-27T05:00:00Z": "Success",
-  "2026-02-28T05:00:00Z": "Success",
-  "2026-03-01T05:00:00Z": "Success",
-  "2026-03-02T05:00:00Z": "Success",
-  "2026-03-03T05:00:00Z": "Success",
-  "2026-03-04T05:00:00Z": "Success",
-  "2026-03-05T05:00:00Z": "Success",
-  "2026-03-06T05:00:00Z": "Success",
-  "2026-03-07T05:00:00Z": "Success",
-  "2026-03-08T05:00:00Z": "Success",
-  "2026-03-13T05:00:00Z": "Success",
-  "2026-03-14T05:00:00Z": "Success",
-  "2026-03-15T05:00:00Z": "Success",
-};
 
 type Filters = {
   name: string;
@@ -43,8 +25,9 @@ function buildPlaybackUri(uri: string, name: string): string {
 const inputCls =
   "w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 placeholder-slate-300 focus:border-slate-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-600";
 
-function ChannelTransitions() {
-  return <TransitionsTable transitions={MOCK_TRANSITIONS} />;
+function ChannelTransitions({ channelName }: { channelName: string }) {
+  const { data } = useFastChannelTransitionsQuery(channelName);
+  return <TransitionsTable channelName={channelName} transitions={data ?? {}} />;
 }
 
 export function FastChannelTable({
@@ -168,7 +151,7 @@ export function FastChannelTable({
                               </div>
                               <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                                 <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Transitions</div>
-                                <ChannelTransitions />
+                                <ChannelTransitions channelName={ch.name} />
                               </div>
                             </div>
                           </td>
