@@ -145,8 +145,16 @@ export function FastChannelTable({
                           <td colSpan={3} className="bg-slate-50 px-4 py-4 dark:bg-slate-950">
                             <div className="space-y-4">
                               <FastChannelPlaybackPanel channelName={ch.name} />
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                                <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Actions</div>
+                              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                                <div className="flex items-center justify-between border-b border-border-base px-5 py-3.5 dark:border-slate-800">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-text-primary dark:text-slate-100">Actions</span>
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary dark:bg-slate-800 dark:text-slate-400">1</span>
+                                  </div>
+                                  <span className="text-[11px] text-text-muted">
+                                    Channel: <span className="font-mono text-text-primary dark:text-slate-200">{ch.name}</span>
+                                  </span>
+                                </div>
                                 <FastChannelActions channelName={ch.name} />
                               </div>
                               <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

@@ -327,37 +327,53 @@ export function BatchActionBar({
 
   return (
     <>
-      {/* Sticky batch bar */}
-      <div className="sticky bottom-4 z-20 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {selected.length} channels selected
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {actions.map((action) => (
-              <Button
-                key={action.id}
-                variant={action.tone === "danger" ? "danger" : action.tone === "warning" ? "secondary" : "primary"}
-                onClick={() => onAction(action.id)}
-              >
-                {action.label}
-              </Button>
-            ))}
-            {canManageLinears && (
-              <Button variant="primary" onClick={openCreateModal}>
-                Create Linear
-              </Button>
-            )}
-            {canManageLinears && (
-              <Button variant="danger" onClick={openDeleteModal}>
-                Delete Linear
-              </Button>
-            )}
-          </div>
+      {/* Floating batch bar */}
+      <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">
+            {selected.length}
+          </span>
+          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            {selected.length} channel{selected.length === 1 ? "" : "s"} selected
+          </span>
         </div>
-        <div className="mt-2 text-xs text-slate-500">
-          Batch actions will show per-channel status in the result panel.
-        </div>
+
+        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+
+        {actions.map((action) => (
+          <button
+            key={action.id}
+            onClick={() => onAction(action.id)}
+            className={cn(
+              "inline-flex items-center whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition",
+              action.tone === "danger"
+                ? "border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                : action.tone === "warning"
+                ? "border-amber-200 bg-white text-amber-700 hover:bg-amber-50 dark:border-amber-700/40 dark:bg-slate-900 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                : "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+            )}
+          >
+            {action.label}
+          </button>
+        ))}
+
+        {canManageLinears && (
+          <>
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+            <button
+              onClick={openCreateModal}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+            >
+              Create Linear
+            </button>
+            <button
+              onClick={openDeleteModal}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              Delete Linear
+            </button>
+          </>
+        )}
       </div>
 
       {/* ── Delete Linear Modal ── */}

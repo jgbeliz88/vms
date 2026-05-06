@@ -32,15 +32,15 @@ export const batchActions: BatchAction[] = [
     tone: "default"
   },
   {
-    id: "batch-clean",
-    label: "Clean Channels",
-    description: "Clean and rebuild selected channels.",
-    tone: "warning"
-  },
-  {
     id: "batch-descache",
     label: "Descache",
     description: "Purge cache for selected channels.",
-    tone: "warning"
+    tone: "default"
+  },
+  {
+    id: "batch-clean",
+    label: "Clean Channels",
+    description: "Clean and rebuild selected channels.",
+    tone: "danger"
   }
 ];

@@ -25,6 +25,9 @@ type EncoderKey = "bitmovin" | "lightflow";
 type Props = {
   items: VodContent[];
   encoder: EncoderKey;
+  selectable?: boolean;
+  selected?: Set<string>;
+  onSelectionChange?: (next: Set<string>) => void;
 };
 
 const encoderTone: Record<EncoderKey, "purple" | "warning"> = {
@@ -50,7 +53,7 @@ const STATUS_OPTIONS = [
 
 const ERROR_STATUSES = new Set(["FAILED", "COPIED_ERROR", "ENCODING_ERROR", "RENDITION_ERROR", "MANIFEST_ERROR"]);
 
-export function VodTable({ items, encoder }: Props) {
+export function VodTable({ items, encoder, selectable, selected, onSelectionChange }: Props) {
   const columns = [
     {
       header: "ID",
@@ -132,7 +135,10 @@ export function VodTable({ items, encoder }: Props) {
         if (key === "finishedAt") return item.finishedAt;
         return "";
       }}
-      renderDetail={(item) => <VodContentDetail item={item} />}
+      renderDetail={(item) => <VodContentDetail item={item} mam={encoder} />}
+      selectable={selectable}
+      selected={selected}
+      onSelectionChange={onSelectionChange}
     />
   );
 }

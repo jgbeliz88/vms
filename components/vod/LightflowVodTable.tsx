@@ -14,7 +14,17 @@ const statusTone = (s: string): "success" | "error" | "warning" => {
   return "warning";
 };
 
-export function LightflowVodTable({ items }: { items: LightflowVodContent[] }) {
+export function LightflowVodTable({
+  items,
+  selectable,
+  selected,
+  onSelectionChange,
+}: {
+  items: LightflowVodContent[];
+  selectable?: boolean;
+  selected?: Set<string>;
+  onSelectionChange?: (next: Set<string>) => void;
+}) {
   const columns = [
     {
       header: "ID",
@@ -74,6 +84,9 @@ export function LightflowVodTable({ items }: { items: LightflowVodContent[] }) {
         return "";
       }}
       renderDetail={(item) => <LightflowVodContentDetail item={item} />}
+      selectable={selectable}
+      selected={selected}
+      onSelectionChange={onSelectionChange}
     />
   );
 }
