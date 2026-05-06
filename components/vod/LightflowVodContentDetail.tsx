@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { JsonViewer } from "@/components/ui/JsonViewer";
 import { Badge } from "@/components/ui/Badge";
 import { BaseVodContentDetail } from "@/components/vod/BaseVodContentDetail";
+import { VodActionsPanel } from "@/components/vod/VodActionsPanel";
 import { formatDuration, formatBitrate } from "@/lib/utils/media";
 import type { LightflowVodContent } from "@/features/vod/lightflow-types";
 
@@ -82,6 +83,7 @@ export function LightflowVodContentDetail({ item }: { item: LightflowVodContent 
 
   return (
     <BaseVodContentDetail
+      actionsPanel={<VodActionsPanel mam="lightflow" uuid={item.uuid} contentName={item._id} />}
       infoChildren={infoChildren}
       statusBadge={<Badge label={item.status} tone={STATUS_TONE(item.status)} />}
       statCells={statCells}

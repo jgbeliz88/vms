@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { BaseVodContentDetail } from "@/components/vod/BaseVodContentDetail";
+import { VodActionsPanel } from "@/components/vod/VodActionsPanel";
 import { formatDuration, formatBitrate } from "@/lib/utils/media";
 
 type VodContent = {
@@ -15,12 +16,12 @@ type VodContent = {
   labels: string[];
   startedAt: string;
   finishedAt: string;
-  input: {
+  input?: {
     videos: { duration: number; codec: string; fps: string; bitrate: string; width: number; height: number }[];
     audios: { codec: string; sampleRate: number; bitrate: string; channelFormat: string; language: string }[];
   };
-  renditions: { filename: string; videoTracks: { frameWidth: number; frameHeight: number; bitRate: number }[] }[];
-  subtitles: { lang: string; url: string }[];
+  renditions?: { filename: string; videoTracks: { frameWidth: number; frameHeight: number; bitRate: number }[] }[];
+  subtitles?: { lang: string; url: string }[];
 };
 
 const errorStatuses = new Set(["FAILED", "COPIED_ERROR", "ENCODING_ERROR", "RENDITION_ERROR", "MANIFEST_ERROR"]);
@@ -33,16 +34,20 @@ function statusTone(s: string): "success" | "error" | "warning" {
 
 export function VodContentDetail({
   item,
+  mam = "bitmovin",
   onUpdate,
 }: {
   item: VodContent;
+  mam?: "bitmovin" | "lightflow";
   onUpdate?: (values: { id: string; name: string }) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
 
-  const video = item.input.videos[0];
-  const audio = item.input.audios[0];
+  const video = item.input?.videos?.[0];
+  const audio = item.input?.audios?.[0];
+  const renditions = item.renditions ?? [];
+  const subtitles = item.subtitles ?? [];
 
   const handleSave = () => {
     onUpdate?.({ id: item._id, name });
@@ -70,44 +75,59 @@ export function VodContentDetail({
   const statCells: [React.ReactNode, React.ReactNode, React.ReactNode] = [
     <div key="input" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
       <div className="text-slate-500">Input</div>
-      <div className="mt-1 text-slate-700 dark:text-slate-200">
-        {video.codec.toUpperCase()} · {video.width}×{video.height}
-      </div>
-      <div className="mt-1 text-slate-400">{formatDuration(video.duration)} · {video.fps} fps</div>
+      {video ? (
+        <>
+          <div className="mt-1 text-slate-700 dark:text-slate-200">
+            {video.codec.toUpperCase()} · {video.width}×{video.height}
+          </div>
+          <div className="mt-1 text-slate-400">{formatDuration(video.duration)} · {video.fps} fps</div>
+        </>
+      ) : (
+        <div className="mt-1 text-slate-400">Not available yet</div>
+      )}
     </div>,
     <div key="renditions" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
-      <div className="text-slate-500">Renditions ({item.renditions.length})</div>
+      <div className="text-slate-500">Renditions ({renditions.length})</div>
       <div className="mt-1 space-y-0.5">
-        {item.renditions.map((r, i) => {
-          const vt = r.videoTracks[0];
-          return (
-            <div key={i} className="flex justify-between text-slate-700 dark:text-slate-200">
-              <span>{vt?.frameWidth}×{vt?.frameHeight}</span>
-              <span className="text-slate-400">{vt ? formatBitrate(vt.bitRate) : "—"}</span>
-            </div>
-          );
-        })}
+        {renditions.length === 0 ? (
+          <div className="text-slate-400">Not available yet</div>
+        ) : (
+          renditions.map((r, i) => {
+            const vt = r.videoTracks[0];
+            return (
+              <div key={i} className="flex justify-between text-slate-700 dark:text-slate-200">
+                <span>{vt?.frameWidth}×{vt?.frameHeight}</span>
+                <span className="text-slate-400">{vt ? formatBitrate(vt.bitRate) : "—"}</span>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>,
     <div key="audio" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
       <div className="text-slate-500">Audio &amp; Subtitles</div>
-      <div className="mt-1 text-slate-700 dark:text-slate-200">
-        {audio.codec.toUpperCase()} · {(audio.sampleRate / 1000).toFixed(0)} kHz · {audio.channelFormat}ch
-      </div>
-      {item.subtitles.length > 0 ? (
+      {audio ? (
+        <div className="mt-1 text-slate-700 dark:text-slate-200">
+          {audio.codec.toUpperCase()} · {(audio.sampleRate / 1000).toFixed(0)} kHz · {audio.channelFormat}ch
+        </div>
+      ) : (
+        <div className="mt-1 text-slate-400">Not available yet</div>
+      )}
+      {subtitles.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1">
-          {item.subtitles.map((s) => (
+          {subtitles.map((s) => (
             <Badge key={s.lang} label={s.lang.toUpperCase()} tone="default" />
           ))}
         </div>
-      ) : (
+      ) : audio ? (
         <div className="mt-1 text-slate-400">No subtitles</div>
-      )}
+      ) : null}
     </div>,
   ];
 
   return (
     <BaseVodContentDetail
+      actionsPanel={<VodActionsPanel mam={mam} uuid={item._id} contentName={item.name} />}
       infoChildren={infoChildren}
       editControls={
         onUpdate && (

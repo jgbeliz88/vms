@@ -6,12 +6,10 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { FastChannelTable } from "@/components/fast-channels/FastChannelTable";
 import { CreateFastChannelPanel } from "@/components/fast-channels/CreateFastChannelPanel";
 import { DeleteFastChannelModal } from "@/components/fast-channels/DeleteFastChannelModal";
-import { CreateTransitionPanel } from "@/components/fast-channels/CreateTransitionPanel";
 import {
   useFastChannelsQuery,
   useCreateFastChannel,
   useDeleteFastChannel,
-  useCreateFastChannelTransition
 } from "@/features/fast-channels/hooks";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -21,15 +19,12 @@ export default function FastChannelsPage() {
   const { data: channels, isLoading, isError } = useFastChannelsQuery();
   const createChannel = useCreateFastChannel();
   const deleteChannel = useDeleteFastChannel();
-  const createTransition = useCreateFastChannelTransition();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [transitionOpen, setTransitionOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState("");
-  const [transitionTarget, setTransitionTarget] = useState("");
 
-  const handleCreate = async (values: { name: string; uri: string }) => {
+  const handleCreate = async (values: { name: string; smil: string }) => {
     try {
       await createChannel.mutateAsync(values);
       notify({ title: "Channel created", description: `${values.name} added.` });
@@ -46,16 +41,6 @@ export default function FastChannelsPage() {
       setDeleteOpen(false);
     } catch (error) {
       notify({ title: "Delete failed", description: error instanceof Error ? error.message : "Unable to delete channel", variant: "error" });
-    }
-  };
-
-  const handleCreateTransition = async (values: { channel: string; type: string; duration: number; description: string }) => {
-    try {
-      await createTransition.mutateAsync(values);
-      notify({ title: "Transition created", description: `${values.type} transition scheduled for ${values.channel}.` });
-      setTransitionOpen(false);
-    } catch (error) {
-      notify({ title: "Transition failed", description: error instanceof Error ? error.message : "Unable to create transition", variant: "error" });
     }
   };
 
@@ -89,7 +74,6 @@ export default function FastChannelsPage() {
             <FastChannelTable
               channels={channels}
               onDelete={(name) => { setDeleteTarget(name); setDeleteOpen(true); }}
-              onCreateTransition={(name) => { setTransitionTarget(name); setTransitionOpen(true); }}
             />
           )}
         </div>
@@ -98,22 +82,15 @@ export default function FastChannelsPage() {
           open={createOpen}
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
+          isSubmitting={createChannel.isPending}
         />
 
         <DeleteFastChannelModal
           open={deleteOpen}
           onClose={() => setDeleteOpen(false)}
-          channels={channels ?? []}
-          onDelete={handleDelete}
-          defaultChannel={deleteTarget}
-        />
-
-        <CreateTransitionPanel
-          open={transitionOpen}
-          onClose={() => setTransitionOpen(false)}
-          channels={channels ?? []}
-          onCreate={handleCreateTransition}
-          defaultChannel={transitionTarget}
+          channelName={deleteTarget}
+          onDelete={() => handleDelete(deleteTarget)}
+          isSubmitting={deleteChannel.isPending}
         />
       </AppShell>
     </AuthGuard>

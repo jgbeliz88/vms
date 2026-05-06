@@ -11,6 +11,7 @@ export function SlideOverPanel({
   subtitle,
   submitLabel,
   onSubmit,
+  submitDisabled,
   children,
 }: {
   open: boolean;
@@ -19,6 +20,7 @@ export function SlideOverPanel({
   subtitle: string;
   submitLabel: string;
   onSubmit: () => void;
+  submitDisabled?: boolean;
   children: ReactNode;
 }) {
   if (!open) return null;
@@ -43,7 +45,7 @@ export function SlideOverPanel({
           {children}
           <div className="flex justify-end gap-2 border-t border-[#E2E8F0] pt-4 dark:border-[#2E3A47]">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={onSubmit}>{submitLabel}</Button>
+            <Button onClick={onSubmit} disabled={submitDisabled}>{submitLabel}</Button>
           </div>
         </div>
       </div>

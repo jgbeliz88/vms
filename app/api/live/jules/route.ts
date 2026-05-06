@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getJulesBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
+import { logInfo } from "@/app/api/_lib/logger";
 
 const COMMAND_MAP = {
   scte: { endpoint: "/scte", method: "POST", contentType: "text/xml" },
@@ -16,6 +17,8 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  logInfo({ name: "app.api.live.jules.route", fn: "POST", msg: "Start of request"});
+
   const body = await request.json().catch(() => null);
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
@@ -52,6 +55,8 @@ export async function POST(request: Request) {
       error: result.reason instanceof Error ? result.reason.message : "Unknown error",
     };
   });
+
+  logInfo({ name: "app.api.live.jules.route", fn: "POST", msg: "End of request", data: { results: aggregated } });
 
   return NextResponse.json({ results: aggregated });
 }
