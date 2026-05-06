@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useEffect, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
@@ -22,12 +22,38 @@ type Props<T> = {
   getFilterValue: (item: T, filterKey: string) => string;
   getSortValue: (item: T, sortKey: string) => string;
   renderDetail: (item: T) => ReactNode;
+  selectable?: boolean;
+  selected?: Set<string>;
+  onSelectionChange?: (next: Set<string>) => void;
 };
 
 type SortDir = "asc" | "desc";
 
 const inputCls =
   "w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 placeholder-slate-300 focus:border-slate-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-600";
+
+function HeaderCheckbox({
+  state,
+  onToggle,
+}: {
+  state: "none" | "some" | "all";
+  onToggle: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = state === "some";
+  }, [state]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={state === "all"}
+      onChange={onToggle}
+      aria-label="Select all"
+      className="h-4 w-4 rounded border-slate-300 accent-brand-500 dark:border-slate-600"
+    />
+  );
+}
 
 export function BaseVodTable<T>({
   items,
@@ -38,6 +64,9 @@ export function BaseVodTable<T>({
   getFilterValue,
   getSortValue,
   renderDetail,
+  selectable,
+  selected,
+  onSelectionChange,
 }: Props<T>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -85,7 +114,31 @@ export function BaseVodTable<T>({
     : filtered;
 
   const hasFilters = Object.values(filters).some(Boolean);
-  const colSpan = columns.length + 1;
+  const colSpan = columns.length + 1 + (selectable ? 1 : 0);
+
+  const filteredKeys = sorted.map((item) => getKey(item));
+  const selectedCount = selectable && selected ? filteredKeys.filter((k) => selected.has(k)).length : 0;
+  const headerCheckState: "none" | "some" | "all" =
+    selectedCount === 0 ? "none" : selectedCount === filteredKeys.length ? "all" : "some";
+
+  const toggleAll = () => {
+    if (!onSelectionChange || !selected) return;
+    const next = new Set(selected);
+    if (headerCheckState === "all") {
+      filteredKeys.forEach((k) => next.delete(k));
+    } else {
+      filteredKeys.forEach((k) => next.add(k));
+    }
+    onSelectionChange(next);
+  };
+
+  const toggleOne = (key: string) => {
+    if (!onSelectionChange || !selected) return;
+    const next = new Set(selected);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onSelectionChange(next);
+  };
 
   return (
     <div className="space-y-2">
@@ -95,6 +148,11 @@ export function BaseVodTable<T>({
           <span className="text-xs text-slate-500">
             {filtered.length} of {items.length} contents
           </span>
+          {selectable && selected && selected.size > 0 && (
+            <span className="text-xs font-medium text-brand-600 dark:text-brand-400">
+              · {selected.size} selected
+            </span>
+          )}
         </div>
         {hasFilters && (
           <button
@@ -111,6 +169,11 @@ export function BaseVodTable<T>({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500 dark:border-slate-800 dark:bg-slate-950">
               <tr>
+                {selectable && (
+                  <th className="w-10 px-4 py-3">
+                    <HeaderCheckbox state={headerCheckState} onToggle={toggleAll} />
+                  </th>
+                )}
                 {columns.map((col) =>
                   col.sortKey ? (
                     <th
@@ -135,6 +198,7 @@ export function BaseVodTable<T>({
               </tr>
               {/* Filter row */}
               <tr className="border-b border-slate-200 dark:border-slate-800">
+                {selectable && <th className="px-4 py-2" />}
                 {columns.map((col) => (
                   <th key={col.header} className="px-4 py-2">
                     {col.filterKey && col.filterType === "select" ? (
@@ -173,9 +237,25 @@ export function BaseVodTable<T>({
                 sorted.map((item) => {
                   const key = getKey(item);
                   const isExpanded = expandedId === key;
+                  const isSelected = selectable && selected ? selected.has(key) : false;
                   return (
                     <Fragment key={key}>
-                      <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <tr className={
+                        isSelected
+                          ? "bg-brand-50/40 dark:bg-brand-900/10"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      }>
+                        {selectable && (
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleOne(key)}
+                              aria-label={`Select item ${key}`}
+                              className="h-4 w-4 rounded border-slate-300 accent-brand-500 dark:border-slate-600"
+                            />
+                          </td>
+                        )}
                         {columns.map((col) => (
                           <td key={col.header} className="px-4 py-3">
                             {col.render(item)}

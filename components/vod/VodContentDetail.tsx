@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { BaseVodContentDetail } from "@/components/vod/BaseVodContentDetail";
+import { VodActionsPanel } from "@/components/vod/VodActionsPanel";
 import { formatDuration, formatBitrate } from "@/lib/utils/media";
 
 type VodContent = {
@@ -33,9 +34,11 @@ function statusTone(s: string): "success" | "error" | "warning" {
 
 export function VodContentDetail({
   item,
+  mam = "bitmovin",
   onUpdate,
 }: {
   item: VodContent;
+  mam?: "bitmovin" | "lightflow";
   onUpdate?: (values: { id: string; name: string }) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -108,6 +111,7 @@ export function VodContentDetail({
 
   return (
     <BaseVodContentDetail
+      actionsPanel={<VodActionsPanel mam={mam} uuid={item._id} contentName={item.name} />}
       infoChildren={infoChildren}
       editControls={
         onUpdate && (
