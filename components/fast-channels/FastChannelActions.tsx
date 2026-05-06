@@ -18,6 +18,8 @@ export function FastChannelActions({ channelName }: { channelName: string }) {
   const createXml = useCreateXmlTransition();
 
   const [selectedAction, setSelectedAction] = useState<ActionId | null>("create-transition");
+  const [formKey, setFormKey] = useState(0);
+  const [formMode, setFormMode] = useState<"json" | "xml">("json");
 
   const isSubmitting = scheduleJson.isPending || createXml.isPending;
 
@@ -33,6 +35,7 @@ export function FastChannelActions({ channelName }: { channelName: string }) {
         });
       }
       notify({ title: "Transition created" });
+      setFormKey((k) => k + 1);
     } catch (error) {
       notify({
         title: "Transition failed",
@@ -69,9 +72,12 @@ export function FastChannelActions({ channelName }: { channelName: string }) {
         )}
         {selectedAction === "create-transition" && (
           <CreateTransitionForm
+            key={formKey}
             channelName={channelName}
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
+            initialMode={formMode}
+            onModeChange={setFormMode}
           />
         )}
       </div>

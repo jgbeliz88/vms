@@ -19,7 +19,9 @@ export async function POST(
       cache: "no-store"
     });
     if (!response.ok) {
-      return NextResponse.json({ message: "Failed to create transition" }, { status: response.status });
+      const errorBody = await response.json().catch(() => null);
+      const message = errorBody?.msg ?? "Failed to create transition";
+      return NextResponse.json({ message }, { status: response.status });
     }
     return NextResponse.json(await response.json(), { status: 201 });
   } catch (error) {

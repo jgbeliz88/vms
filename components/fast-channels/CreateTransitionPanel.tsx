@@ -14,13 +14,22 @@ export type TransitionPayload =
 export function CreateTransitionForm({
   channelName,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  initialMode = "json",
+  onModeChange,
 }: {
   channelName: string;
   onSubmit: (values: TransitionPayload) => void;
   isSubmitting?: boolean;
+  initialMode?: "json" | "xml";
+  onModeChange?: (mode: "json" | "xml") => void;
 }) {
-  const [mode, setMode] = useState<"json" | "xml">("json");
+  const [mode, setMode] = useState<"json" | "xml">(initialMode);
+
+  const handleModeChange = (next: "json" | "xml") => {
+    setMode(next);
+    onModeChange?.(next);
+  };
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState("");
   const [transitionName, setTransitionName] = useState("");
@@ -87,14 +96,16 @@ export function CreateTransitionForm({
         <Button
           type="button"
           variant={mode === "json" ? "primary" : "secondary"}
-          onClick={() => setMode("json")}
+          onClick={() => handleModeChange("json")}
+          disabled={isSubmitting}
         >
           JSON
         </Button>
         <Button
           type="button"
           variant={mode === "xml" ? "primary" : "secondary"}
-          onClick={() => setMode("xml")}
+          onClick={() => handleModeChange("xml")}
+          disabled={isSubmitting}
         >
           SMIL / XML
         </Button>
@@ -108,6 +119,7 @@ export function CreateTransitionForm({
           onChange={(e) => { setJsonText(e.target.value); setJsonError(""); }}
           error={jsonError}
           className="min-h-[240px] font-mono text-xs"
+          disabled={isSubmitting}
         />
       )}
 
@@ -119,6 +131,7 @@ export function CreateTransitionForm({
             value={transitionName}
             onChange={(e) => handleTransitionNameChange(e.target.value)}
             error={xmlErrors.transitionName}
+            disabled={isSubmitting}
           />
           <Textarea
             label="SMIL / XML"
@@ -127,13 +140,29 @@ export function CreateTransitionForm({
             onChange={(e) => handleXmlChange(e.target.value)}
             error={xmlErrors.xml}
             className="min-h-[240px] font-mono text-xs"
+            disabled={isSubmitting}
           />
         </>
       )}
 
       <div className="flex justify-end">
         <Button onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? "Creating…" : "Create Transition"}
+          {isSubmitting ? (
+            <>
+              <svg
+                className="animate-spin"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M21 12a9 9 0 11-6.219-8.56" />
+              </svg>
+              Creating…
+            </>
+          ) : "Create Transition"}
         </Button>
       </div>
     </div>

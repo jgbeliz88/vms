@@ -24,7 +24,9 @@ export async function POST(request: Request) {
       cache: "no-store"
     });
     if (!response.ok) {
-      return NextResponse.json({ message: "Failed to schedule transition" }, { status: response.status });
+      const errorBody = await response.json().catch(() => null);
+      const message = errorBody?.msg ?? "Failed to schedule transition";
+      return NextResponse.json({ message }, { status: response.status });
     }
     return NextResponse.json(await response.json(), { status: 201 });
   } catch (error) {
