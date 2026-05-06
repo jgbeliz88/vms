@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { FastChannelPlaybackPanel } from "./FastChannelPlaybackPanel";
+import { FastChannelActions } from "./FastChannelActions";
 import { TransitionsTable } from "./TransitionsTable";
 import type { FastChannel } from "@/features/fast-channels/types";
 
@@ -49,11 +50,9 @@ function ChannelTransitions() {
 export function FastChannelTable({
   channels,
   onDelete,
-  onCreateTransition,
 }: {
   channels: FastChannel[];
   onDelete?: (name: string) => void;
-  onCreateTransition?: (name: string) => void;
 }) {
   const [filters, setFilters] = useState<Filters>({ name: "", uri: "" });
   const [expandedName, setExpandedName] = useState<string | null>(null);
@@ -163,16 +162,10 @@ export function FastChannelTable({
                           <td colSpan={3} className="bg-slate-50 px-4 py-4 dark:bg-slate-950">
                             <div className="space-y-4">
                               <FastChannelPlaybackPanel channelName={ch.name} />
-                              {onCreateTransition && (
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Actions</div>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    <Button variant="secondary" onClick={() => onCreateTransition(ch.name)}>
-                                      Create Transition
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                                <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Actions</div>
+                                <FastChannelActions channelName={ch.name} />
+                              </div>
                               <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                                 <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Transitions</div>
                                 <ChannelTransitions />

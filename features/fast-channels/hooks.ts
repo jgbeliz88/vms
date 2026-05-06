@@ -45,20 +45,44 @@ export function useDeleteFastChannel() {
   });
 }
 
-export function useCreateFastChannelTransition() {
-  const queryClient = useQueryClient();
+export function useScheduleFastChannelTransition() {
   return useMutation({
-    mutationFn: async (values: { channel: string; type: string; duration: number; description: string }) => {
+    mutationFn: async (payload: object) => {
       const response = await fetch("/api/fast-channels/transitions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(payload)
       });
-      if (!response.ok) throw new Error("Failed to create transition");
-      return response.json();
-    },
-    // NOTE: broad invalidation — intentionally clears all transition caches on create.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["fast-channel-transitions"] })
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to schedule transition");
+      }
+      return response.json() as Promise<{ transitionName: string; statusUrl: string; statusCode: number }>;
+    }
+  });
+}
+
+export function useCreateXmlTransition() {
+  return useMutation({
+    mutationFn: async ({ channelName, transitionName, xml }: {
+      channelName: string;
+      transitionName: string;
+      xml: string;
+    }) => {
+      const response = await fetch(
+        `/api/fast-channels/${encodeURIComponent(channelName)}/transitions/${encodeURIComponent(transitionName)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/xml" },
+          body: xml
+        }
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to create XML transition");
+      }
+      return response.json() as Promise<{ transitionName: string; statusUrl: string; statusCode: number }>;
+    }
   });
 }
 

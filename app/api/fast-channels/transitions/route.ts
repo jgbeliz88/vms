@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getFastChannelsUrl } from "@/app/api/_lib/env-urls";
+import { getFastChannelsUrl, getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 
 export async function GET() {
@@ -14,19 +14,19 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const endpoint = getFastChannelsUrl();
+  const base = getEnigmaBaseUrl();
   try {
     const body = await request.json();
-    const response = await fetchVMS(`${endpoint}/transitions`, {
+    const response = await fetchVMS(`${base}/fast-channel/scheduleWithoutDelay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       cache: "no-store"
     });
     if (!response.ok) {
-      return NextResponse.json({ message: "Failed to create transition" }, { status: response.status });
+      return NextResponse.json({ message: "Failed to schedule transition" }, { status: response.status });
     }
-    return NextResponse.json(await response.json());
+    return NextResponse.json(await response.json(), { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error";
     return NextResponse.json({ message }, { status: 500 });
