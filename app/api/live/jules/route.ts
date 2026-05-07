@@ -17,8 +17,6 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  logInfo({ name: "app.api.live.jules.route", fn: "POST", msg: "Start of request"});
-
   const body = await request.json().catch(() => null);
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {

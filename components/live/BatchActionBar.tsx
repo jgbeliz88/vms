@@ -47,7 +47,7 @@ const DEFAULT_LINEAR_CONFIG: LinearFormConfig = {
   fragmentLength: "48/25",
   disableDrmManifests: false,
   drmVendor: "kms",
-  contentId: "premium",
+  contentId: "free_to_air_channels",
 };
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -319,7 +319,13 @@ export function BatchActionBar({
     try {
       const retryResults = await onCreateLinear(retryItems, lastCreateConfig);
       const retryMap = new Map(retryResults.map((r) => [r.podName, r]));
-      setCreateResults((prev) => prev?.map((r) => retryMap.get(r.podName) ?? r) ?? retryResults);
+      setCreateResults((prev) =>
+        prev?.map((r) => {
+          const newResult = retryMap.get(r.podName);
+          if (!newResult) return r;
+          return { ...newResult, curlCommand: newResult.curlCommand ?? r.curlCommand };
+        }) ?? retryResults
+      );
     } finally {
       setIsCreating(false);
     }

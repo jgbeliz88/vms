@@ -196,6 +196,7 @@ export function useBatchAction() {
 }
 
 export function useBatchPodDelete() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (pods: Array<{ name: string; linear: Linear | null }>) => {
       const token = getToken();
@@ -213,7 +214,10 @@ export function useBatchPodDelete() {
           }
         })
       );
-    }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
   });
 }
 
@@ -329,9 +333,17 @@ export function useAddLinear() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const json = await response.json().catch(() => ({}));
-        const err = new Error(json.message || `HTTP ${response.status}`);
-        (err as Error & { curlCommand?: string }).curlCommand = json.curlCommand;
+        let json: Record<string, unknown> = {};
+        let rawText = "";
+        try {
+          rawText = await response.text();
+          json = JSON.parse(rawText);
+        } catch {
+          // non-JSON body (e.g. load balancer error)
+        }
+        const message = (json.message as string) || (rawText ? `HTTP ${response.status}: ${rawText}` : `HTTP ${response.status}`);
+        const err = new Error(message);
+        (err as Error & { curlCommand?: string }).curlCommand = json.curlCommand as string | undefined;
         throw err;
       }
       return await response.json();

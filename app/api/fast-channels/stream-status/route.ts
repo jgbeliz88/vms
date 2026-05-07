@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchCheck } from "@/app/api/_lib/http-check";
+import { logInfo, logError } from "@/app/api/_lib/logger";
+
+const LOG_NAME = "app.api.fast-channels.stream-status.route";
 
 const requestSchema = z.object({
   uri: z.string().url()
@@ -10,6 +13,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
+    logError({ name: LOG_NAME, fn: "POST", msg: "Invalid request payload", error: parsed.error });
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
@@ -22,5 +26,6 @@ export async function POST(request: Request) {
   const results = await Promise.all(urls.map(fetchCheck));
   const ok = results.every((r) => r.ok);
 
+  logInfo({ name: LOG_NAME, fn: "POST", msg: "End of request", data: { ok, urls: results } });
   return NextResponse.json({ ok, urls: results });
 }

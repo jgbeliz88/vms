@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
-import { zodError } from "@/app/api/_lib/responses";
+import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
+import { logInfo, logError } from "@/app/api/_lib/logger";
+
+const LOG_NAME = "app.api.settings.route";
 
 const vmsSettingsSchema = z.object({
   streamingFormats: z.object({
@@ -22,36 +25,58 @@ const vmsSettingsSchema = z.object({
 });
 
 export async function GET() {
-  const response = await fetchVMS(`${getEnigmaBaseUrl()}/setting-vms/list`);
+  const url = `${getEnigmaBaseUrl()}/setting-vms/list`;
+  let response: Response;
+  try {
+    response = await fetchVMS(url);
+  } catch (err) {
+    logError({ name: LOG_NAME, fn: "GET", msg: `Fetch failed url=${url}`, error: err });
+    return NextResponse.json({ message: String(err) }, { status: 500 });
+  }
   if (!response.ok) {
     const text = await response.text();
-    return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
-  return NextResponse.json(await response.json());
+  const data = await response.json();
+  logInfo({ name: LOG_NAME, fn: "GET", msg: "Enigma response", data });
+  return NextResponse.json(data);
 }
 
 export async function PUT(request: Request) {
   const body = await request.json();
   const parsed = vmsSettingsSchema.safeParse(body);
   if (!parsed.success) {
+    logError({ name: LOG_NAME, fn: "PUT", msg: "Invalid request payload", error: parsed.error });
     return zodError(parsed.error.issues);
   }
 
-  const response = await fetchVMS(`${getEnigmaBaseUrl()}/setting-vms`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ data: parsed.data }),
-  });
+  const url = `${getEnigmaBaseUrl()}/setting-vms`;
+  let response: Response;
+  try {
+    response = await fetchVMS(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: parsed.data }),
+    });
+  } catch (err) {
+    logError({ name: LOG_NAME, fn: "PUT", msg: `Fetch failed url=${url}`, error: err });
+    return NextResponse.json({ message: String(err) }, { status: 500 });
+  }
 
   if (!response.ok) {
     const text = await response.text();
-    return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
+    logError({ name: LOG_NAME, fn: "PUT", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    return NextResponse.json(await response.json());
+    const data = await response.json();
+    logInfo({ name: LOG_NAME, fn: "PUT", msg: "Enigma response", data });
+    return NextResponse.json(data);
   }
   const text = await response.text();
+  logInfo({ name: LOG_NAME, fn: "PUT", msg: "Enigma response", data: { message: text } });
   return NextResponse.json({ message: text });
 }
