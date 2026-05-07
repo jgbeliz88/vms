@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getJulesBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
-import { logInfo } from "@/app/api/_lib/logger";
+import { logInfo, logError } from "@/app/api/_lib/logger";
 
 const COMMAND_MAP = {
   scte: { endpoint: "/scte", method: "POST", contentType: "text/xml" },
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
+    logError({ name: "app.api.live.jules.route", fn: "POST", msg: "Invalid request payload", error: parsed.error });
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
@@ -32,14 +33,22 @@ export async function POST(request: Request) {
   const results = await Promise.allSettled(
     julesIds.map(async (julesId) => {
       const url = baseUrl.replace("{jules_id}", julesId) + endpoint;
-      const response = await fetchVMS(url, {
-        method,
-        headers: { "Content-Type": contentType },
-        body: payload,
-      });
+      let response: Response;
+      try {
+        response = await fetchVMS(url, {
+          method,
+          headers: { "Content-Type": contentType },
+          body: payload,
+        });
+      } catch (fetchError) {
+        logError({ name: "app.api.live.jules.route", fn: "POST", msg: `Fetch failed for julesId=${julesId} url=${url}`, error: fetchError });
+        throw fetchError;
+      }
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        throw new Error(`HTTP ${response.status}${text ? `: ${text}` : ""}`);
+        const error = new Error(`HTTP ${response.status}${text ? `: ${text}` : ""}`);
+        logError({ name: "app.api.live.jules.route", fn: "POST", msg: `Non-OK response for julesId=${julesId} url=${url}`, error });
+        throw error;
       }
       return julesId;
     })
