@@ -14,6 +14,7 @@ services:
       - .:/app
       - node_modules:/app/node_modules
       - next_cache:/app/.next
+      - /etc/ssl/certs/ca-cinconet-jules.crt:/etc/ssl/certs/ca-cinconet-jules.crt:ro
     env_file:
       - .env
     environment:
