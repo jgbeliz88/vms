@@ -38,7 +38,7 @@ export default function VodPage() {
     }
     if (activeTab === "lightflow" && lightflowQuery.data) {
       return lightflowQuery.data
-        .filter((item) => selected.has(item._id))
+        .filter((item) => selected.has(item.uuid))
         .map((item) => ({ mam: "lightflow" as const, uuid: item.uuid, name: item._id, id: item._id }));
     }
     return [];
