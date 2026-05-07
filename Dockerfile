@@ -11,7 +11,7 @@ USER root
  
 # Instalar dependencias necesarias
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
@@ -50,6 +50,12 @@ CMD ["npm", "run", "start"]
 # Production Stage
 # ============================================
 FROM base AS production
+ARG CA_CINCONET
+RUN cat <<EOF > /usr/local/share/ca-certificates/ca-cinconet-jules.crt
+$CA_CINCONET
+EOF
+RUN update-ca-certificates
+RUN wc -c /usr/local/share/ca-certificates/ca-cinconet-jules.crt
 ARG NEXT_PUBLIC_VMS_PRE_SELECTOR_URL
 ARG NEXT_PUBLIC_VMS_PRO_SELECTOR_URL
 ENV NEXT_PUBLIC_VMS_PRE_SELECTOR_URL=$NEXT_PUBLIC_VMS_PRE_SELECTOR_URL
