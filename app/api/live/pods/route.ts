@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.live.pods.route";
 
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json(
-      { message: `Backend error: ${text}` },
+      { message: extractUpstreamMessage(text, response.status) },
       { status: response.status }
     );
   }
@@ -66,7 +67,7 @@ export async function DELETE(request: Request) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "DELETE", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json(
-      { message: `Backend error: ${text}` },
+      { message: extractUpstreamMessage(text, response.status) },
       { status: response.status }
     );
   }

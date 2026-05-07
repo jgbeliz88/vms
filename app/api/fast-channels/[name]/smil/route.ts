@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getFastChannelsUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.fast-channels.[name].smil.route";
 
@@ -18,8 +19,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
     return NextResponse.json({ message }, { status: 500 });
   }
   if (!response.ok) {
-    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}`) });
-    return NextResponse.json({ message: "Failed to fetch SMIL" }, { status: response.status });
+    const text = await response.text().catch(() => "");
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
   const body = await response.text();
   const contentType = response.headers.get("Content-Type") ?? "application/xml";

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.live.add-linear.route";
 
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${enigmaResponse.status}: ${text}`) });
     const curlCommand = `curl -X POST "${enigmaBase}/live/${podName}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(enigmaPayload)}'`;
     return NextResponse.json(
-      { message: `Enigma API error (${enigmaResponse.status}): ${text}`, curlCommand },
+      { message: extractUpstreamMessage(text, enigmaResponse.status), curlCommand },
       { status: enigmaResponse.status }
     );
   }

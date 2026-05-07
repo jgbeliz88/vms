@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
-import { zodError } from "@/app/api/_lib/responses";
+import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
 
@@ -22,8 +22,9 @@ export async function GET() {
     return NextResponse.json([]);
   }
   if (!response.ok) {
-    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}`) });
-    return NextResponse.json([]);
+    const text = await response.text().catch(() => "");
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
   const data = await response.json();
   logInfo({ name: LOG_NAME, fn: "GET", msg: "Enigma response", data });
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json(
-      { message: `Backend error: ${text}` },
+      { message: extractUpstreamMessage(text, response.status) },
       { status: response.status }
     );
   }
@@ -85,7 +86,7 @@ export async function DELETE(request: Request) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "DELETE", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json(
-      { message: `Backend error: ${text}` },
+      { message: extractUpstreamMessage(text, response.status) },
       { status: response.status }
     );
   }

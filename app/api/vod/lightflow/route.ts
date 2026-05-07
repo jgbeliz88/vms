@@ -3,6 +3,7 @@ import type { LightflowVodContent } from "@/features/vod/lightflow-types";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.vod.lightflow.route";
 
@@ -18,7 +19,7 @@ export async function GET() {
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${endpoint}`, error: new Error(`HTTP ${response.status}${text ? `: ${text}` : ""}`) });
-    return NextResponse.json({ error: "Upstream error" }, { status: response.status });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
   const contents = (await response.json()) as LightflowVodContent[];
   logInfo({ name: LOG_NAME, fn: "GET", msg: "Enigma response", data: contents });

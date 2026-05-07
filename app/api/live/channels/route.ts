@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { Encoder, ResolvedChannel, ResolvedPod, ChannelStatus, ChannelConfigRow, Linear } from "@/features/live/types";
-import { zodError } from "@/app/api/_lib/responses";
+import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
@@ -87,8 +87,9 @@ export async function GET() {
   }
 
   if (!channelsRes.ok) {
-    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${channelsUrl}`, error: new Error(`HTTP ${channelsRes.status}`) });
-    return NextResponse.json({ message: "Failed to fetch channels" }, { status: channelsRes.status });
+    const text = await channelsRes.text().catch(() => "");
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${channelsUrl}`, error: new Error(`HTTP ${channelsRes.status}: ${text}`) });
+    return NextResponse.json({ message: extractUpstreamMessage(text, channelsRes.status) }, { status: channelsRes.status });
   }
 
   const channels: EnigmaChannel[] = await channelsRes.json();
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
   if (!response.ok) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
-    return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
 
   const data = await response.json();
@@ -152,7 +153,7 @@ export async function DELETE(request: Request) {
   if (!response.ok) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "DELETE", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
-    return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
 
   logInfo({ name: LOG_NAME, fn: "DELETE", msg: "Enigma response", data: { id: parsed.data.id } });

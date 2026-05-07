@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.fast-channels.[name].transitions.route";
 
@@ -14,11 +15,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
     response = await fetchVMS(url, { cache: "no-store" });
   } catch (err) {
     logError({ name: LOG_NAME, fn: "GET", msg: `Fetch failed url=${url}`, error: err });
-    return NextResponse.json({});
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ message: msg }, { status: 500 });
   }
   if (!response.ok) {
-    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}`) });
-    return NextResponse.json({});
+    const text = await response.text().catch(() => "");
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
   const data = await response.json();
   logInfo({ name: LOG_NAME, fn: "GET", msg: "Enigma response", data });

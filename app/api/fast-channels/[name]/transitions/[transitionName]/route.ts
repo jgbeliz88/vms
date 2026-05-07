@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEnigmaBaseUrl, getFastChannelsUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.fast-channels.[name].transitions.[transitionName].route";
 
@@ -23,7 +24,7 @@ export async function DELETE(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     logError({ name: LOG_NAME, fn: "DELETE", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}${text ? `: ${text}` : ""}`) });
-    return NextResponse.json({ message: text || "Failed to delete transition" }, { status: response.status });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
   logInfo({ name: LOG_NAME, fn: "DELETE", msg: "Fast-Channels response", data: { name, transitionName } });
   return NextResponse.json({});

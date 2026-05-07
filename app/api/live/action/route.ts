@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.live.action.route";
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
   if (!response.ok) {
     logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json(
-      { message: `Backend returned ${response.status}`, data },
+      { message: extractUpstreamMessage(text, response.status), data },
       { status: response.status }
     );
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { zodError } from "@/app/api/_lib/responses";
+import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
@@ -45,7 +45,7 @@ export async function PATCH(
   if (!response.ok) {
     const text = await response.text();
     logError({ name: LOG_NAME, fn: "PATCH", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
-    return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
+    return NextResponse.json({ message: extractUpstreamMessage(text, response.status) }, { status: response.status });
   }
 
   const data = await response.json();
