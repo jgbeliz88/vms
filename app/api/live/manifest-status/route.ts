@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchCheck } from "@/app/api/_lib/http-check";
+import { logInfo, logError } from "@/app/api/_lib/logger";
+
+const LOG_NAME = "app.api.live.manifest-status.route";
 
 const requestSchema = z.object({
   pods: z.array(z.object({ podName: z.string().min(1), linearName: z.string().min(1) })),
@@ -18,6 +21,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
+    logError({ name: LOG_NAME, fn: "POST", msg: "Invalid request payload", error: parsed.error });
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
@@ -40,6 +44,7 @@ export async function POST(request: Request) {
   );
 
   const allOk = podResults.every((p) => p.manifests.every((m) => m.ok));
+  logInfo({ name: LOG_NAME, fn: "POST", msg: "End of request", data: { ok: allOk, pods: podResults } });
 
   return NextResponse.json({ ok: allOk, pods: podResults });
 }
