@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getFastChannelsUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
+import { logInfo, logError } from "@/app/api/_lib/logger";
+
+const LOG_NAME = "app.api.fast-channels.[name].transitions.[transitionName].smil.route";
 
 export async function GET(
   _request: Request,
@@ -8,19 +11,21 @@ export async function GET(
 ) {
   const { name, transitionName } = await params;
   const endpoint = getFastChannelsUrl();
+  const url = `${endpoint}/${encodeURIComponent(name)}/transitions/${encodeURIComponent(transitionName)}/smil`;
+  let response: Response;
   try {
-    const response = await fetchVMS(
-      `${endpoint}/${encodeURIComponent(name)}/transitions/${encodeURIComponent(transitionName)}/smil`,
-      { cache: "no-store" }
-    );
-    if (!response.ok) {
-      return NextResponse.json({ message: "Failed to fetch SMIL" }, { status: response.status });
-    }
-    const body = await response.text();
-    const contentType = response.headers.get("Content-Type") ?? "application/xml";
-    return new NextResponse(body, { headers: { "Content-Type": contentType } });
+    response = await fetchVMS(url, { cache: "no-store" });
   } catch (error) {
+    logError({ name: LOG_NAME, fn: "GET", msg: `Fetch failed url=${url}`, error });
     const message = error instanceof Error ? error.message : "Error";
     return NextResponse.json({ message }, { status: 500 });
   }
+  if (!response.ok) {
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}`) });
+    return NextResponse.json({ message: "Failed to fetch SMIL" }, { status: response.status });
+  }
+  const body = await response.text();
+  const contentType = response.headers.get("Content-Type") ?? "application/xml";
+  logInfo({ name: LOG_NAME, fn: "GET", msg: "Fast-Channels response", data: { name, transitionName, contentType, size: body.length } });
+  return new NextResponse(body, { headers: { "Content-Type": contentType } });
 }

@@ -4,6 +4,9 @@ import type { Encoder, ResolvedChannel, ResolvedPod, ChannelStatus, ChannelConfi
 import { zodError } from "@/app/api/_lib/responses";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
+import { logInfo, logError } from "@/app/api/_lib/logger";
+
+const LOG_NAME = "app.api.live.channels.route";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -68,58 +71,90 @@ function joinChannels(channels: EnigmaChannel[], encoders: Encoder[]): ResolvedC
 
 export async function GET() {
   const enigmaBase = getEnigmaBaseUrl();
-  const [channelsRes, encodersRes] = await Promise.all([
-    fetchVMS(`${enigmaBase}/live/channels`),
-    fetchVMS(`${enigmaBase}/live/encoders`).catch(() => null),
-  ]);
+  const channelsUrl = `${enigmaBase}/live/channels`;
+  const encodersUrl = `${enigmaBase}/live/encoders`;
+
+  let channelsRes: Response;
+  let encodersRes: Response | null;
+  try {
+    [channelsRes, encodersRes] = await Promise.all([
+      fetchVMS(channelsUrl),
+      fetchVMS(encodersUrl).catch(() => null),
+    ]);
+  } catch (err) {
+    logError({ name: LOG_NAME, fn: "GET", msg: `Fetch failed url=${channelsUrl}`, error: err });
+    return NextResponse.json({ message: "Failed to fetch channels" }, { status: 500 });
+  }
 
   if (!channelsRes.ok) {
+    logError({ name: LOG_NAME, fn: "GET", msg: `Non-OK response url=${channelsUrl}`, error: new Error(`HTTP ${channelsRes.status}`) });
     return NextResponse.json({ message: "Failed to fetch channels" }, { status: channelsRes.status });
   }
 
   const channels: EnigmaChannel[] = await channelsRes.json();
   const encoders: Encoder[] = encodersRes?.ok ? await encodersRes.json() : [];
-  return NextResponse.json(joinChannels(channels, encoders));
+  const result = joinChannels(channels, encoders);
+  logInfo({ name: LOG_NAME, fn: "GET", msg: "Enigma response", data: result });
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
+    logError({ name: LOG_NAME, fn: "POST", msg: "Invalid request payload", error: parsed.error });
     return zodError(parsed.error.issues);
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const response = await fetchVMS(`${enigmaBase}/live/channels`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
+  const url = `${enigmaBase}/live/channels`;
+  let response: Response;
+  try {
+    response = await fetchVMS(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+  } catch (err) {
+    logError({ name: LOG_NAME, fn: "POST", msg: `Fetch failed url=${url}`, error: err });
+    return NextResponse.json({ message: String(err) }, { status: 500 });
+  }
 
   if (!response.ok) {
     const text = await response.text();
+    logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
   }
 
-  return NextResponse.json(await response.json(), { status: 201 });
+  const data = await response.json();
+  logInfo({ name: LOG_NAME, fn: "POST", msg: "Enigma response", data });
+  return NextResponse.json(data, { status: 201 });
 }
 
 export async function DELETE(request: Request) {
   const body = await request.json();
   const parsed = deleteSchema.safeParse(body);
   if (!parsed.success) {
+    logError({ name: LOG_NAME, fn: "DELETE", msg: "Invalid request payload", error: parsed.error });
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const response = await fetchVMS(`${enigmaBase}/live/channels/${parsed.data.id}`, {
-    method: "DELETE",
-  });
+  const url = `${enigmaBase}/live/channels/${parsed.data.id}`;
+  let response: Response;
+  try {
+    response = await fetchVMS(url, { method: "DELETE" });
+  } catch (err) {
+    logError({ name: LOG_NAME, fn: "DELETE", msg: `Fetch failed url=${url}`, error: err });
+    return NextResponse.json({ message: String(err) }, { status: 500 });
+  }
 
   if (!response.ok) {
     const text = await response.text();
+    logError({ name: LOG_NAME, fn: "DELETE", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
     return NextResponse.json({ message: `Backend error: ${text}` }, { status: response.status });
   }
 
+  logInfo({ name: LOG_NAME, fn: "DELETE", msg: "Enigma response", data: { id: parsed.data.id } });
   return NextResponse.json({});
 }
