@@ -59,7 +59,8 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     logError({ name: LOG_NAME, fn: "POST", msg: `Fetch failed url=${url}`, error: err });
-    return NextResponse.json({ message: String(err) }, { status: 500 });
+    const curlCommand = `curl -X POST "${enigmaBase}/live/${podName}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(enigmaPayload)}'`;
+    return NextResponse.json({ message: String(err), curlCommand }, { status: 500 });
   }
 
   if (!enigmaResponse.ok) {
