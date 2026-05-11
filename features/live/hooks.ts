@@ -242,6 +242,42 @@ export type ManifestCheck = { label: string; url: string; ok: boolean; httpStatu
 export type PodManifestResult = { podName: string; manifests: ManifestCheck[] };
 export type ManifestStatusResult = { ok: boolean; pods: PodManifestResult[] };
 
+export type ChannelDetailManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number };
+export type ChannelDetailPodResult = { orilinear: string; manifests: ChannelDetailManifestCheck[] };
+export type ChannelDetailSection = { ok: boolean; pods: ChannelDetailPodResult[] };
+export type ChannelDetailStatusResult = {
+  origin: ChannelDetailSection;
+  originDrm: ChannelDetailSection;
+  cdn: ChannelDetailSection;
+};
+
+export function useChannelDetailStatus(
+  channelId: number,
+  pods: { name: string; linear: { linearName: string | null } | null }[],
+  originBaseUrl: string,
+  cdnBaseUrl: string
+) {
+  return useQuery({
+    queryKey: queryKeys.channelDetailStatus(String(channelId)),
+    queryFn: async (): Promise<ChannelDetailStatusResult> => {
+      const podsWithLinear = pods
+        .filter((p): p is typeof p & { linear: { linearName: string } } =>
+          p.linear !== null && p.linear.linearName !== null
+        )
+        .map((p) => ({ podName: p.name, linearName: p.linear.linearName }));
+      const res = await fetch("/api/live/channel-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pods: podsWithLinear, originBaseUrl, cdnBaseUrl }),
+      });
+      if (!res.ok) throw new Error("Channel status check failed");
+      return res.json();
+    },
+    enabled: Boolean(originBaseUrl && cdnBaseUrl),
+    staleTime: 2 * 60_000,
+  });
+}
+
 export function useChannelManifestStatus(
   channelId: number,
   pods: { name: string; linear: { linearName: string | null } | null }[],
