@@ -379,7 +379,6 @@ export default function LivePage() {
 
   const handleCreate = async (values: {
     name: string;
-    channelPath: string;
     metadata: Record<string, unknown>;
   }) => {
     try {

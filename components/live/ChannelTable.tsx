@@ -78,16 +78,16 @@ export function ChannelTable({
           across header and rows. The col-span-7 detail panels use overflow-x-clip
           + min-w-0 so their content never expands the grid tracks.
         */}
-        <div className="grid min-w-[640px] grid-cols-[2.5rem_1fr_8rem_7rem_10rem_8rem_auto]">
+        <div className="grid min-w-[640px] grid-cols-[2.5rem_1fr_10rem_10rem_7rem_8rem_auto]">
 
           {/* ── Header ── */}
           <div className={HEADER_CELL}>
             <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
           </div>
           <div className={HEADER_CELL}>Channel</div>
-          <div className={HEADER_CELL}>Channel ID</div>
-          <div className={HEADER_CELL}>Status</div>
+          <div className={HEADER_CELL}>Encoder</div>
           <div className={HEADER_CELL}>Pods</div>
+          <div className={HEADER_CELL}>Status</div>
           <div className={HEADER_CELL}>Last Sync</div>
           <div className={HEADER_CELL} />
 
@@ -117,11 +117,18 @@ export function ChannelTable({
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
                   <div className="font-semibold text-slate-900 dark:text-slate-100">{channel.name}</div>
                 </div>
-                <div className={cn(CELL, ROW_BORDER, "text-xs text-slate-500", hoverClass)} {...rowEvents}>
-                  {channel.id}
-                </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
-                  <StatusPill status={overall} />
+                  {channel.pods.length > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                      {[...new Set(channel.pods.map((p) => p.encoderName))].map((name) => (
+                        <div key={name} className="text-sm text-slate-700 dark:text-slate-200">
+                          {name}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} title={podTooltip} {...rowEvents}>
                   {channel.pods.length > 0 ? (
@@ -135,6 +142,9 @@ export function ChannelTable({
                   ) : (
                     <span className="text-slate-400">—</span>
                   )}
+                </div>
+                <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
+                  <StatusPill status={overall} />
                 </div>
                 <div className={cn(CELL, ROW_BORDER, "text-xs text-slate-500", hoverClass)} {...rowEvents}>
                   {channel.lastSync}
