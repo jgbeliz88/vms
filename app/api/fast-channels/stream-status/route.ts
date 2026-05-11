@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const base = `${parsed_url.origin}/${channelName}`;
   const urls = [`${base}.isml/.mpd`, `${base}.isml/.m3u8`];
 
-  const results = await Promise.all(urls.map(fetchCheck));
+  const results = await Promise.all(urls.map((url) => fetchCheck(url)));
   const ok = results.every((r) => r.ok);
 
   logInfo({ name: LOG_NAME, fn: "POST", msg: "End of request", data: { ok, urls: results } });
