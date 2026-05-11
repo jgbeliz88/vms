@@ -98,7 +98,6 @@ export function useFastChannelStreamStatusQuery(uri: string) {
       if (!response.ok) throw new Error("Failed to check stream status");
       return response.json() as Promise<{ ok: boolean; urls: { url: string; ok: boolean; httpStatus: number }[] }>;
     },
-    staleTime: 2 * 60_000,
     enabled: !!uri
   });
 }
@@ -132,6 +131,5 @@ export function useFastChannelTransitionsQuery(channelName: string) {
       if (!response.ok) throw new Error("Failed to load transitions");
       return (await response.json()) as FastChannelTransitions;
     },
-    staleTime: 2 * 60_000
   });
 }
