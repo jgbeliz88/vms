@@ -42,6 +42,18 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
   const cdnUrl = `${cdnBase}/${channelName}.isml${drmSegment}/${extension}`;
   const playbackUrl = mode === "direct" ? originUrl : cdnUrl;
 
+  useEffect(() => {
+    if (!diagnosticsOrigin.data || !originUrl) return;
+    void diagnosticsOrigin.mutateAsync({ url: originUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originUrl]);
+
+  useEffect(() => {
+    if (!diagnosticsCdn.data || !cdnUrl) return;
+    void diagnosticsCdn.mutateAsync({ url: cdnUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cdnUrl]);
+
   const runOrigin = async () => {
     setMode("direct");
     setPlayerActive(true);

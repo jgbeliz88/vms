@@ -32,8 +32,6 @@ type StreamPlayerProps = {
   onBufferUpdate?: (stats: BufferStats) => void;
 };
 
-let adEventCounter = 0;
-
 /** Parse ID3v2 TXXX frames from raw bytes and return "key=value" pairs */
 function parseId3Txxx(bytes: Uint8Array): string | null {
   // Verify ID3v2 header: "ID3"
@@ -79,6 +77,7 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
   const hlsRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dashRef = useRef<any>(null);
+  const adEventCounterRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [audioTrackIndex, setAudioTrackIndex] = useState(0);
@@ -108,7 +107,6 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
     setError(null);
     setAudioTracks([]);
     setAudioTrackIndex(0);
-    adEventCounter = 0;
 
     // Buffering tracking via polling (more reliable than events with HLS.js)
     let bufferCount = 0;
@@ -137,7 +135,7 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
     }, 250);
 
     const emit = (event: Omit<AdEvent, "id">) => {
-      onAdEvent?.({ ...event, id: `ad-${++adEventCounter}` });
+      onAdEvent?.({ ...event, id: `ad-${++adEventCounterRef.current}` });
     };
 
     const setupHls = async () => {

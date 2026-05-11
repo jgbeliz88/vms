@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResolvedChannel, PlaybackMode } from "@/features/live/types";
 import { Button } from "@/components/ui/Button";
 import { usePlaybackDiagnostics } from "@/features/live/hooks";
@@ -32,6 +32,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const [adEventSearch, setAdEventSearch] = useState("");
   const [showNoLinearWarning, setShowNoLinearWarning] = useState(false);
   const diagnostics = usePlaybackDiagnostics();
+  const lastFetchedUrlRef = useRef<string>("");
 
   const handleAdEvent = useCallback((event: AdEvent) => {
     setAdEvents((prev) => [...prev, event]);
@@ -91,7 +92,9 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     setMode(nextMode);
     setPlayerActive(true);
     setAdEvents([]);
-    await diagnostics.mutateAsync({ url: nextMode === "direct" ? originUrl : cdnUrl });
+    const url = nextMode === "direct" ? originUrl : cdnUrl;
+    lastFetchedUrlRef.current = url;
+    await diagnostics.mutateAsync({ url });
   };
 
   const podsWithLinears = channel.pods.filter((p) => p.linear !== null);
@@ -101,6 +104,14 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     : "";
   const cdnUrl = `${cdnBase}/${normalizedPath}${drmSegment}${extension}`;
   const playbackUrl = mode === "direct" ? originUrl : cdnUrl;
+  const activeUrl = mode === "direct" ? originUrl : cdnUrl;
+
+  useEffect(() => {
+    if (!playerActive || !activeUrl || activeUrl === lastFetchedUrlRef.current) return;
+    lastFetchedUrlRef.current = activeUrl;
+    void diagnostics.mutateAsync({ url: activeUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUrl]);
 
   const linearOptions = podsWithLinears.map((p, i) => ({
     label: `${p.linear!.linearName} (${p.name})`,
