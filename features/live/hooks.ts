@@ -342,7 +342,7 @@ export function useVodManifestQuery(id: string, url: string | null, originBase: 
       return res.json() as Promise<{ status: string; httpStatus?: number }>;
     },
     enabled: Boolean(url),
-    staleTime: 5 * 60_000,
+    staleTime: 2 * 60_000,
   });
 }
 
