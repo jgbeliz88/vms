@@ -22,7 +22,6 @@ export function useCreateChannel() {
   return useMutation({
     mutationFn: async (payload: {
       name: string;
-      channelPath: string;
       metadata?: Record<string, unknown>;
     }) => {
       const response = await fetch("/api/live/channels", {

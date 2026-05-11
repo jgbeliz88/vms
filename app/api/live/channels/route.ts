@@ -10,7 +10,6 @@ const LOG_NAME = "app.api.live.channels.route";
 
 const createSchema = z.object({
   name: z.string().min(2),
-  channelPath: z.string().min(1),
   platform: z.string().optional().default("HLS"),
   metadata: z.record(z.unknown()).optional(),
 });
@@ -22,7 +21,6 @@ const deleteSchema = z.object({
 type EnigmaChannel = {
   id: number;
   name: string;
-  channelPath: string;
   platform: string;
   status: string;
   cacheState: string;
@@ -57,7 +55,6 @@ function joinChannels(channels: EnigmaChannel[], encoders: Encoder[]): ResolvedC
     return {
       id: ch.id,
       name: ch.name,
-      channelPath: ch.channelPath,
       platform: ch.platform,
       status: ch.status as ChannelStatus,
       cacheState: ch.cacheState as "warm" | "cold" | "stale",

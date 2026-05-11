@@ -198,9 +198,6 @@ export function ChannelDetail({
             <div>
               <span className="font-semibold">Name:</span> {channel.name}
             </div>
-            <div>
-              <span className="font-semibold">Channel Path:</span> {channel.channelPath || "—"}
-            </div>
           </div>
           {editing ? (
             <textarea
