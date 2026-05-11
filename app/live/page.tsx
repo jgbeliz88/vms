@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
 import {
@@ -15,7 +15,6 @@ import {
   useDeleteLinearAction,
   useDeletePodReference,
   useUpdateChannelConfig,
-  type ConfigLayout,
 } from "@/features/live/hooks";
 import {
   useEncodersQuery,
@@ -25,7 +24,6 @@ import {
 import { channelActions, batchActions } from "@/features/live/config";
 import { BatchAction, ResolvedChannel, ResolvedPod, ChannelAction, ChannelConfigRow } from "@/features/live/types";
 import { ChannelTable } from "@/components/live/ChannelTable";
-import { ChannelConfigReadOnlyTable } from "@/components/live/ChannelConfigReadOnlyTable";
 import { ActionConfirmModal, AddLinearData, DeleteFlowDeletion } from "@/components/live/ActionConfirmModal";
 import { BatchActionBar, CreateLinearItem, LinearFormConfig, CreateLinearResult } from "@/components/live/BatchActionBar";
 import { BatchConfirmModal } from "@/components/live/BatchConfirmModal";
@@ -38,89 +36,6 @@ import { Modal } from "@/components/ui/Modal";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
 
-function ChannelConfigOverview({
-  channels,
-  layout,
-  showConfig,
-  setShowConfig,
-}: {
-  channels: ResolvedChannel[];
-  layout?: ConfigLayout;
-  showConfig: boolean;
-  setShowConfig: (fn: (v: boolean) => boolean) => void;
-}) {
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <button
-        onClick={() => setShowConfig((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <div>
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Channel Configuration
-          </div>
-          <div className="text-xs text-slate-500">
-            {channels.length} channel{channels.length !== 1 ? "s" : ""}
-          </div>
-        </div>
-        <span className="text-xs text-slate-400">{showConfig ? "▲ Hide" : "▼ Show"}</span>
-      </button>
-      {showConfig && (
-        <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-          {channels.length === 0 ? (
-            <p className="text-xs text-slate-400">No channels created yet.</p>
-          ) : !layout ? (
-            <p className="text-xs text-slate-400">Loading configuration layout…</p>
-          ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500 dark:border-slate-800 dark:bg-slate-950">
-                    <tr>
-                      <th className="px-4 py-3">Channel</th>
-                      <th className="px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {channels.map((ch) => {
-                      const isExpanded = expandedId === ch.id;
-                      return (
-                        <Fragment key={ch.id}>
-                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                              {ch.name}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                variant={isExpanded ? "primary" : "secondary"}
-                                onClick={() => setExpandedId(isExpanded ? null : ch.id)}
-                              >
-                                {isExpanded ? "Collapse" : "Details"}
-                              </Button>
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={2} className="bg-slate-50 px-4 py-4 dark:bg-slate-950">
-                                <ChannelConfigReadOnlyTable channel={ch} layout={layout} />
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function LivePage() {
   const { notify } = useToast();
@@ -141,7 +56,6 @@ export default function LivePage() {
   const configLayoutQuery = useConfigLayoutQuery();
   const encodersQuery = useEncodersQuery();
   const [savingConfigId, setSavingConfigId] = useState<number | null>(null);
-  const [showConfig, setShowConfig] = useState(false);
   const [channelFilter, setChannelFilter] = useState("");
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
@@ -587,9 +501,6 @@ export default function LivePage() {
               onDeletePod={handleDeletePodForChannel}
             />
           )}
-
-          {/* Channel Configuration */}
-          <ChannelConfigOverview channels={channels} layout={configLayoutQuery.data} showConfig={showConfig} setShowConfig={setShowConfig} />
 
           {/* Encoder Configuration */}
           <EncoderConfigSection

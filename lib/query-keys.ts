@@ -3,6 +3,7 @@ export const queryKeys = {
   liveEncoders: () => ["live-encoders"],
   liveConfigLayout: () => ["live-config-layout"],
   manifestStatus: (channelId: string, originBase: string) => ["manifest-status", channelId, originBase],
+  channelDetailStatus: (channelId: string) => ["channel-detail-status", channelId],
   fastChannels: () => ["fast-channels"],
   fastChannelTransitions: (name: string) => ["fast-channel-transitions", name],
   fastChannelStreamStatus: (uri: string) => ["fast-channel-stream-status", uri],

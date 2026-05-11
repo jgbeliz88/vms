@@ -1,28 +1,82 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ResolvedChannel, ChannelAction, ChannelConfigRow } from "@/features/live/types";
 import { JsonViewer } from "@/components/ui/JsonViewer";
 import { PlaybackPanel } from "./PlaybackPanel";
 import { LinearsPanel } from "./LinearsPanel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { deriveOverallStatus, deriveStatusParts } from "@/features/live/status";
 import { ChannelConfigEditor } from "./ChannelConfigEditor";
 import { ChannelCommands } from "./ChannelCommands";
-import { useUpdateChannelMetadata } from "@/features/live/hooks";
+import { useUpdateChannelMetadata, useChannelDetailStatus } from "@/features/live/hooks";
+import type { ChannelDetailSection } from "@/features/live/hooks";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
 import { useToast } from "@/components/ui/Toast";
+import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import type { ConfigLayout } from "@/features/live/hooks";
 import type { Encoder } from "@/features/live/types";
 import type { AddLinearData } from "./ActionConfirmModal";
 import type { ResolvedPod } from "@/features/live/types";
 
-function statusTone(status: "ok" | "warning" | "error") {
-  if (status === "ok") return "success" as const;
-  if (status === "warning") return "warning" as const;
-  return "error" as const;
+function StatusCard({
+  label,
+  section,
+  isLoading,
+  isError,
+  expanded,
+}: {
+  label: string;
+  section: ChannelDetailSection | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  expanded: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
+      <div className="text-slate-500">{label}</div>
+      <div className="mt-2">
+        {isLoading ? (
+          <span className="text-slate-400 animate-pulse">checking…</span>
+        ) : isError ? (
+          <Badge label="error" tone="error" />
+        ) : section?.ok ? (
+          <Badge label="OK" tone="success" />
+        ) : (
+          <Badge label="Failed" tone="error" />
+        )}
+      </div>
+      {expanded && section && (
+        <div className="mt-3 space-y-3">
+          {section.pods.map((pod) => (
+            <div key={pod.orilinear}>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                {pod.orilinear}
+              </div>
+              <div className="flex flex-col gap-1">
+                {pod.manifests.map((m) => (
+                  <div
+                    key={m.url}
+                    className={`rounded-lg border px-2 py-1.5 ${
+                      m.ok
+                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-700/40 dark:bg-emerald-900/20"
+                        : "border-red-200 bg-red-50 dark:border-red-700/40 dark:bg-red-900/20"
+                    }`}
+                  >
+                    <div className="font-medium text-slate-700 dark:text-slate-200">{m.label}</div>
+                    <div className={`mt-0.5 font-mono break-all ${m.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
+                      {m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ChannelDetail({
@@ -50,7 +104,12 @@ export function ChannelDetail({
   const canAdmin = usePermission([ROLES.ADMIN]);
   const updateMetadata = useUpdateChannelMetadata();
   const { notify } = useToast();
+  const { data: settings } = useVmsSettingsQuery();
+  const originBaseUrl = settings?.origin.live ?? "";
+  const cdnBaseUrl = settings?.akamai.live ?? "";
+  const statusQuery = useChannelDetailStatus(channel.id, channel.pods, originBaseUrl, cdnBaseUrl);
 
+  const [statusExpanded, setStatusExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -97,12 +156,12 @@ export function ChannelDetail({
     }
   };
 
-  const partStatus = useMemo(() => {
-    const parts = (channel.metadata as Record<string, unknown>)?.statusParts;
-    return deriveStatusParts(parts, channel.status);
-  }, [channel.metadata, channel.status]);
-
-  const overallStatus = useMemo(() => deriveOverallStatus(partStatus), [partStatus]);
+  const overallOk =
+    !statusQuery.isError &&
+    !statusQuery.isLoading &&
+    statusQuery.data?.origin.ok === true &&
+    statusQuery.data?.originDrm.ok === true &&
+    statusQuery.data?.cdn.ok === true;
 
   return (
     <div className="space-y-4">
@@ -160,28 +219,52 @@ export function ChannelDetail({
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Status</div>
-          <Badge label={`Overall: ${overallStatus}`} tone={statusTone(overallStatus)} />
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
-            <div className="text-slate-500">Encoding</div>
-            <div className="mt-2">
-              <Badge label={partStatus.encoding} tone={statusTone(partStatus.encoding)} />
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
-            <div className="text-slate-500">Origin</div>
-            <div className="mt-2">
-              <Badge label={partStatus.origin} tone={statusTone(partStatus.origin)} />
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
-            <div className="text-slate-500">CDN</div>
-            <div className="mt-2">
-              <Badge label={partStatus.cdn} tone={statusTone(partStatus.cdn)} />
-            </div>
+          <div className="flex items-center gap-2">
+            {statusQuery.data && (
+              <button
+                onClick={() => setStatusExpanded((v) => !v)}
+                className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors select-none"
+                aria-label={statusExpanded ? "Collapse details" : "Expand details"}
+              >
+                {statusExpanded ? "▲ collapse" : "▼ details"}
+              </button>
+            )}
+            {!originBaseUrl || !cdnBaseUrl ? null : statusQuery.isLoading ? (
+              <span className="text-xs text-slate-400 animate-pulse">checking…</span>
+            ) : statusQuery.isError ? (
+              <Badge label="Overall: error" tone="error" />
+            ) : (
+              <Badge label={overallOk ? "Overall: OK" : "Overall: Failed"} tone={overallOk ? "success" : "error"} />
+            )}
           </div>
         </div>
+        {!originBaseUrl || !cdnBaseUrl ? (
+          <p className="mt-3 text-xs text-slate-400">Configure origin and CDN URLs in Settings to enable status checks.</p>
+        ) : (
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <StatusCard
+              label="Origin"
+              section={statusQuery.data?.origin}
+              isLoading={statusQuery.isLoading}
+              isError={statusQuery.isError}
+              expanded={statusExpanded}
+            />
+            <StatusCard
+              label="Origin (DRM)"
+              section={statusQuery.data?.originDrm}
+              isLoading={statusQuery.isLoading}
+              isError={statusQuery.isError}
+              expanded={statusExpanded}
+            />
+            <StatusCard
+              label="CDN"
+              section={statusQuery.data?.cdn}
+              isLoading={statusQuery.isLoading}
+              isError={statusQuery.isError}
+              expanded={statusExpanded}
+            />
+          </div>
+        )}
       </div>
 
       {configLayout && onSaveConfig && (

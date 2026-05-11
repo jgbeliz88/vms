@@ -1,5 +1,9 @@
 import { ChannelStatus } from "./types";
 
+export function toOrilinear(podName: string): string {
+  return podName.replace(/^usp/, "").replace(/[mb]$/, "");
+}
+
 export type StatusParts = {
   encoding: ChannelStatus;
   origin: ChannelStatus;
