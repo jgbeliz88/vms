@@ -2,7 +2,7 @@
     "configLayout": {
         "Platform": {
             "Infinity": {
-                "Devices": ["Web", "iOS", "Android", "Samsung Tizen LS webOS", "tvOS", "Android TV", "Fire TV (Android)", "Fire TV (Kepler)", "Chromecast", "Movistar STB", "Philips TitaNoS", "Vodafone Vewd", "Hisense Vidaa"]
+                "Devices": ["Web", "iOS", "Android", "Samsung Tizen", "LS webOS", "tvOS", "Android TV", "Fire TV (Android)", "Fire TV (Kepler)", "Chromecast", "Movistar STB", "Philips TitaNoS", "Vodafone Vewd", "Hisense Vidaa"]
             },
             "Multisite": {
                 "Devices": ["Web"]
