@@ -273,7 +273,6 @@ export function useChannelDetailStatus(
       return res.json();
     },
     enabled: Boolean(originBaseUrl && cdnBaseUrl),
-    staleTime: 2 * 60_000,
   });
 }
 
@@ -298,7 +297,6 @@ export function useChannelManifestStatus(
       return response.json();
     },
     enabled: Boolean(originBaseUrl),
-    staleTime: 2 * 60_000
   });
 }
 
@@ -342,7 +340,6 @@ export function useVodManifestQuery(id: string, url: string | null, originBase: 
       return res.json() as Promise<{ status: string; httpStatus?: number }>;
     },
     enabled: Boolean(url),
-    staleTime: 5 * 60_000,
   });
 }
 

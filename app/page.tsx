@@ -90,16 +90,16 @@ function ManifestDetail({ data }: { data: ManifestStatusResult }) {
                 key={m.label}
                 className={`rounded-lg border px-3 py-2 text-xs ${
                   m.ok
-                    ? "border-[#219653]/30 bg-[#DCFCE7]"
-                    : "border-[#D34053]/30 bg-[#FEE2E2]"
+                    ? "border-[#219653]/30 bg-[#DCFCE7] dark:border-emerald-700/40 dark:bg-emerald-900/20"
+                    : "border-[#D34053]/30 bg-[#FEE2E2] dark:border-rose-700/40 dark:bg-rose-900/20"
                 }`}
               >
-                <div className="font-medium text-[#1C2434]">{m.label}</div>
+                <div className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</div>
                 <div
                   className={`mt-0.5 ${
                     m.ok
-                      ? "text-[#166534]"
-                      : "text-[#991B1B]"
+                      ? "text-[#166534] dark:text-emerald-400"
+                      : "text-[#991B1B] dark:text-rose-400"
                   }`}
                 >
                   {m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}

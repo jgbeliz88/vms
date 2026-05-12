@@ -11,6 +11,8 @@ const requestSchema = z.object({
   cdnBaseUrl: z.string().url(),
 });
 
+const CDN_HEADERS = { Origin: "www.mediasetinfinity.es" };
+
 function toOrilinear(podName: string): string {
   return podName.replace(/^usp/, "").replace(/[mb]$/, "");
 }
@@ -51,8 +53,8 @@ export async function POST(request: Request) {
           fetchCheck(`${base}/mpd-cenc/mpd-cenc.isml/.mpd`).then((r) => ({ label: "DASH", ...r })),
         ]),
         Promise.all([
-          fetchCheck(`${cdnBase}/hls-fairplay/hls-fairplay.isml/.m3u8`).then((r) => ({ label: "HLS", ...r })),
-          fetchCheck(`${cdnBase}/mpd-cenc/mpd-cenc.isml/.mpd`).then((r) => ({ label: "DASH", ...r })),
+          fetchCheck(`${cdnBase}/hls-fairplay/hls-fairplay.isml/.m3u8`, CDN_HEADERS).then((r) => ({ label: "HLS", ...r })),
+          fetchCheck(`${cdnBase}/mpd-cenc/mpd-cenc.isml/.mpd`, CDN_HEADERS).then((r) => ({ label: "DASH", ...r })),
         ]),
       ]);
 
