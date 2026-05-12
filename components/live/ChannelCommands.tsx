@@ -243,188 +243,62 @@ function StatusDot({ status }: { status: ResolvedPod["status"] }) {
   );
 }
 
-// ── TargetBar (Actions — blue accent) ─────────────────────────────────────────
+// ── TargetPanel (shared left-side selector for both rows) ─────────────────────
 
-function TargetBar({
-  pods,
-  selected,
-  onToggle,
+function TargetPanel({
+  title,
+  hint,
+  accent,
+  children,
   onSelectAll,
+  isAllSelected,
+  warn,
 }: {
-  pods: ResolvedPod[];
-  selected: string[];
-  onToggle: (name: string) => void;
-  onSelectAll: () => void;
+  title: string;
+  hint?: string;
+  accent?: "violet";
+  children: React.ReactNode;
+  onSelectAll?: () => void;
+  isAllSelected?: boolean;
+  warn?: boolean;
 }) {
-  const allSelected = pods.length > 0 && selected.length === pods.length;
+  const accentText =
+    accent === "violet"
+      ? "text-violet-600 dark:text-violet-400 hover:underline"
+      : "text-brand-600 dark:text-brand-400 hover:underline";
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3.5 dark:border-slate-700 dark:bg-slate-950">
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-        Target Linears
-      </span>
-
-      <div className="flex flex-1 flex-wrap gap-2">
-        {pods.length === 0 ? (
-          <span className="text-xs text-slate-400">No pods configured</span>
-        ) : (
-          pods.map((pod) => {
-            const active = selected.includes(pod.name);
-            return (
-              <button
-                key={pod.name}
-                type="button"
-                onClick={() => onToggle(pod.name)}
-                className={cn(
-                  "flex select-none items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-all",
-                  active
-                    ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-900/20"
-                    : "border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-600 dark:hover:bg-brand-900/10"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
-                    active
-                      ? "border-brand-500 bg-brand-500 dark:border-brand-400"
-                      : "border-slate-300 dark:border-slate-600"
-                  )}
-                >
-                  {active && (
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </span>
-                <div>
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {pod.name}
-                  </div>
-                  <div className="text-[10px] text-slate-400">{pod.linear?.linearName ?? "—"}</div>
-                </div>
-                <StatusDot status={pod.status} />
-              </button>
-            );
-          })
+    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</span>
+          {hint && <span className="text-[10px] text-slate-400/80">{hint}</span>}
+        </div>
+        {onSelectAll && (
+          <button
+            type="button"
+            onClick={onSelectAll}
+            className={cn("shrink-0 text-[11px] font-medium", accentText)}
+          >
+            {isAllSelected ? "Deselect all" : "Select all"}
+          </button>
         )}
       </div>
-
-      {selected.length === 0 && pods.length > 0 && (
-        <span className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
-          ⚠ No target selected
-        </span>
-      )}
-
-      {pods.length > 0 && (
-        <button
-          type="button"
-          onClick={onSelectAll}
-          className="shrink-0 text-[11px] font-medium text-brand-600 hover:underline dark:text-brand-400"
-        >
-          {allSelected ? "Deselect all" : "Select all"}
-        </button>
-      )}
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        {children}
+        {warn && (
+          <span className="mt-1 self-start rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
+            ⚠ No target selected
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── JulesIdsBar (Ad Replacement — violet accent) ──────────────────────────────
+// ── ActionsRow ────────────────────────────────────────────────────────────────
 
-function JulesIdsBar({
-  julesIds,
-  selected,
-  onToggle,
-  onSelectAll,
-}: {
-  julesIds: string[] | null;
-  selected: string[];
-  onToggle: (id: string) => void;
-  onSelectAll: () => void;
-}) {
-  if (julesIds === null) {
-    return (
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3.5 dark:border-slate-700 dark:bg-slate-950">
-        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Jules IDs
-        </span>
-        <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-          Configure the{" "}
-          <code className="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">jules-ids</code>{" "}
-          property in the channel metadata to enable Ad Replacement.
-        </p>
-      </div>
-    );
-  }
-
-  const allSelected = julesIds.length > 0 && selected.length === julesIds.length;
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3.5 dark:border-slate-700 dark:bg-slate-950">
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-        Jules IDs
-      </span>
-
-      <div className="flex flex-1 flex-wrap gap-2">
-        {julesIds.length === 0 ? (
-          <span className="text-xs text-slate-400">No Jules IDs configured</span>
-        ) : (
-          julesIds.map((id) => {
-            const active = selected.includes(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onToggle(id)}
-                className={cn(
-                  "flex select-none items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-all",
-                  active
-                    ? "border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-violet-900/20"
-                    : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-600 dark:hover:bg-violet-900/10"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
-                    active
-                      ? "border-violet-600 bg-violet-600 dark:border-violet-400 dark:bg-violet-500"
-                      : "border-slate-300 dark:border-slate-600"
-                  )}
-                >
-                  {active && (
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{id}</span>
-              </button>
-            );
-          })
-        )}
-      </div>
-
-      {selected.length === 0 && julesIds.length > 0 && (
-        <span className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
-          ⚠ No target selected
-        </span>
-      )}
-
-      {julesIds.length > 0 && (
-        <button
-          type="button"
-          onClick={onSelectAll}
-          className="shrink-0 text-[11px] font-medium text-violet-600 hover:underline dark:text-violet-400"
-        >
-          {allSelected ? "Deselect all" : "Select all"}
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ── ActionsColumn ─────────────────────────────────────────────────────────────
-
-function ActionsColumn({
+function ActionsRow({
   pods,
   selectedPodNames,
   onToggle,
@@ -438,73 +312,130 @@ function ActionsColumn({
   onRequestConfirm: (action: ChannelAction) => void;
 }) {
   const noTarget = selectedPodNames.length === 0;
+  const allSelected = pods.length > 0 && selectedPodNames.length === pods.length;
 
   return (
-    <>
-      <TargetBar
-        pods={pods}
-        selected={selectedPodNames}
-        onToggle={onToggle}
-        onSelectAll={onSelectAll}
-      />
-      <div className="flex flex-col gap-2.5 p-4">
-        {channelActions.map((action) => {
-          const meta = ACTION_META[action.id as keyof typeof ACTION_META];
-          return (
-            <button
-              key={action.id}
-              type="button"
-              disabled={noTarget}
-              onClick={() => onRequestConfirm(action)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
-                noTarget
-                  ? "cursor-not-allowed border-slate-200 opacity-45 dark:border-slate-700"
-                  : "border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-500 dark:hover:bg-brand-900/10"
-              )}
-            >
-              <span
+    <div className="grid grid-cols-[minmax(260px,340px)_1fr]">
+      {/* Left: Target Linears */}
+      <div className="border-r border-slate-200 dark:border-slate-700">
+        <TargetPanel
+          title="Target Linears"
+          hint={`${selectedPodNames.length}/${pods.length} selected`}
+          onSelectAll={onSelectAll}
+          isAllSelected={allSelected}
+          warn={noTarget}
+        >
+          {pods.length === 0 ? (
+            <span className="text-xs text-slate-400">No pods configured</span>
+          ) : (
+            pods.map((pod) => {
+              const active = selectedPodNames.includes(pod.name);
+              return (
+                <button
+                  key={pod.name}
+                  type="button"
+                  onClick={() => onToggle(pod.name)}
+                  className={cn(
+                    "flex select-none items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-all",
+                    active
+                      ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-900/20"
+                      : "border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-600 dark:hover:bg-brand-900/10"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                      active
+                        ? "border-brand-500 bg-brand-500 dark:border-brand-400"
+                        : "border-slate-300 dark:border-slate-600"
+                    )}
+                  >
+                    {active && (
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                      {pod.name}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{pod.linear?.linearName ?? "—"}</div>
+                  </div>
+                  <StatusDot status={pod.status} />
+                </button>
+              );
+            })
+          )}
+        </TargetPanel>
+      </div>
+
+      {/* Right: Actions */}
+      <div className="flex flex-col">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Actions</span>
+            <span className="text-[10px] text-slate-400/80">Send commands to selected linears</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2.5 p-4 sm:grid-cols-3">
+          {channelActions.map((action) => {
+            const meta = ACTION_META[action.id as keyof typeof ACTION_META];
+            return (
+              <button
+                key={action.id}
+                type="button"
+                disabled={noTarget}
+                onClick={() => onRequestConfirm(action)}
                 className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                  meta?.iconBg
+                  "flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all",
+                  noTarget
+                    ? "cursor-not-allowed border-slate-200 opacity-45 dark:border-slate-700"
+                    : "border-slate-200 bg-white hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-500 dark:hover:bg-brand-900/10"
                 )}
               >
-                <span className={meta?.iconColor}>{meta?.icon}</span>
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {action.label}
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                    meta?.iconBg
+                  )}
+                >
+                  <span className={meta?.iconColor}>{meta?.icon}</span>
                 </span>
-                <span className="block text-[10px] text-slate-400">{action.description}</span>
-              </span>
-              <svg
-                className="shrink-0 text-slate-300 dark:text-slate-600"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          );
-        })}
-
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {action.label}
+                  </span>
+                  <span className="block text-[10px] leading-snug text-slate-400">{action.description}</span>
+                </span>
+                <svg
+                  className="shrink-0 text-slate-300 dark:text-slate-600"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            );
+          })}
+        </div>
         {noTarget && (
-          <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-            Select target linears above to enable actions
+          <p className="mx-4 mb-4 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+            Select target linears on the left to enable actions
           </p>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
-// ── AdReplacementColumn ───────────────────────────────────────────────────────
+// ── AdReplacementRow ──────────────────────────────────────────────────────────
 
-function AdReplacementColumn({
+function AdReplacementRow({
   channelName,
   julesIds,
   selectedJules,
@@ -531,6 +462,8 @@ function AdReplacementColumn({
   const payload = payloads[payloadKey] ?? subtypeCfg.template(channelName);
   const noTarget = julesIds === null || selectedJules.length === 0;
   const sending = sendEvent.isPending;
+
+  const allSelected = julesIds !== null && julesIds.length > 0 && selectedJules.length === julesIds.length;
 
   const switchCmd = (cmd: CommandKey) => {
     setActiveCmd(cmd);
@@ -562,184 +495,243 @@ function AdReplacementColumn({
   };
 
   return (
-    <>
-      <JulesIdsBar
-        julesIds={julesIds}
-        selected={selectedJules}
-        onToggle={onToggleJules}
-        onSelectAll={onSelectAllJules}
-      />
-
-      <div className="flex flex-col gap-4 p-4">
-        {/* Command tabs */}
-        <div className="flex gap-2">
-          {(Object.entries(COMMAND_CONFIG) as [CommandKey, (typeof COMMAND_CONFIG)[CommandKey]][]).map(
-            ([key, c]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => switchCmd(key)}
-                className={cn(
-                  "flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center transition-all",
-                  activeCmd === key
-                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-900/20 dark:text-brand-400"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-md",
-                    activeCmd === key
-                      ? "bg-brand-100 dark:bg-brand-900/40"
-                      : "bg-slate-100 dark:bg-slate-800"
-                  )}
-                >
-                  {CMD_ICONS[key]}
-                </span>
-                <span className="text-[11px] font-semibold">{c.label}</span>
-                <span
-                  className={cn(
-                    "text-[9px]",
-                    activeCmd === key ? "text-brand-400" : "text-slate-400"
-                  )}
-                >
-                  {c.desc}
-                </span>
-              </button>
-            )
-          )}
-        </div>
-
-        {/* Subtype selector */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Event type
-          </span>
-          {cfg.subtypes.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => {
-                setActiveSubtype(s.id);
-                setSent(false);
-              }}
-              className={cn(
-                "rounded-md border px-4 py-1.5 text-xs font-medium transition-all",
-                activeSubtype === s.id
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-              )}
-            >
-              {s.label}
-              {activeSubtype === s.id && (
-                <span className="ml-1.5 text-[10px] opacity-75">— {s.desc}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Payload editor */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Payload · {cfg.payloadType.toUpperCase()}
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
-              }
-              className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-            >
-              Reset template
-            </button>
-          </div>
-          <textarea
-            value={payload}
-            onChange={(e) =>
-              setPayloads((p) => ({ ...p, [payloadKey]: e.target.value }))
-            }
-            spellCheck={false}
-            rows={8}
-            className={cn(
-              "w-full resize-y rounded-lg border bg-slate-50 px-3.5 py-3 font-mono text-[11px] leading-relaxed outline-none transition-all focus:bg-white focus:ring-2 dark:bg-slate-950 dark:focus:bg-slate-900",
-              cfg.payloadType === "xml"
-                ? "border-slate-200 text-teal-700 focus:border-teal-400 focus:ring-teal-400/10 dark:border-slate-700 dark:text-teal-300 dark:focus:border-teal-500"
-                : "border-slate-200 text-purple-700 focus:border-purple-400 focus:ring-purple-400/10 dark:border-slate-700 dark:text-purple-300 dark:focus:border-purple-500"
-            )}
-          />
-        </div>
-
-        {/* Send button */}
-        <button
-          type="button"
-          disabled={noTarget || sending}
-          onClick={handleSend}
-          className={cn(
-            "flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-all",
-            sent
-              ? "bg-emerald-600 dark:bg-emerald-700"
-              : sending
-              ? "cursor-wait bg-brand-400"
-              : noTarget
-              ? "cursor-not-allowed bg-brand-400 opacity-50"
-              : "bg-brand-500 hover:-translate-y-px hover:bg-brand-600 hover:shadow-md dark:bg-brand-600 dark:hover:bg-brand-500"
-          )}
+    <div className="grid grid-cols-[minmax(260px,340px)_1fr]">
+      {/* Left: Jules IDs */}
+      <div className="border-r border-slate-200 dark:border-slate-700">
+        <TargetPanel
+          title="Jules IDs"
+          hint={julesIds !== null ? `${selectedJules.length}/${julesIds.length} selected` : undefined}
+          accent="violet"
+          onSelectAll={julesIds !== null && julesIds.length > 0 ? onSelectAllJules : undefined}
+          isAllSelected={allSelected}
+          warn={julesIds !== null && julesIds.length > 0 && selectedJules.length === 0}
         >
-          {sending ? (
-            <>
-              <svg
-                className="animate-spin"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M21 12a9 9 0 11-6.219-8.56" />
-              </svg>
-              Sending…
-            </>
-          ) : sent ? (
-            <>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              Sent!
-            </>
+          {julesIds === null ? (
+            <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+              Configure the{" "}
+              <code className="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">jules-ids</code>{" "}
+              property in the channel metadata to enable Ad Replacement.
+            </p>
+          ) : julesIds.length === 0 ? (
+            <span className="text-xs text-slate-400">No Jules IDs configured</span>
           ) : (
-            <>
-              Send {cfg.label} {subtypeCfg.label} Event
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            </>
+            julesIds.map((id) => {
+              const active = selectedJules.includes(id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onToggleJules(id)}
+                  className={cn(
+                    "flex select-none items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-all",
+                    active
+                      ? "border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-violet-900/20"
+                      : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-600 dark:hover:bg-violet-900/10"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                      active
+                        ? "border-violet-600 bg-violet-600 dark:border-violet-400 dark:bg-violet-500"
+                        : "border-slate-300 dark:border-slate-600"
+                    )}
+                  >
+                    {active && (
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{id}</span>
+                </button>
+              );
+            })
           )}
-        </button>
-
-        {noTarget && julesIds !== null && (
-          <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-            Select Jules IDs above to enable sending events
-          </p>
-        )}
+        </TargetPanel>
       </div>
-    </>
+
+      {/* Right: Event payload */}
+      <div className="flex flex-col">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Event payload
+            </span>
+            <span className="text-[10px] text-slate-400/80">
+              SCTE, ID3 or Blackout — sent to selected Jules services
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_1.4fr]">
+          {/* Column A: command + subtype + send */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Command
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.entries(COMMAND_CONFIG) as [CommandKey, (typeof COMMAND_CONFIG)[CommandKey]][]).map(
+                  ([key, c]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => switchCmd(key)}
+                      className={cn(
+                        "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-center transition-all",
+                        activeCmd === key
+                          ? "border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-900/20 dark:text-brand-400"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-md",
+                          activeCmd === key
+                            ? "bg-brand-100 dark:bg-brand-900/40"
+                            : "bg-slate-100 dark:bg-slate-800"
+                        )}
+                      >
+                        {CMD_ICONS[key]}
+                      </span>
+                      <span className="text-[11px] font-semibold">{c.label}</span>
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div>
+              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Event type
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {cfg.subtypes.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveSubtype(s.id);
+                      setSent(false);
+                    }}
+                    className={cn(
+                      "rounded-md border px-3 py-1.5 text-[11px] font-medium transition-all",
+                      activeSubtype === s.id
+                        ? "border-brand-500 bg-brand-500 text-white"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] text-slate-400">{subtypeCfg.desc}</p>
+            </div>
+
+            <button
+              type="button"
+              disabled={noTarget || sending}
+              onClick={handleSend}
+              className={cn(
+                "mt-auto flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-all",
+                sent
+                  ? "bg-emerald-600 dark:bg-emerald-700"
+                  : sending
+                  ? "cursor-wait bg-brand-400"
+                  : noTarget
+                  ? "cursor-not-allowed bg-brand-400 opacity-50"
+                  : "bg-brand-500 hover:-translate-y-px hover:bg-brand-600 hover:shadow-md dark:bg-brand-600 dark:hover:bg-brand-500"
+              )}
+            >
+              {sending ? (
+                <>
+                  <svg
+                    className="animate-spin"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="M21 12a9 9 0 11-6.219-8.56" />
+                  </svg>
+                  Sending…
+                </>
+              ) : sent ? (
+                <>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Sent!
+                </>
+              ) : (
+                <>
+                  Send {cfg.label} {subtypeCfg.label}
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {noTarget && julesIds !== null && (
+              <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+                Select Jules IDs to enable sending
+              </p>
+            )}
+          </div>
+
+          {/* Column B: payload editor */}
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Payload · {cfg.payloadType.toUpperCase()}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
+                }
+                className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+              >
+                Reset template
+              </button>
+            </div>
+            <textarea
+              value={payload}
+              onChange={(e) =>
+                setPayloads((p) => ({ ...p, [payloadKey]: e.target.value }))
+              }
+              spellCheck={false}
+              className={cn(
+                "w-full flex-1 resize-none rounded-lg border bg-slate-50 px-3.5 py-3 font-mono text-[11px] leading-relaxed outline-none transition-all focus:bg-white focus:ring-2 dark:bg-slate-950 dark:focus:bg-slate-900",
+                "min-h-[180px]",
+                cfg.payloadType === "xml"
+                  ? "border-slate-200 text-teal-700 focus:border-teal-400 focus:ring-teal-400/10 dark:border-slate-700 dark:text-teal-300 dark:focus:border-teal-500"
+                  : "border-slate-200 text-purple-700 focus:border-purple-400 focus:ring-purple-400/10 dark:border-slate-700 dark:text-purple-300 dark:focus:border-purple-500"
+              )}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -825,50 +817,52 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
   if (!canOperate) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       {/* Card header */}
       <div className="border-b border-slate-200 px-5 py-3.5 dark:border-slate-700">
         <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           Channel Commands
         </div>
         <div className="mt-0.5 text-xs text-slate-400">
-          Select target linears, then trigger actions or send ad replacement events
+          Pick targets on the left, fire the matching control on the right
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-[300px_1fr]">
-        {/* Left: Actions */}
-        <div className="border-r border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-slate-800">
-            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">Actions</span>
-            <span className="text-[10px] text-slate-400">Send commands to linears</span>
-          </div>
-          <ActionsColumn
-            pods={channel.pods}
-            selectedPodNames={selectedPodNames}
-            onToggle={togglePod}
-            onSelectAll={handleSelectAll}
-            onRequestConfirm={setConfirmingAction}
-          />
+      {/* Row 1 — Linear Actions */}
+      <div>
+        <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-1.5 dark:border-slate-800 dark:bg-slate-950/50">
+          <span className="size-1.5 rounded-full bg-brand-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+            Linear actions
+          </span>
         </div>
+        <ActionsRow
+          pods={channel.pods}
+          selectedPodNames={selectedPodNames}
+          onToggle={togglePod}
+          onSelectAll={handleSelectAll}
+          onRequestConfirm={setConfirmingAction}
+        />
+      </div>
 
-        {/* Right: Ad Replacement */}
-        <div>
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-slate-800">
-            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-              Ad Replacement
-            </span>
-            <span className="text-[10px] text-slate-400">SCTE, ID3, or Blackout events</span>
-          </div>
-          <AdReplacementColumn
-            channelName={channel.name}
-            julesIds={julesIds}
-            selectedJules={selectedJules}
-            onToggleJules={toggleJules}
-            onSelectAllJules={handleSelectAllJules}
-          />
+      {/* Divider between rows */}
+      <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+      {/* Row 2 — Ad Replacement */}
+      <div>
+        <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-1.5 dark:border-slate-800 dark:bg-slate-950/50">
+          <span className="size-1.5 rounded-full bg-violet-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+            Ad Replacement
+          </span>
         </div>
+        <AdReplacementRow
+          channelName={channel.name}
+          julesIds={julesIds}
+          selectedJules={selectedJules}
+          onToggleJules={toggleJules}
+          onSelectAllJules={handleSelectAllJules}
+        />
       </div>
 
       {/* Action confirm dialog */}
