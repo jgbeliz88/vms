@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { CheckCircle, XCircle, Info } from "lucide-react";
+import { CheckCircle, XCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export type ToastMessage = {
@@ -20,12 +20,18 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  const dismiss = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
   const notify = useCallback((toast: Omit<ToastMessage, "id">) => {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { ...toast, id }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((item) => item.id !== id));
-    }, 5000);
+    if (toast.variant !== "error") {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((item) => item.id !== id));
+      }, 5000);
+    }
   }, []);
 
   const value = useMemo(() => ({ notify }), [notify]);
@@ -50,7 +56,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             {toast.variant === "success" && <CheckCircle size={16} className="mt-0.5 shrink-0 text-[#219653]" />}
             {toast.variant === "error" && <XCircle size={16} className="mt-0.5 shrink-0 text-[#D34053]" />}
             {toast.variant === "info" && <Info size={16} className="mt-0.5 shrink-0 text-brand-500" />}
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-[#1C2434] dark:text-white">
                 {toast.title}
               </div>
@@ -60,6 +66,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 </div>
               ) : null}
             </div>
+            <button
+              onClick={() => dismiss(toast.id)}
+              aria-label="Dismiss notification"
+              className="shrink-0 text-[#64748B] hover:text-[#1C2434] dark:text-[#8899A8] dark:hover:text-white"
+            >
+              <X size={14} />
+            </button>
           </div>
         ))}
       </div>
