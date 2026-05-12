@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils/cn";
 import type { AddLinearData } from "./ActionConfirmModal";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
+import { Modal } from "@/components/ui/Modal";
 
 const DEFAULT_FORM: AddLinearData = {
   encoderId: 0,
@@ -158,10 +159,12 @@ export function LinearsPanel({
   const [creating, setCreating] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
-  const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
-
-  const [confirmDeletePodKey, setConfirmDeletePodKey] = useState<string | null>(null);
   const [deletingPodKey, setDeletingPodKey] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    | { type: "unlink-pod"; pod: ResolvedPod }
+    | { type: "delete-linear"; pod: ResolvedPod; linearName: string }
+    | null
+  >(null);
 
   const [configurePodId, setConfigurePodId] = useState<number | null>(null);
   const [configureForm, setConfigureForm] = useState<ConfigureForm>(DEFAULT_CONFIGURE_FORM);
@@ -214,11 +217,11 @@ export function LinearsPanel({
     setDeletingKey(key);
     try {
       await onDeleteLinear(pod, linearName);
+      setPendingAction(null);
     } catch {
       // error toast handled by parent
     } finally {
       setDeletingKey(null);
-      setConfirmDeleteKey(null);
     }
   };
 
@@ -227,11 +230,11 @@ export function LinearsPanel({
     setDeletingPodKey(key);
     try {
       await onDeletePod(pod, pod.linear?.linearName ?? null);
+      setPendingAction(null);
     } catch {
       // error toast handled by parent
     } finally {
       setDeletingPodKey(null);
-      setConfirmDeletePodKey(null);
     }
   };
 
@@ -314,13 +317,6 @@ export function LinearsPanel({
               >
                 {pods.map((pod) => {
                   const hasLinear = !!pod.linear?.linearName;
-                  const deleteKey = pod.linear
-                    ? `${pod.name}/${pod.linear.linearName}`
-                    : null;
-                  const isLinearConfirming = confirmDeleteKey !== null && confirmDeleteKey === deleteKey;
-                  const isLinearDeleting = deletingKey === deleteKey;
-                  const isPodConfirming = confirmDeletePodKey === pod.name;
-                  const isPodDeleting = deletingPodKey === pod.name;
                   const isConfiguringThis = configurePodId === pod.id;
                   const isBusy = deletingKey !== null || deletingPodKey !== null;
 
@@ -348,36 +344,14 @@ export function LinearsPanel({
                           </span>
                           {canManageLinears && (
                             <div className="mt-1">
-                              {isPodConfirming ? (
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  <span className="text-[10px] text-rose-600 dark:text-rose-400">
-                                    Unlink pod?
-                                  </span>
-                                  <button
-                                    className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
-                                    onClick={() => handleDeletePod(pod)}
-                                    disabled={isPodDeleting}
-                                  >
-                                    {isPodDeleting ? "…" : "Yes"}
-                                  </button>
-                                  <button
-                                    className="rounded px-1.5 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
-                                    onClick={() => setConfirmDeletePodKey(null)}
-                                    disabled={isPodDeleting}
-                                  >
-                                    No
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
-                                  onClick={() => setConfirmDeletePodKey(pod.name)}
-                                  disabled={isBusy}
-                                >
-                                  <IconUnlink className="h-3 w-3" />
-                                  Unlink pod
-                                </button>
-                              )}
+                              <button
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+                                onClick={() => setPendingAction({ type: "unlink-pod", pod })}
+                                disabled={isBusy}
+                              >
+                                <IconUnlink className="h-3 w-3" />
+                                Unlink pod
+                              </button>
                             </div>
                           )}
                         </div>
@@ -437,36 +411,14 @@ export function LinearsPanel({
                             </span>
                             {canManageLinears && (
                               <div className="mt-1">
-                                {isLinearConfirming ? (
-                                  <div className="flex items-center gap-1 flex-wrap">
-                                    <span className="text-[10px] text-rose-600 dark:text-rose-400">
-                                      Delete?
-                                    </span>
-                                    <button
-                                      className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
-                                      onClick={() => handleDelete(pod, pod.linear!.linearName!)}
-                                      disabled={isLinearDeleting}
-                                    >
-                                      {isLinearDeleting ? "…" : "Yes"}
-                                    </button>
-                                    <button
-                                      className="rounded px-1.5 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
-                                      onClick={() => setConfirmDeleteKey(null)}
-                                      disabled={isLinearDeleting}
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
-                                    onClick={() => setConfirmDeleteKey(deleteKey)}
-                                    disabled={isBusy}
-                                  >
-                                    <IconEraser className="h-3 w-3" />
-                                    Delete linear
-                                  </button>
-                                )}
+                                <button
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+                                  onClick={() => setPendingAction({ type: "delete-linear", pod, linearName: pod.linear!.linearName! })}
+                                  disabled={isBusy}
+                                >
+                                  <IconEraser className="h-3 w-3" />
+                                  Delete linear
+                                </button>
                               </div>
                             )}
                           </div>
@@ -759,6 +711,65 @@ export function LinearsPanel({
           </div>
         </div>
       )}
+
+      {/* Confirmation modal */}
+      <Modal
+        open={pendingAction !== null}
+        onClose={() => setPendingAction(null)}
+        title={pendingAction?.type === "unlink-pod" ? "Unlink pod" : "Delete linear"}
+        size="md"
+      >
+        {pendingAction?.type === "unlink-pod" && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Remove the reference to{" "}
+              <span className="font-mono font-semibold text-slate-800 dark:text-slate-100">
+                {pendingAction.pod.name}
+              </span>{" "}
+              from this channel? The pod&apos;s linear will also be cleared.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setPendingAction(null)} disabled={deletingPodKey !== null}>
+                Cancel
+              </Button>
+              <button
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+                onClick={() => handleDeletePod(pendingAction.pod)}
+                disabled={deletingPodKey !== null}
+              >
+                {deletingPodKey !== null ? "Unlinking…" : "Unlink"}
+              </button>
+            </div>
+          </div>
+        )}
+        {pendingAction?.type === "delete-linear" && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Clear the linear{" "}
+              <span className="font-mono font-semibold text-slate-800 dark:text-slate-100">
+                {pendingAction.linearName}
+              </span>{" "}
+              from{" "}
+              <span className="font-mono font-semibold text-slate-800 dark:text-slate-100">
+                {pendingAction.pod.name}
+              </span>
+              ? The pod reference will remain.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setPendingAction(null)} disabled={deletingKey !== null}>
+                Cancel
+              </Button>
+              <button
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+                onClick={() => handleDelete(pendingAction.pod, pendingAction.linearName)}
+                disabled={deletingKey !== null}
+              >
+                {deletingKey !== null ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
