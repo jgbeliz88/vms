@@ -13,8 +13,11 @@ import {
 } from "@/features/fast-channels/hooks";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { usePermission } from "@/lib/auth/usePermission";
+import { ROLES } from "@/lib/auth/permissions";
 
 export default function FastChannelsPage() {
+  const canAdmin = usePermission([ROLES.ADMIN]);
   const { notify } = useToast();
   const { data: channels, isLoading, isError } = useFastChannelsQuery();
   const createChannel = useCreateFastChannel();
@@ -58,7 +61,7 @@ export default function FastChannelsPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setCreateOpen(true)}>Create Channel</Button>
+              {canAdmin && <Button onClick={() => setCreateOpen(true)}>Create Channel</Button>}
             </div>
           </div>
 

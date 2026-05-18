@@ -6,6 +6,8 @@ import { useCreateServerManifest, useBlockVod } from "@/features/vod/hooks";
 import { CreateManifestModal, type ManifestParams } from "@/components/vod/CreateManifestModal";
 import { BlockVodModal } from "@/components/vod/BlockVodModal";
 import { cn } from "@/lib/utils/cn";
+import { usePermission } from "@/lib/auth/usePermission";
+import { ROLES } from "@/lib/auth/permissions";
 
 type Props = {
   mam: "bitmovin" | "lightflow";
@@ -49,6 +51,7 @@ function ActionButton({
 }
 
 export function VodActionsPanel({ mam, uuid, contentName }: Props) {
+  const canAdmin = usePermission([ROLES.ADMIN]);
   const { notify } = useToast();
   const createManifest = useCreateServerManifest();
   const blockVod = useBlockVod();
@@ -56,6 +59,8 @@ export function VodActionsPanel({ mam, uuid, contentName }: Props) {
   const [manifestOpen, setManifestOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [unblockOpen, setUnblockOpen] = useState(false);
+
+  if (!canAdmin) return null;
 
   const target = { mam, uuid, name: contentName ?? uuid, id: uuid };
 
