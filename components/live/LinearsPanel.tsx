@@ -342,18 +342,16 @@ export function LinearsPanel({
                           <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                             {pod.name}
                           </span>
-                          {canManageLinears && (
-                            <div className="mt-1">
-                              <button
-                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
-                                onClick={() => setPendingAction({ type: "unlink-pod", pod })}
-                                disabled={isBusy}
-                              >
-                                <IconUnlink className="h-3 w-3" />
-                                Unlink pod
-                              </button>
-                            </div>
-                          )}
+                          <div className="mt-1">
+                            <button
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+                              onClick={() => setPendingAction({ type: "unlink-pod", pod })}
+                              disabled={isBusy || !canManageLinears}
+                            >
+                              <IconUnlink className="h-3 w-3" />
+                              Unlink pod
+                            </button>
+                          </div>
                         </div>
 
                         {/* Arrow column */}
@@ -409,18 +407,16 @@ export function LinearsPanel({
                             <span className="font-mono text-xs font-bold text-brand-700 dark:text-brand-400 truncate">
                               {pod.linear!.linearName}
                             </span>
-                            {canManageLinears && (
-                              <div className="mt-1">
-                                <button
-                                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
-                                  onClick={() => setPendingAction({ type: "delete-linear", pod, linearName: pod.linear!.linearName! })}
-                                  disabled={isBusy}
-                                >
-                                  <IconEraser className="h-3 w-3" />
-                                  Delete linear
-                                </button>
-                              </div>
-                            )}
+                            <div className="mt-1">
+                              <button
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+                                onClick={() => setPendingAction({ type: "delete-linear", pod, linearName: pod.linear!.linearName! })}
+                                disabled={isBusy || !canManageLinears}
+                              >
+                                <IconEraser className="h-3 w-3" />
+                                Delete linear
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div className="p-3 flex flex-col gap-1.5 min-w-0 bg-slate-50 dark:bg-slate-800/50">

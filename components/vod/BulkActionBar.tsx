@@ -1,5 +1,8 @@
 "use client";
 
+import { usePermission } from "@/lib/auth/usePermission";
+import { ROLES } from "@/lib/auth/permissions";
+
 type Props = {
   count: number;
   onBlock: () => void;
@@ -9,7 +12,8 @@ type Props = {
 };
 
 export function BulkActionBar({ count, onBlock, onUnblock, onManifest, onClear }: Props) {
-  if (count === 0) return null;
+  const canAdmin = usePermission([ROLES.ADMIN]);
+  if (!canAdmin || count === 0) return null;
 
   return (
     <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900">

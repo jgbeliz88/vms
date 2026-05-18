@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useDeleteFastChannelTransition } from "@/features/fast-channels/hooks";
 import type { FastChannelTransitions } from "@/features/fast-channels/types";
+import { usePermission } from "@/lib/auth/usePermission";
+import { ROLES } from "@/lib/auth/permissions";
 
 function statusTone(status: string) {
   const s = status.toLowerCase();
@@ -42,6 +44,7 @@ export function TransitionsTable({
   channelName: string;
   transitions: FastChannelTransitions;
 }) {
+  const canAdmin = usePermission([ROLES.ADMIN]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const deleteMutation = useDeleteFastChannelTransition();
 
@@ -80,7 +83,7 @@ export function TransitionsTable({
                 <Badge label={status} tone={statusTone(status)} />
               </td>
               <td className="px-4 py-3 text-right">
-                {deleteConfirm === key ? (
+                {canAdmin && deleteConfirm === key ? (
                   <div className="flex items-center justify-end gap-2">
                     <span className="text-slate-500">Delete?</span>
                     <Button
@@ -107,7 +110,7 @@ export function TransitionsTable({
                     >
                       SMIL
                     </Button>
-                    {key !== "creation" && (
+                    {canAdmin && key !== "creation" && (
                       <Button variant="danger" onClick={() => setDeleteConfirm(key)}>
                         Delete
                       </Button>
