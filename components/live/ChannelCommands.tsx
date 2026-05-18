@@ -746,7 +746,7 @@ function extractJulesIds(metadata: Record<string, unknown> | null): string[] | n
 // ── ChannelCommands ───────────────────────────────────────────────────────────
 
 export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
-  const canOperate = usePermission([ROLES.OPERATOR]);
+  const canOperate = usePermission([ROLES.ADMIN]);
   const channelAction = useChannelAction();
   const { notify } = useToast();
 

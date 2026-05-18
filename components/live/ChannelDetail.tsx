@@ -8,6 +8,7 @@ import { LinearsPanel } from "./LinearsPanel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChannelConfigEditor } from "./ChannelConfigEditor";
+import { ChannelConfigReadOnlyTable } from "./ChannelConfigReadOnlyTable";
 import { ChannelCommands } from "./ChannelCommands";
 import { useUpdateChannelMetadata, useChannelDetailStatus } from "@/features/live/hooks";
 import type { ChannelDetailSection } from "@/features/live/hooks";
@@ -264,17 +265,21 @@ export function ChannelDetail({
         )}
       </div>
 
-      {configLayout && onSaveConfig && (
+      {configLayout && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
             Channel Configuration
           </div>
-          <ChannelConfigEditor
-            channel={channel}
-            layout={configLayout}
-            onSave={(rows: ChannelConfigRow[]) => onSaveConfig(channel.id, rows)}
-            saving={savingConfig ?? false}
-          />
+          {canAdmin && onSaveConfig ? (
+            <ChannelConfigEditor
+              channel={channel}
+              layout={configLayout}
+              onSave={(rows: ChannelConfigRow[]) => onSaveConfig(channel.id, rows)}
+              saving={savingConfig ?? false}
+            />
+          ) : (
+            <ChannelConfigReadOnlyTable channel={channel} layout={configLayout} />
+          )}
         </div>
       )}
 

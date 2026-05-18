@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
+import { usePermission } from "@/lib/auth/usePermission";
+import { ROLES } from "@/lib/auth/permissions";
 import { useToast } from "@/components/ui/Toast";
 import { useScheduleFastChannelTransition, useCreateXmlTransition } from "@/features/fast-channels/hooks";
 import { queryKeys } from "@/lib/query-keys";
