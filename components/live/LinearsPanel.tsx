@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ResolvedChannel, ResolvedPod, Encoder } from "@/features/live/types";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { ResolvedChannel, ResolvedPod, MediaexcelChannel } from "@/features/live/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
@@ -11,20 +11,7 @@ import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
 import { Modal } from "@/components/ui/Modal";
 
-const DEFAULT_FORM: AddLinearData = {
-  encoderId: 0,
-  podId: 0,
-  podName: "",
-  linearName: "",
-  drm: false,
-  adsReplacement: false,
-  fragmentLength: "",
-  disableDrmManifests: false,
-  drmVendor: "",
-  contentId: "",
-};
-
-type ConfigureForm = {
+type FormFields = {
   linearName: string;
   drm: boolean;
   adsReplacement: boolean;
@@ -34,7 +21,7 @@ type ConfigureForm = {
   contentId: string;
 };
 
-const DEFAULT_CONFIGURE_FORM: ConfigureForm = {
+const DEFAULT_FORM: FormFields = {
   linearName: "",
   drm: false,
   adsReplacement: false,
@@ -43,6 +30,22 @@ const DEFAULT_CONFIGURE_FORM: ConfigureForm = {
   drmVendor: "",
   contentId: "",
 };
+
+// Groups channels by encoderName preserving first-seen order
+function byEncoder(channels: MediaexcelChannel[]) {
+  const order: string[] = [];
+  const map = new Map<string, MediaexcelChannel[]>();
+  for (const c of channels) {
+    if (!map.has(c.encoderName)) { map.set(c.encoderName, []); order.push(c.encoderName); }
+    map.get(c.encoderName)!.push(c);
+  }
+  return order.map((enc) => ({ encoderName: enc, channels: map.get(enc)! }));
+}
+
+// Returns the channel a pod name belongs to
+function channelForPod(podName: string, channels: MediaexcelChannel[]) {
+  return channels.find((c) => c.pods.includes(podName)) ?? null;
+}
 
 function IconEncoder({ className }: { className?: string }) {
   return (
@@ -139,15 +142,318 @@ function MetaBadge({ label, on }: { label: string; on: boolean }) {
   );
 }
 
+// Tri-state checkbox indicator
+function CheckBox({ state }: { state: "checked" | "indeterminate" | "off" }) {
+  return (
+    <span className={cn(
+      "grid h-3.5 w-3.5 shrink-0 place-items-center rounded border",
+      state === "checked"
+        ? "border-brand-500 bg-brand-500 dark:border-brand-400 dark:bg-brand-400"
+        : state === "indeterminate"
+        ? "border-brand-500 bg-white dark:border-brand-400 dark:bg-slate-800"
+        : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
+    )}>
+      {state === "checked" && (
+        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+          <path d="M1.5 4.5l2 2 4-4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+      {state === "indeterminate" && (
+        <span className="block h-1.5 w-1.5 rounded-[1px] bg-brand-500 dark:bg-brand-400" />
+      )}
+    </span>
+  );
+}
+
+// Pod picker popover + chips
+function PodPickerField({
+  mediaexcelChannels,
+  selected,
+  onChange,
+  showValidation,
+  existingPodNames,
+}: {
+  mediaexcelChannels: MediaexcelChannel[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+  showValidation: boolean;
+  existingPodNames: Set<string>;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const popRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (popRef.current?.contains(e.target as Node)) return;
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      setPickerOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [pickerOpen]);
+
+  const togglePod = (pod: string) => {
+    const next = new Set(selected);
+    if (next.has(pod)) {
+      next.delete(pod);
+    } else {
+      next.add(pod);
+    }
+    onChange(next);
+  };
+
+  const totalPods = mediaexcelChannels.reduce((n, c) => n + c.pods.length, 0);
+
+  // Encoder-grouped, filtered by query
+  const filteredGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return byEncoder(mediaexcelChannels)
+      .map((g) => ({
+        encoderName: g.encoderName,
+        channels: g.channels
+          .map((c) => ({ ...c, pods: c.pods.filter((p) => !q || p.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || g.encoderName.toLowerCase().includes(q)) }))
+          .filter((c) => c.pods.length > 0),
+      }))
+      .filter((g) => g.channels.length > 0);
+  }, [query, mediaexcelChannels]);
+
+  // Selected pods grouped by encoder → channel for chip display
+  const selectedGrouped = useMemo(() => {
+    const byEnc = new Map<string, Map<string, string[]>>();
+    selected.forEach((pod) => {
+      const ch = channelForPod(pod, mediaexcelChannels);
+      const enc = ch?.encoderName ?? "Other";
+      const chName = ch?.name ?? "Unknown";
+      if (!byEnc.has(enc)) byEnc.set(enc, new Map());
+      const chMap = byEnc.get(enc)!;
+      if (!chMap.has(chName)) chMap.set(chName, []);
+      chMap.get(chName)!.push(pod);
+    });
+    return Array.from(byEnc.entries()).map(([enc, chMap]) => ({
+      encoderName: enc,
+      channels: Array.from(chMap.entries()).map(([name, pods]) => ({ name, pods })),
+    }));
+  }, [selected, mediaexcelChannels]);
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Pods
+        </span>
+        {selected.size > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange(new Set())}
+            className="text-[10px] font-medium text-slate-500 hover:text-slate-700 hover:underline dark:hover:text-slate-300"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
+      <div className={cn(
+        "rounded-md border bg-white p-1.5 dark:bg-slate-900",
+        showValidation && selected.size === 0 ? "border-rose-400" : "border-slate-200 dark:border-slate-700"
+      )}>
+        {/* Selected chips */}
+        {selected.size === 0 ? (
+          <div className="px-1 py-1 text-[11px] italic text-slate-400 dark:text-slate-500">
+            No pods selected.
+          </div>
+        ) : (
+          <div className="space-y-1.5 mb-1.5">
+            {selectedGrouped.map((g) => (
+              <div key={g.encoderName} className="rounded-md bg-slate-50 p-1.5 dark:bg-slate-800/60">
+                <div className="mb-1 inline-flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <IconEncoder className="h-2.5 w-2.5 text-slate-400" />
+                  {g.encoderName}
+                </div>
+                <div className="space-y-1">
+                  {g.channels.map((c) => (
+                    <div key={c.name} className="flex flex-wrap items-center gap-1">
+                      <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500">{c.name} ·</span>
+                      {c.pods.map((pod) => (
+                        <span
+                          key={pod}
+                          className="inline-flex items-center gap-1 rounded-md bg-brand-500/10 py-0.5 pl-2 pr-1 font-mono text-[11px] text-brand-800 dark:bg-brand-500/20 dark:text-brand-300"
+                        >
+                          {pod}
+                          {existingPodNames.has(pod) && (
+                            <IconWarn className="h-3 w-3 text-amber-500 shrink-0" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => togglePod(pod)}
+                            className="grid h-3.5 w-3.5 place-items-center rounded text-brand-500 hover:bg-brand-500/20 dark:text-brand-400"
+                            aria-label={`Remove ${pod}`}
+                          >
+                            <svg width="8" height="8" viewBox="0 0 8 8">
+                              <path d="M1.5 1.5l5 5M6.5 1.5l-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Trigger button */}
+        <div className="relative">
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setPickerOpen((o) => !o)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-[11px] transition-colors",
+              pickerOpen
+                ? "border-brand-500 bg-brand-500/5 text-brand-600 dark:text-brand-400"
+                : "border-slate-300 text-slate-500 hover:border-brand-500 hover:text-brand-600 dark:border-slate-600 dark:hover:border-brand-400 dark:hover:text-brand-400"
+            )}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <svg width="11" height="11" viewBox="0 0 11 11">
+                <path d="M5.5 1.5v8M1.5 5.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+              {selected.size === 0 ? "Add pods…" : "Add or change pods"}
+            </span>
+            <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
+              {selected.size} / {totalPods}
+            </span>
+          </button>
+
+          {/* Popover */}
+          {pickerOpen && (
+            <div
+              ref={popRef}
+              className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            >
+              {/* Search */}
+              <div className="border-b border-slate-100 p-1.5 dark:border-slate-800">
+                <div className="relative">
+                  <svg width="12" height="12" viewBox="0 0 12 12"
+                    className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-slate-400">
+                    <circle cx="5" cy="5" r="3.5" stroke="currentColor" fill="none" strokeWidth="1.2" />
+                    <path d="M7.5 7.5l3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search encoder, channel, or pod…"
+                    className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-7 pr-2 text-[11px] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  />
+                </div>
+              </div>
+
+              {/* List */}
+              <div className="max-h-72 overflow-y-auto">
+                {filteredGroups.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-[11px] text-slate-400">
+                    No matches for &ldquo;{query}&rdquo;.
+                  </div>
+                ) : (
+                  filteredGroups.map((group) => {
+                    const podsInEnc = group.channels.flatMap((c) => c.pods);
+                    const selInEnc = podsInEnc.filter((p) => selected.has(p)).length;
+                    return (
+                      <div key={group.encoderName} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800">
+                        {/* Encoder header — read-only */}
+                        <div className="flex items-center gap-2 bg-slate-100 px-2 py-1.5 dark:bg-slate-800">
+                          <IconEncoder className="h-2.5 w-2.5 text-slate-500 shrink-0" />
+                          <span className="flex-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                            {group.encoderName}
+                          </span>
+                          <span className="text-[10px] tabular-nums text-slate-500 dark:text-slate-400">
+                            {selInEnc}/{podsInEnc.length}
+                          </span>
+                        </div>
+
+                        {group.channels.map((channel) => {
+                          const allCh = channel.pods.every((p) => selected.has(p));
+                          const someCh = !allCh && channel.pods.some((p) => selected.has(p));
+                          const chState = allCh ? "checked" : someCh ? "indeterminate" : "off";
+                          return (
+                            <div key={channel.id}>
+                              {/* Channel row — tri-state */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = new Set(selected);
+                                  channel.pods.forEach((p) => allCh ? next.delete(p) : next.add(p));
+                                  onChange(next);
+                                }}
+                                className="flex w-full items-center gap-2 bg-slate-50 px-2 py-1 pl-6 text-left hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800"
+                              >
+                                <CheckBox state={chState} />
+                                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">{channel.name}</span>
+                              </button>
+
+                              {/* Pod rows */}
+                              {channel.pods.map((pod) => {
+                                const checked = selected.has(pod);
+                                const isDuplicate = existingPodNames.has(pod);
+                                return (
+                                  <button
+                                    key={pod}
+                                    type="button"
+                                    onClick={() => togglePod(pod)}
+                                    className="flex w-full items-center gap-2 px-2 py-1 pl-12 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                  >
+                                    <CheckBox state={checked ? "checked" : "off"} />
+                                    <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 flex-1">{pod}</span>
+                                    {isDuplicate && (
+                                      <span className="text-[9px] text-amber-500 font-medium">has linear</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-2 py-1.5 text-[10px] dark:border-slate-800 dark:bg-slate-900">
+                <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                  {selected.size} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(false)}
+                  className="font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LinearsPanel({
   channel,
-  encoders,
+  mediaexcelChannels,
   onCreateLinear,
   onDeleteLinear,
   onDeletePod,
 }: {
   channel: ResolvedChannel;
-  encoders: Encoder[];
+  mediaexcelChannels: MediaexcelChannel[];
   onCreateLinear: (data: AddLinearData) => Promise<void>;
   onDeleteLinear: (pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod: (pod: ResolvedPod, linearName: string | null) => Promise<void>;
@@ -155,7 +461,8 @@ export function LinearsPanel({
   const canManageLinears = usePermission([ROLES.ADMIN]);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState<AddLinearData>(DEFAULT_FORM);
+  const [selectedPods, setSelectedPods] = useState<Set<string>>(new Set());
+  const [form, setForm] = useState<FormFields>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
@@ -167,23 +474,26 @@ export function LinearsPanel({
   >(null);
 
   const [configurePodId, setConfigurePodId] = useState<number | null>(null);
-  const [configureForm, setConfigureForm] = useState<ConfigureForm>(DEFAULT_CONFIGURE_FORM);
+  const [configureForm, setConfigureForm] = useState<FormFields>(DEFAULT_FORM);
   const [configuring, setConfiguring] = useState(false);
   const [showConfigureValidation, setShowConfigureValidation] = useState(false);
 
-  const set = <K extends keyof AddLinearData>(key: K, value: AddLinearData[K]) =>
+  const set = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const selectedEncoder = encoders.find((e) => e.id === form.encoderId) ?? null;
-  const podOptions = selectedEncoder?.pods ?? [];
-  const selectedPod = podOptions.find((p) => p.id === form.podId) ?? null;
-  const duplicatePod =
-    selectedPod !== null &&
-    channel.pods.some((p) => p.name === selectedPod.name && p.linear !== null && p.linear.linearName !== null);
+  // Pod names that already have a linear on this channel (for duplicate warning)
+  const existingPodNames = useMemo(
+    () => new Set(channel.pods.filter((p) => p.linear?.linearName).map((p) => p.name)),
+    [channel.pods]
+  );
+
+  const duplicatePods = useMemo(
+    () => [...selectedPods].filter((p) => existingPodNames.has(p)),
+    [selectedPods, existingPodNames]
+  );
 
   const formValid =
-    form.encoderId !== 0 &&
-    form.podId !== 0 &&
+    selectedPods.size > 0 &&
     form.linearName.trim() !== "" &&
     form.fragmentLength.trim() !== "";
 
@@ -198,11 +508,27 @@ export function LinearsPanel({
       setShowValidation(true);
       return;
     }
-    if (duplicatePod) return;
+    if (duplicatePods.length > 0) return;
     setCreating(true);
     try {
-      await onCreateLinear(form);
+      await Promise.all(
+        [...selectedPods].map((podName) =>
+          onCreateLinear({
+            encoderId: 0,
+            podId: 0,
+            podName,
+            linearName: form.linearName,
+            drm: form.drm,
+            adsReplacement: form.adsReplacement,
+            fragmentLength: form.fragmentLength,
+            disableDrmManifests: form.disableDrmManifests,
+            drmVendor: form.drmVendor,
+            contentId: form.contentId,
+          })
+        )
+      );
       setCreateOpen(false);
+      setSelectedPods(new Set());
       setForm(DEFAULT_FORM);
       setShowValidation(false);
     } catch {
@@ -238,7 +564,7 @@ export function LinearsPanel({
     }
   };
 
-  const setConfig = <K extends keyof ConfigureForm>(key: K, value: ConfigureForm[K]) =>
+  const setConfig = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
     setConfigureForm((prev) => ({ ...prev, [key]: value }));
 
   const configureFormValid =
@@ -258,7 +584,7 @@ export function LinearsPanel({
         ...configureForm,
       });
       setConfigurePodId(null);
-      setConfigureForm(DEFAULT_CONFIGURE_FORM);
+      setConfigureForm(DEFAULT_FORM);
       setShowConfigureValidation(false);
     } catch {
       // error toast handled by parent
@@ -283,6 +609,7 @@ export function LinearsPanel({
             className="text-xs"
             onClick={() => {
               setCreateOpen((o) => !o);
+              setSelectedPods(new Set());
               setForm(DEFAULT_FORM);
               setShowValidation(false);
             }}
@@ -342,16 +669,18 @@ export function LinearsPanel({
                           <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                             {pod.name}
                           </span>
-                          <div className="mt-1">
-                            <button
-                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
-                              onClick={() => setPendingAction({ type: "unlink-pod", pod })}
-                              disabled={isBusy || !canManageLinears}
-                            >
-                              <IconUnlink className="h-3 w-3" />
-                              Unlink pod
-                            </button>
-                          </div>
+                          {canManageLinears && (
+                            <div className="mt-1">
+                              <button
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+                                onClick={() => setPendingAction({ type: "unlink-pod", pod })}
+                                disabled={isBusy}
+                              >
+                                <IconUnlink className="h-3 w-3" />
+                                Unlink pod
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Arrow column */}
@@ -364,31 +693,12 @@ export function LinearsPanel({
                           )}
                         >
                           {hasLinear ? (
-                            <svg
-                              viewBox="0 0 16 16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="h-4 w-4 text-brand-500"
-                              aria-hidden
-                            >
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-brand-500" aria-hidden>
                               <line x1="2" y1="8" x2="12" y2="8" />
                               <polyline points="9,5 12,8 9,11" />
                             </svg>
                           ) : (
-                            <svg
-                              viewBox="0 0 16 16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeDasharray="2 2"
-                              className="h-4 w-4 text-slate-300 dark:text-slate-600"
-                              aria-hidden
-                            >
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2" className="h-4 w-4 text-slate-300 dark:text-slate-600" aria-hidden>
                               <line x1="2" y1="8" x2="12" y2="8" />
                               <polyline points="9,5 12,8 9,11" />
                             </svg>
@@ -407,16 +717,18 @@ export function LinearsPanel({
                             <span className="font-mono text-xs font-bold text-brand-700 dark:text-brand-400 truncate">
                               {pod.linear!.linearName}
                             </span>
-                            <div className="mt-1">
-                              <button
-                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
-                                onClick={() => setPendingAction({ type: "delete-linear", pod, linearName: pod.linear!.linearName! })}
-                                disabled={isBusy || !canManageLinears}
-                              >
-                                <IconEraser className="h-3 w-3" />
-                                Delete linear
-                              </button>
-                            </div>
+                            {canManageLinears && (
+                              <div className="mt-1">
+                                <button
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-[9px] py-[5px] text-[11px] font-medium text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+                                  onClick={() => setPendingAction({ type: "delete-linear", pod, linearName: pod.linear!.linearName! })}
+                                  disabled={isBusy}
+                                >
+                                  <IconEraser className="h-3 w-3" />
+                                  Delete linear
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="p-3 flex flex-col gap-1.5 min-w-0 bg-slate-50 dark:bg-slate-800/50">
@@ -435,7 +747,7 @@ export function LinearsPanel({
                                   className="inline-flex items-center gap-1 rounded-md border border-brand-200/70 bg-white px-[9px] py-[5px] text-[11px] font-medium text-brand-600 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-40 dark:border-brand-700/40 dark:bg-slate-800 dark:text-brand-400 dark:hover:border-brand-600 dark:hover:bg-brand-900/20 dark:hover:text-brand-300"
                                   onClick={() => {
                                     setConfigurePodId(pod.id);
-                                    setConfigureForm(DEFAULT_CONFIGURE_FORM);
+                                    setConfigureForm(DEFAULT_FORM);
                                     setShowConfigureValidation(false);
                                   }}
                                   disabled={isBusy}
@@ -564,65 +876,22 @@ export function LinearsPanel({
         <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
           <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">New Linear</div>
 
-          <FormRow label="Encoder">
-            <select
-              value={form.encoderId || ""}
-              onChange={(e) => {
-                set("encoderId", Number(e.target.value));
-                set("podId", 0);
-                set("podName", "");
-                setShowValidation(false);
-              }}
-              className={cn(
-                "w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-slate-800 dark:text-slate-200",
-                showValidation && !form.encoderId
-                  ? "border-rose-400"
-                  : "border-slate-200 dark:border-slate-700"
-              )}
-            >
-              <option value="">Select encoder…</option>
-              {encoders.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.encoderChannel} — {e.heroName}
-                </option>
-              ))}
-            </select>
-          </FormRow>
+          <PodPickerField
+            mediaexcelChannels={mediaexcelChannels}
+            selected={selectedPods}
+            onChange={(next) => {
+              setSelectedPods(next);
+              setShowValidation(false);
+            }}
+            showValidation={showValidation}
+            existingPodNames={existingPodNames}
+          />
 
-          <FormRow label="Pod">
-            {!form.encoderId ? (
-              <span className="text-xs italic text-slate-400">Select an encoder first.</span>
-            ) : podOptions.length === 0 ? (
-              <span className="text-xs italic text-slate-400">No pods on this encoder.</span>
-            ) : (
-              <select
-                value={form.podId || ""}
-                onChange={(e) => {
-                  const pod = podOptions.find((p) => p.id === Number(e.target.value));
-                  set("podId", Number(e.target.value));
-                  set("podName", pod?.name ?? "");
-                  setShowValidation(false);
-                }}
-                className={cn(
-                  "w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-slate-800 dark:text-slate-200",
-                  showValidation && !form.podId
-                    ? "border-rose-400"
-                    : "border-slate-200 dark:border-slate-700"
-                )}
-              >
-                <option value="">Select pod…</option>
-                {podOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </FormRow>
-
-          {duplicatePod && (
+          {duplicatePods.length > 0 && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-500/10 dark:text-amber-300">
-              This channel already has a linear for this pod. Delete it first to create a new one.
+              {duplicatePods.length === 1
+                ? `Pod "${duplicatePods[0]}" already has a linear. Delete it first or deselect this pod.`
+                : `${duplicatePods.length} selected pods already have a linear. Delete them first or deselect.`}
             </p>
           )}
 
@@ -664,10 +933,7 @@ export function LinearsPanel({
 
           <FormRow label="Disable DRM Manifests">
             <div className="flex justify-end">
-              <Toggle
-                checked={form.disableDrmManifests}
-                onChange={(v) => set("disableDrmManifests", v)}
-              />
+              <Toggle checked={form.disableDrmManifests} onChange={(v) => set("disableDrmManifests", v)} />
             </div>
           </FormRow>
 
@@ -696,13 +962,24 @@ export function LinearsPanel({
             </p>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              {selectedPods.size === 0
+                ? "Select at least one pod."
+                : selectedPods.size === 1
+                ? "1 linear will be created."
+                : `${selectedPods.size} linears will be created.`}
+            </span>
             <Button
               onClick={handleCreate}
-              disabled={creating || duplicatePod}
+              disabled={creating || duplicatePods.length > 0}
               className="text-xs"
             >
-              {creating ? "Creating…" : "Create Linear"}
+              {creating
+                ? "Creating…"
+                : selectedPods.size <= 1
+                ? "Create Linear"
+                : `Create ${selectedPods.size} Linears`}
             </Button>
           </div>
         </div>

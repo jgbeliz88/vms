@@ -17,7 +17,7 @@ import { ROLES } from "@/lib/auth/permissions";
 import { useToast } from "@/components/ui/Toast";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import type { ConfigLayout } from "@/features/live/hooks";
-import type { Encoder } from "@/features/live/types";
+import type { MediaexcelChannel } from "@/features/live/types";
 import type { AddLinearData } from "./ActionConfirmModal";
 import type { ResolvedPod } from "@/features/live/types";
 
@@ -85,7 +85,7 @@ export function ChannelDetail({
   configLayout,
   onSaveConfig,
   savingConfig,
-  encoders = [],
+  mediaexcelChannels = [],
   onCreateLinear,
   onDeleteLinear,
   onDeletePod,
@@ -97,7 +97,7 @@ export function ChannelDetail({
   configLayout?: ConfigLayout;
   onSaveConfig?: (channelId: number, rows: ChannelConfigRow[]) => Promise<void>;
   savingConfig?: boolean;
-  encoders?: Encoder[];
+  mediaexcelChannels?: MediaexcelChannel[];
   onCreateLinear?: (data: AddLinearData) => Promise<void>;
   onDeleteLinear?: (pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod?: (pod: ResolvedPod, linearName: string | null) => Promise<void>;
@@ -288,7 +288,7 @@ export function ChannelDetail({
       {onCreateLinear && onDeleteLinear && onDeletePod && (
         <LinearsPanel
           channel={channel}
-          encoders={encoders}
+          mediaexcelChannels={mediaexcelChannels}
           onCreateLinear={onCreateLinear}
           onDeleteLinear={onDeleteLinear}
           onDeletePod={onDeletePod}

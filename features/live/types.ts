@@ -15,6 +15,17 @@ export type Linear = {
   contentId: string | null;
 };
 
+// ── Mediaexcel channel type (from GET /mediaexcel/channels) ──────────────────
+
+export type MediaexcelChannel = {
+  id: number;
+  deviceId: number;
+  encoderName: string;
+  name: string;
+  channelIndex: number;
+  pods: string[];
+};
+
 // ── Encoder / Pod infrastructure types ────────────────────────────────────────
 
 export type EncoderPod = {
