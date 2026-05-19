@@ -1,0 +1,25 @@
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: vms-vault
+spec:
+  provider: vault
+  secretObjects:
+  - secretName: admincreds
+    type: Opaque
+    data:
+    - objectName: AUTH_SECRET
+      key: AUTH_SECRET
+    - objectName: AUTH_AZURE_AD_CLIENT_SECRET
+      key: AUTH_AZURE_AD_CLIENT_SECRET
+  parameters:
+    roleName: vms
+    vaultKubernetesMountPath: aks-unifiedstreaming-pro
+    objects: |
+      - objectName: "AUTH_SECRET"
+        secretPath: "apps_multi/data/vms/pro"
+        secretKey: "AUTH_SECRET"
+      - objectName: "AUTH_AZURE_AD_CLIENT_SECRET"
+        secretPath: "apps_multi/data/vms/pro"
+        secretKey: "AUTH_AZURE_AD_CLIENT_SECRET"

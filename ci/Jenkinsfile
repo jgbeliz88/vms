@@ -1,7 +1,7 @@
 @Library('ci-library') _
 
-pipelineEKSMultibranch(
+pipelineMultibranchGenericAKS(
     timeout_mins: 30,
-    app: '__PRJ_NAME__',
+    app: 'vms',
     ci_branch: 'dev'
 )

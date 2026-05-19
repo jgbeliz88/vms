@@ -1,0 +1,54 @@
+{
+    "configLayout": {
+        "Platform": {
+            "Infinity": {
+                "Devices": ["Web", "iOS", "Android", "Samsung Tizen", "LS webOS", "tvOS", "Android TV", "Fire TV (Android)", "Fire TV (Kepler)", "Chromecast", "Movistar STB", "Philips TitaNoS", "Vodafone Vewd", "Hisense Vidaa"]
+            },
+            "Multisite": {
+                "Devices": ["Web"]
+            },
+            "Third Party": {
+                "Devices": ["Amazon Prime Video"]
+            }
+        },
+        "Source": {
+            "customizable": false,
+            "options": ["UDP", "SDI"]
+        },
+        "CVP IP": {
+            "customizable": true
+        },
+        "Format": {
+            "customizable": false,
+            "options": ["HLS", "Dash", "Zixi"]
+        },
+        "Midroll": {
+            "customizable": false,
+            "options": ["DAI", "Linear", "CSAI"]
+        },
+        "DRM": {
+            "customizable": false,
+            "options": ["Yes", "No"]
+        },
+        "Token": {
+            "customizable": true,
+            "options": ["Google", "Bypass DRM", "Cerbero"]
+        },
+        "Scte/ID3": {
+            "customizable": false,
+            "options": ["Ads", "Ads+Prog", "No"]
+        },
+        "Subtitle": {
+            "customizable": false,
+            "options": ["Yes", "No"]
+        },
+        "Multiaudio": {
+            "customizable": false,
+            "options": ["Yes", "No"]
+        },
+        "DrLecter": {
+            "customizable": false,
+            "options": ["Yes", "No"]
+        }
+    }
+}
