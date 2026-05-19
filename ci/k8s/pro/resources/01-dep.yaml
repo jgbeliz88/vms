@@ -27,19 +27,9 @@ spec:
         image: euwestmeswebacr.azurecr.io/vms:$TAG
         ports:
         - containerPort: 3000
-        readinessProbe:
-          httpGet:
-            path: /status-complete
-            port: 3000
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 15
-          successThreshold: 2
-          timeoutSeconds: 2
-          failureThreshold: 10
         livenessProbe:
           httpGet:
-            path: /status-simple
+            path: /api/status-simple
             port: 3000
             scheme: HTTP
           initialDelaySeconds: 5
@@ -49,7 +39,7 @@ spec:
           failureThreshold: 12
         startupProbe:
           httpGet:
-            path: /status-complete
+            path: /api/status-complete
             port: 3000
             scheme: HTTP
           initialDelaySeconds: 5
