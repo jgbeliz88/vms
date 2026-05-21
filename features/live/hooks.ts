@@ -448,6 +448,32 @@ export function useDeletePodReference() {
   });
 }
 
+// TODO: replace throw with fetch call once Enigma DELETE /live/linears/:linearId endpoint is ready
+export function useDeleteLinear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (_linearId: number) => {
+      throw new Error("Not implemented — Enigma endpoint pending");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+// TODO: replace throw with fetch call once Enigma POST /live/linears/:linearId/clear endpoint is ready
+export function useClearLinear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (_linearId: number) => {
+      throw new Error("Not implemented — Enigma endpoint pending");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
 type UpdateChannelConfigPayload = {
   id: number;
   config: ChannelConfigRow[];

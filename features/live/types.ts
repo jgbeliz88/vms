@@ -26,6 +26,41 @@ export type MediaexcelChannel = {
   pods: string[];
 };
 
+// ── Enigma nested linear types (preserved hierarchy from GET /live/channels) ─
+
+export type EnigmaEncoder = {
+  id: number;
+  name: string;
+  heroName: string;
+  deviceId: number;
+  channelIndex: number;
+  updatedAt: string;
+};
+
+export type EnigmaLinearPod = {
+  id: number;
+  name: string;
+  status: "running" | "stopped" | "degraded";
+  linearId: number;
+  updatedAt: string;
+  encoders: EnigmaEncoder[];
+};
+
+export type EnigmaLinear = {
+  id: number;
+  channelId: number;
+  linearName: string | null;
+  drm: number | null;
+  adsReplacement: number | null;
+  fragmentLength: string | null;
+  disableDrmManifests: number | null;
+  drmVendor: string | null;
+  contentId: string | null;
+  tags: string[];
+  updatedAt: string;
+  pods: EnigmaLinearPod[];
+};
+
 // Runtime-resolved view (joined by BFF from /live/channels response) — used by UI
 export type ResolvedPod = {
   id: number;
@@ -51,6 +86,7 @@ export type Channel = {
 // Shape returned by GET /api/live/channels (pods joined from encoder data)
 export type ResolvedChannel = Omit<Channel, "linears" | "channelConfigs"> & {
   pods: ResolvedPod[];
+  linears: EnigmaLinear[];
   config?: ChannelConfigRow[];
 };
 
