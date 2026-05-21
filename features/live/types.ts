@@ -26,24 +26,12 @@ export type MediaexcelChannel = {
   pods: string[];
 };
 
-// ── Encoder / Pod infrastructure types ────────────────────────────────────────
-
-export type EncoderPod = {
+// Runtime-resolved view (joined by BFF from /live/channels response) — used by UI
+export type ResolvedPod = {
   id: number;
   name: string;
   status: "running" | "stopped" | "degraded";
   encoderId: number;
-};
-
-export type Encoder = {
-  id: number;
-  encoderChannel: string;
-  heroName: string;
-  pods: EncoderPod[];
-};
-
-// Runtime-resolved view (joined by BFF) — used by UI
-export type ResolvedPod = EncoderPod & {
   encoderName: string;
   linear: Linear | null;
 };

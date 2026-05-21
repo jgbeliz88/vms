@@ -16,12 +16,7 @@ import {
   useDeletePodReference,
   useUpdateChannelConfig,
 } from "@/features/live/hooks";
-import {
-  useEncodersQuery,
-  useCreateEncoder,
-  useDeleteEncoder,
-  useMediaexcelChannelsQuery,
-} from "@/features/live/encoder-hooks";
+import { useMediaexcelChannelsQuery } from "@/features/live/encoder-hooks";
 import { channelActions, batchActions } from "@/features/live/config";
 import { BatchAction, ResolvedChannel, ResolvedPod, ChannelAction, ChannelConfigRow } from "@/features/live/types";
 import { ChannelTable } from "@/components/live/ChannelTable";
@@ -29,7 +24,6 @@ import { ActionConfirmModal, AddLinearData, DeleteFlowDeletion } from "@/compone
 import { BatchActionBar, CreateLinearItem, LinearFormConfig, CreateLinearResult } from "@/components/live/BatchActionBar";
 import { BatchConfirmModal } from "@/components/live/BatchConfirmModal";
 import { CreateChannelPanel } from "@/components/live/CreateChannelPanel";
-import { EncoderConfigSection } from "@/components/live/EncoderConfigSection";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
@@ -55,7 +49,6 @@ export default function LivePage() {
 
   const channelsQuery = useChannelsQuery();
   const configLayoutQuery = useConfigLayoutQuery();
-  const encodersQuery = useEncodersQuery();
   const mediaexcelChannelsQuery = useMediaexcelChannelsQuery();
   const [savingConfigId, setSavingConfigId] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState("");
@@ -68,11 +61,7 @@ export default function LivePage() {
   const deleteLinearAction = useDeleteLinearAction();
   const deletePodReference = useDeletePodReference();
   const updateChannelConfig = useUpdateChannelConfig();
-  const createEncoder = useCreateEncoder();
-  const deleteEncoder = useDeleteEncoder();
-
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data]);
-  const encoders = useMemo(() => encodersQuery.data ?? [], [encodersQuery.data]);
   const mediaexcelChannels = useMemo(() => mediaexcelChannelsQuery.data ?? [], [mediaexcelChannelsQuery.data]);
   const filteredChannels = useMemo(() => {
     return channels.filter((channel) => {
@@ -313,32 +302,6 @@ export default function LivePage() {
     return await batchPodDelete.mutateAsync(allPods);
   };
 
-  const handleAddPod = async (data: AddLinearData) => {
-    if (!confirmChannel) return;
-    try {
-      await addLinear.mutateAsync({
-        channelEntityId: confirmChannel.id,
-        podName: data.podName,
-        linearName: data.linearName,
-        drm: data.drm,
-        adsReplacement: data.adsReplacement,
-        fragmentLength: data.fragmentLength,
-        disableDrmManifests: data.disableDrmManifests,
-        drmVendor: data.drmVendor,
-        contentId: data.contentId,
-      });
-      notify({ title: "Pod added", description: `Linear ${data.linearName} added.` });
-      setConfirmAction(null);
-      setConfirmChannel(null);
-    } catch (error) {
-      notify({
-        title: "Add Pod failed",
-        description: error instanceof Error ? error.message : "Unable to add pod",
-        variant: "error"
-      });
-    }
-  };
-
   const runBatch = (actionId: string) => {
     const action = batchActions.find((item) => item.id === actionId) ?? null;
     setBatchConfirm(action);
@@ -431,32 +394,6 @@ export default function LivePage() {
     }
   };
 
-  const handleCreateEncoder = async (data: { encoderChannel: string; heroName: string }) => {
-    try {
-      await createEncoder.mutateAsync(data);
-      notify({ title: "Encoder created", description: `${data.encoderChannel} added.` });
-    } catch (error) {
-      notify({
-        title: "Create encoder failed",
-        description: error instanceof Error ? error.message : "Unable to create encoder",
-        variant: "error",
-      });
-    }
-  };
-
-  const handleDeleteEncoder = async (id: number) => {
-    try {
-      await deleteEncoder.mutateAsync({ id });
-      notify({ title: "Encoder deleted" });
-    } catch (error) {
-      notify({
-        title: "Delete encoder failed",
-        description: error instanceof Error ? error.message : "Unable to delete encoder",
-        variant: "error",
-      });
-    }
-  };
-
   return (
     <AuthGuard>
       <AppShell>
@@ -504,14 +441,6 @@ export default function LivePage() {
             />
           )}
 
-          {/* Encoder Configuration */}
-          <EncoderConfigSection
-            encoders={encoders}
-            onCreateEncoder={handleCreateEncoder}
-            onDeleteEncoder={handleDeleteEncoder}
-            loading={encodersQuery.isLoading}
-          />
-
           {batchResults.length > 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Batch Results</div>
@@ -551,10 +480,8 @@ export default function LivePage() {
           selectedPodIndices={selectedPodIndices}
           onPodToggle={togglePodIndex}
           onConfirm={executeAction}
-          onAddPodConfirm={handleAddPod}
           onDeleteFlowConfirm={executeDeleteFlow}
           loading={confirmAction?.id === "delete-flow" ? deletePodLoading : actionMutation.isPending}
-          encoders={encoders}
         />
 
         <BatchConfirmModal

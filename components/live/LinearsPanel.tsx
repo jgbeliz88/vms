@@ -514,8 +514,6 @@ export function LinearsPanel({
       await Promise.all(
         [...selectedPods].map((podName) =>
           onCreateLinear({
-            encoderId: 0,
-            podId: 0,
             podName,
             linearName: form.linearName,
             drm: form.drm,
@@ -578,8 +576,6 @@ export function LinearsPanel({
     setConfiguring(true);
     try {
       await onCreateLinear({
-        encoderId: pod.encoderId,
-        podId: pod.id,
         podName: pod.name,
         ...configureForm,
       });

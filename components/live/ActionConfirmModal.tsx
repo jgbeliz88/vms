@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ResolvedChannel, ChannelAction, Encoder } from "@/features/live/types";
+import { ResolvedChannel, ChannelAction } from "@/features/live/types";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils/cn";
 
 export type AddLinearData = {
-  encoderId: number;
-  podId: number;
   podName: string;
   linearName: string;
   drm: boolean;
@@ -29,8 +27,6 @@ export type DeleteFlowDeletion = {
 };
 
 const DEFAULT_FORM: AddLinearData = {
-  encoderId: 0,
-  podId: 0,
   podName: "",
   linearName: "",
   drm: false,
@@ -133,175 +129,6 @@ function NameMatchInput({
 // ---------------------------------------------------------------------------
 // Branch sub-components — each owns its own state
 // ---------------------------------------------------------------------------
-
-function AddPodContent({
-  open,
-  action,
-  onClose,
-  onAddPodConfirm,
-  loading,
-  encoders,
-}: {
-  open: boolean;
-  action: ChannelAction;
-  onClose: () => void;
-  onAddPodConfirm: (data: AddLinearData) => void;
-  loading?: boolean;
-  encoders: Encoder[];
-}) {
-  const [form, setForm] = useState<AddLinearData>(DEFAULT_FORM);
-  const [showValidation, setShowValidation] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setForm(DEFAULT_FORM);
-    setShowValidation(false);
-  }, [open]);
-
-  const set = <K extends keyof AddLinearData>(key: K, value: AddLinearData[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-  const selectedEncoder = encoders.find((e) => e.id === form.encoderId) ?? null;
-  const podOptions = selectedEncoder?.pods ?? [];
-
-  const formValid =
-    form.encoderId !== 0 &&
-    form.podId !== 0 &&
-    form.linearName.trim() !== "" &&
-    form.fragmentLength.trim() !== "";
-
-  const handleConfirm = () => {
-    if (!formValid) {
-      setShowValidation(true);
-      return;
-    }
-    onAddPodConfirm(form);
-  };
-
-  return (
-    <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-      <p>{action.description}</p>
-
-      <div className="space-y-3">
-        <FormRow label="Encoder">
-          <SelectField
-            value={String(form.encoderId || "")}
-            onChange={(v) => {
-              set("encoderId", Number(v));
-              set("podId", 0);
-              set("podName", "");
-              setShowValidation(false);
-            }}
-            options={encoders.map((e) => ({
-              value: String(e.id),
-              label: `${e.encoderChannel} — ${e.heroName}`,
-            }))}
-            placeholder="Select encoder…"
-            error={showValidation && !form.encoderId ? "Required" : undefined}
-          />
-        </FormRow>
-
-        <FormRow label="Pod">
-          {!form.encoderId ? (
-            <p className="text-xs italic text-slate-400">Select an encoder first.</p>
-          ) : podOptions.length === 0 ? (
-            <p className="text-xs italic text-slate-400">No pods on this encoder.</p>
-          ) : (
-            <SelectField
-              value={String(form.podId || "")}
-              onChange={(v) => {
-                const pod = podOptions.find((p) => p.id === Number(v));
-                set("podId", Number(v));
-                set("podName", pod?.name ?? "");
-                setShowValidation(false);
-              }}
-              options={podOptions.map((p) => ({
-                value: String(p.id),
-                label: p.name,
-              }))}
-              placeholder="Select pod…"
-              error={showValidation && !form.podId ? "Required" : undefined}
-            />
-          )}
-        </FormRow>
-
-        <FormRow label="Linear Name">
-          <Input
-            value={form.linearName}
-            placeholder="e.g. linear08"
-            onChange={(e) => {
-              set("linearName", e.target.value);
-              setShowValidation(false);
-            }}
-            error={showValidation && !form.linearName.trim() ? "Required" : undefined}
-          />
-        </FormRow>
-
-        <FormRow label="Fragment Length">
-          <Input
-            value={form.fragmentLength}
-            placeholder="e.g. 48/25"
-            onChange={(e) => {
-              set("fragmentLength", e.target.value);
-              setShowValidation(false);
-            }}
-            error={showValidation && !form.fragmentLength.trim() ? "Required" : undefined}
-          />
-        </FormRow>
-
-        <FormRow label="DRM">
-          <div className="flex justify-end">
-            <Toggle checked={form.drm} onChange={(v) => set("drm", v)} />
-          </div>
-        </FormRow>
-
-        <FormRow label="Ads Replacement">
-          <div className="flex justify-end">
-            <Toggle checked={form.adsReplacement} onChange={(v) => set("adsReplacement", v)} />
-          </div>
-        </FormRow>
-
-        <FormRow label="Disable DRM Manifests">
-          <div className="flex justify-end">
-            <Toggle checked={form.disableDrmManifests} onChange={(v) => set("disableDrmManifests", v)} />
-          </div>
-        </FormRow>
-
-        {form.drm && (
-          <>
-            <FormRow label="DRM Vendor">
-              <Input
-                value={form.drmVendor}
-                placeholder="e.g. kms"
-                onChange={(e) => set("drmVendor", e.target.value)}
-              />
-            </FormRow>
-            <FormRow label="Content ID">
-              <Input
-                value={form.contentId}
-                placeholder="e.g. premium"
-                onChange={(e) => set("contentId", e.target.value)}
-              />
-            </FormRow>
-          </>
-        )}
-
-        {showValidation && !formValid && (
-          <p className="text-xs text-rose-600 dark:text-rose-400">
-            Please fill in all required fields before confirming.
-          </p>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" onClick={handleConfirm} disabled={loading}>
-          {loading ? "Executing..." : "Confirm"}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function DeleteFlowContent({
   open,
@@ -598,10 +425,8 @@ export function ActionConfirmModal({
   selectedPodIndices,
   onPodToggle,
   onConfirm,
-  onAddPodConfirm,
   onDeleteFlowConfirm,
   loading,
-  encoders,
 }: {
   open: boolean;
   onClose: () => void;
@@ -610,28 +435,16 @@ export function ActionConfirmModal({
   selectedPodIndices: number[];
   onPodToggle: (index: number) => void;
   onConfirm: () => void;
-  onAddPodConfirm?: (data: AddLinearData) => void;
   onDeleteFlowConfirm?: (deletions: DeleteFlowDeletion[]) => void;
   loading?: boolean;
-  encoders: Encoder[];
 }) {
   if (!channel || !action) return null;
 
-  const isAddPod = action.id === "add-pod";
   const isDeleteFlow = action.id === "delete-flow";
 
   return (
     <Modal open={open} onClose={onClose} title={`Confirm: ${action.label}`} size="md">
-      {isAddPod ? (
-        <AddPodContent
-          open={open}
-          action={action}
-          onClose={onClose}
-          onAddPodConfirm={onAddPodConfirm!}
-          loading={loading}
-          encoders={encoders}
-        />
-      ) : isDeleteFlow ? (
+      {isDeleteFlow ? (
         <DeleteFlowContent
           open={open}
           channel={channel}
