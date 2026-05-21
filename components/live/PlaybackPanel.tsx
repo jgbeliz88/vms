@@ -66,14 +66,11 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   }, []);
 
   useEffect(() => {
-    const platform = channel.platform.toLowerCase();
-    if (platform.includes("dash")) setFormatKey("dash");
-    else if (platform.includes("smooth")) setFormatKey("smooth");
-    else setFormatKey("hls");
+    setFormatKey("hls");
     setPlayerActive(false);
     setSelectedLinearIdx(0);
     setShowNoLinearWarning(false);
-  }, [channel.platform, setFormatKey]);
+  }, [channel.id, setFormatKey]);
 
   const distOriginLive = vmsSettings?.origin.live;
   const distCdnLive = { akamai: vmsSettings?.akamai.live ?? "", fastly: vmsSettings?.fastly.live ?? "" };

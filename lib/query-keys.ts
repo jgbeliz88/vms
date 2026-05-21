@@ -1,6 +1,6 @@
 export const queryKeys = {
   liveChannels: () => ["live-channels"],
-  liveEncoders: () => ["live-encoders"],
+  liveMediaexcelChannels: () => ["live-mediaexcel-channels"],
   liveConfigLayout: () => ["live-config-layout"],
   manifestStatus: (channelId: string, originBase: string) => ["manifest-status", channelId, originBase],
   channelDetailStatus: (channelId: string) => ["channel-detail-status", channelId],

@@ -15,24 +15,23 @@ export type Linear = {
   contentId: string | null;
 };
 
-// ── Encoder / Pod infrastructure types ────────────────────────────────────────
+// ── Mediaexcel channel type (from GET /mediaexcel/channels) ──────────────────
 
-export type EncoderPod = {
+export type MediaexcelChannel = {
+  id: number;
+  deviceId: number;
+  encoderName: string;
+  name: string;
+  channelIndex: number;
+  pods: string[];
+};
+
+// Runtime-resolved view (joined by BFF from /live/channels response) — used by UI
+export type ResolvedPod = {
   id: number;
   name: string;
   status: "running" | "stopped" | "degraded";
   encoderId: number;
-};
-
-export type Encoder = {
-  id: number;
-  encoderChannel: string;
-  heroName: string;
-  pods: EncoderPod[];
-};
-
-// Runtime-resolved view (joined by BFF) — used by UI
-export type ResolvedPod = EncoderPod & {
   encoderName: string;
   linear: Linear | null;
 };
@@ -41,7 +40,6 @@ export type ResolvedPod = EncoderPod & {
 export type Channel = {
   id: number;
   name: string;
-  platform: string;
   status: ChannelStatus;
   linears: Linear[];
   cacheState: "warm" | "cold" | "stale";
