@@ -20,6 +20,7 @@ import {
   useEncodersQuery,
   useCreateEncoder,
   useDeleteEncoder,
+  useMediaexcelChannelsQuery,
 } from "@/features/live/encoder-hooks";
 import { channelActions, batchActions } from "@/features/live/config";
 import { BatchAction, ResolvedChannel, ResolvedPod, ChannelAction, ChannelConfigRow } from "@/features/live/types";
@@ -55,6 +56,7 @@ export default function LivePage() {
   const channelsQuery = useChannelsQuery();
   const configLayoutQuery = useConfigLayoutQuery();
   const encodersQuery = useEncodersQuery();
+  const mediaexcelChannelsQuery = useMediaexcelChannelsQuery();
   const [savingConfigId, setSavingConfigId] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState("");
   const createChannel = useCreateChannel();
@@ -71,6 +73,7 @@ export default function LivePage() {
 
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data]);
   const encoders = useMemo(() => encodersQuery.data ?? [], [encodersQuery.data]);
+  const mediaexcelChannels = useMemo(() => mediaexcelChannelsQuery.data ?? [], [mediaexcelChannelsQuery.data]);
   const filteredChannels = useMemo(() => {
     return channels.filter((channel) => {
       if (!channelFilter.trim()) return true;
@@ -494,7 +497,7 @@ export default function LivePage() {
               configLayout={configLayoutQuery.data}
               onSaveConfig={handleSaveConfig}
               savingConfigId={savingConfigId}
-              encoders={encoders}
+              mediaexcelChannels={mediaexcelChannels}
               onCreateLinear={handleCreateLinearForChannel}
               onDeleteLinear={handleDeleteLinearForChannel}
               onDeletePod={handleDeletePodForChannel}

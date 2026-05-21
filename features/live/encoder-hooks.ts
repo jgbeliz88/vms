@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Encoder, EncoderPod } from "./types";
+import type { Encoder, EncoderPod, MediaexcelChannel } from "./types";
 import { queryKeys } from "@/lib/query-keys";
 
 export function useEncodersQuery() {
@@ -9,6 +9,17 @@ export function useEncodersQuery() {
       const response = await fetch("/api/live/encoders", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to load encoders");
       return (await response.json()) as Encoder[];
+    },
+  });
+}
+
+export function useMediaexcelChannelsQuery() {
+  return useQuery({
+    queryKey: queryKeys.liveMediaexcelChannels(),
+    queryFn: async () => {
+      const res = await fetch("/api/live/mediaexcel-channels", { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load mediaexcel channels");
+      return (await res.json()) as MediaexcelChannel[];
     },
   });
 }
