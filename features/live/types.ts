@@ -41,7 +41,6 @@ export type ResolvedPod = EncoderPod & {
 export type Channel = {
   id: number;
   name: string;
-  platform: string;
   status: ChannelStatus;
   linears: Linear[];
   cacheState: "warm" | "cold" | "stale";
