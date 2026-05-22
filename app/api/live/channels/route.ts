@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { ResolvedChannel, ResolvedPod, ChannelStatus, ChannelConfigRow, Linear } from "@/features/live/types";
+import type { ResolvedChannel, ResolvedPod, ChannelStatus, ChannelConfigRow, Linear, EnigmaLinear } from "@/features/live/types";
 import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
@@ -18,39 +18,6 @@ const deleteSchema = z.object({
   id: z.number().int().positive(),
 });
 
-type EnigmaEncoder = {
-  id: number;
-  name: string;
-  heroName: string;
-  deviceId: number;
-  channelIndex: number;
-  updatedAt: string;
-};
-
-type EnigmaNewPod = {
-  id: number;
-  name: string;
-  status: "running" | "stopped" | "degraded";
-  linearId: number;
-  updatedAt: string;
-  encoders: EnigmaEncoder[];
-};
-
-type EnigmaNewLinear = {
-  id: number;
-  channelId: number;
-  linearName: string;
-  drm: number;
-  adsReplacement: number;
-  fragmentLength: string;
-  disableDrmManifests: number;
-  drmVendor: string;
-  contentId: string;
-  tags: string[];
-  updatedAt: string;
-  pods: EnigmaNewPod[];
-};
-
 type EnigmaChannel = {
   id: number;
   name: string;
@@ -59,7 +26,7 @@ type EnigmaChannel = {
   lastSync: string | null;
   metadata: Record<string, unknown> | null;
   updatedAt: string;
-  linears: EnigmaNewLinear[];
+  linears: EnigmaLinear[];
   channelConfigs: ChannelConfigRow[];
 };
 
@@ -99,6 +66,7 @@ function buildChannels(channels: EnigmaChannel[]): ResolvedChannel[] {
       metadata: ch.metadata,
       config: ch.channelConfigs,
       pods,
+      linears: ch.linears,
     };
   });
 }

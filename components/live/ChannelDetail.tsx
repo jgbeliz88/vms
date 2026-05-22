@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ResolvedChannel, ChannelAction, ChannelConfigRow } from "@/features/live/types";
 import { JsonViewer } from "@/components/ui/JsonViewer";
 import { PlaybackPanel } from "./PlaybackPanel";
-import { LinearsPanel } from "./LinearsPanel";
+import { LinearsSection } from "./LinearsSection";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChannelConfigEditor } from "./ChannelConfigEditor";
@@ -285,13 +285,11 @@ export function ChannelDetail({
 
       <PlaybackPanel channel={channel} />
 
-      {onCreateLinear && onDeleteLinear && onDeletePod && (
-        <LinearsPanel
+      {onCreateLinear && (
+        <LinearsSection
           channel={channel}
-          mediaexcelChannels={mediaexcelChannels}
+          mediaexcelChannels={mediaexcelChannels ?? []}
           onCreateLinear={onCreateLinear}
-          onDeleteLinear={onDeleteLinear}
-          onDeletePod={onDeletePod}
         />
       )}
 
