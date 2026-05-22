@@ -370,6 +370,7 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
         ref={videoRef}
         controls
         playsInline
+        crossOrigin="anonymous"
         className="mt-2 h-40 w-full rounded-lg bg-black"
       />
       {audioTracks.length >= 2 && (
