@@ -51,7 +51,7 @@ export async function PUT(
   const rows = parsed.data.config.map((row) => ({ ...row, channelId }));
 
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/channels/${channelId}/config`;
+  const url = `${enigmaBase}/live/channel/${channelId}/config`;
   let response: Response;
   try {
     response = await fetchVMS(url, {

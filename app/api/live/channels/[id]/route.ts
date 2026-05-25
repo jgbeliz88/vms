@@ -29,7 +29,7 @@ export async function PATCH(
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/channels/${channelId}`;
+  const url = `${enigmaBase}/live/channel/${channelId}`;
   let response: Response;
   try {
     response = await fetchVMS(url, {
