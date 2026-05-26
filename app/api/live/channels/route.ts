@@ -38,7 +38,7 @@ function buildChannels(channels: EnigmaChannel[]): ResolvedChannel[] {
         const linearData: Linear = {
           podId: pod.id,
           channelId: linear.channelId,
-          linearName: linear.linearName,
+          linearName: linear.name,
           drm: linear.drm,
           adsReplacement: linear.adsReplacement,
           fragmentLength: linear.fragmentLength,
@@ -73,7 +73,7 @@ function buildChannels(channels: EnigmaChannel[]): ResolvedChannel[] {
 
 export async function GET() {
   const enigmaBase = getEnigmaBaseUrl();
-  const channelsUrl = `${enigmaBase}/live/channels`;
+  const channelsUrl = `${enigmaBase}/live/channel`;
 
   let channelsRes: Response;
   try {
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/channels`;
+  const url = `${enigmaBase}/live/channel`;
   let response: Response;
   try {
     response = await fetchVMS(url, {
@@ -137,7 +137,7 @@ export async function DELETE(request: Request) {
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/channels/${parsed.data.id}`;
+  const url = `${enigmaBase}/live/channel/${parsed.data.id}`;
   let response: Response;
   try {
     response = await fetchVMS(url, { method: "DELETE" });
