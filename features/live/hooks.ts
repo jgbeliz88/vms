@@ -344,15 +344,29 @@ export function useVodManifestQuery(id: string, url: string | null, originBase: 
 }
 
 type AddLinearPayload = {
-  channelEntityId: number;
-  podName: string;
-  linearName: string;
+  channelId: number;
+  name: string;
   drm: boolean;
   adsReplacement: boolean;
   fragmentLength: string;
   disableDrmManifests: boolean;
   drmVendor: string;
   contentId: string;
+  tags: string[];
+  pods: { name: string; encoders: number[] }[];
+};
+
+type ConfigureLinearPayload = {
+  linearId: number;
+  channelId: number;
+  name: string;
+  drm: boolean;
+  adsReplacement: boolean;
+  fragmentLength: string;
+  disableDrmManifests: boolean;
+  drmVendor: string;
+  contentId: string;
+  tags: string[];
 };
 
 export function useAddLinear() {
@@ -448,12 +462,15 @@ export function useDeletePodReference() {
   });
 }
 
-// TODO: replace throw with fetch call once Enigma DELETE /live/linears/:linearId endpoint is ready
 export function useDeleteLinear() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_linearId: number) => {
-      throw new Error("Not implemented — Enigma endpoint pending");
+    mutationFn: async (linearId: number) => {
+      const response = await fetch(`/api/live/linear/${linearId}/delete`, { method: "DELETE" });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
@@ -461,12 +478,36 @@ export function useDeleteLinear() {
   });
 }
 
-// TODO: replace throw with fetch call once Enigma POST /live/linears/:linearId/clear endpoint is ready
 export function useClearLinear() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_linearId: number) => {
-      throw new Error("Not implemented — Enigma endpoint pending");
+    mutationFn: async (linearId: number) => {
+      const response = await fetch(`/api/live/linear/${linearId}/disable`, { method: "GET" });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+export function useConfigureLinear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ linearId, ...body }: ConfigureLinearPayload) => {
+      const response = await fetch(`/api/live/linear/${linearId}/activate`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });

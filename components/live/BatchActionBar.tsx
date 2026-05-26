@@ -21,6 +21,7 @@ export type CreateLinearItem = {
   channelEntityId: number;
   podId: number;
   podName: string;
+  encoderId: number;
   linearName: string;
 };
 
@@ -31,6 +32,7 @@ export type LinearFormConfig = {
   disableDrmManifests: boolean;
   drmVendor: string;
   contentId: string;
+  tags: string[];
 };
 
 export type CreateLinearResult = {
@@ -48,6 +50,7 @@ const DEFAULT_LINEAR_CONFIG: LinearFormConfig = {
   disableDrmManifests: false,
   drmVendor: "kms",
   contentId: "free_to_air_channels",
+  tags: ["Web", "Apps", "SmartTV"],
 };
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -294,6 +297,7 @@ export function BatchActionBar({
               channelEntityId: channel.id,
               podId: pod.id,
               podName: pod.name,
+              encoderId: pod.encoderId,
               linearName,
             });
           }
@@ -631,6 +635,26 @@ export function BatchActionBar({
                     </FormRow>
                   </>
                 )}
+                <FormRow label="Tags">
+                  <div className="flex justify-end gap-3">
+                    {(["Web", "Apps", "SmartTV"] as const).map((tag) => (
+                      <label key={tag} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={createConfig.tags.includes(tag)}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...createConfig.tags, tag]
+                              : createConfig.tags.filter((t) => t !== tag);
+                            setConfig("tags", next);
+                          }}
+                          className="rounded border-slate-300 text-brand-500 focus:ring-brand-500 dark:border-slate-600"
+                        />
+                        {tag}
+                      </label>
+                    ))}
+                  </div>
+                </FormRow>
               </div>
 
               <PodFilterTabs value={createFilter} onChange={setCreateFilter} />

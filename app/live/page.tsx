@@ -118,9 +118,10 @@ export default function LivePage() {
   const handleCreateLinearForChannel = async (channelId: number, data: AddLinearData) => {
     try {
       await addLinear.mutateAsync({
-        channelEntityId: channelId,
-        podName: data.podName,
-        linearName: data.linearName,
+        channelId,
+        name: data.linearName,
+        pods: data.pods,
+        tags: data.tags,
         drm: data.drm,
         adsReplacement: data.adsReplacement,
         fragmentLength: data.fragmentLength,
@@ -238,28 +239,46 @@ export default function LivePage() {
     items: CreateLinearItem[],
     config: LinearFormConfig
   ): Promise<CreateLinearResult[]> => {
-    const results = await Promise.all(
-      items.map(async ({ channelEntityId, podName, linearName }) => {
+    // Group items by channel so each channel gets one API call with all its pods bundled
+    const byChannel = new Map<number, CreateLinearItem[]>();
+    for (const item of items) {
+      const group = byChannel.get(item.channelEntityId) ?? [];
+      group.push(item);
+      byChannel.set(item.channelEntityId, group);
+    }
+
+    const perChannelResults = await Promise.all(
+      Array.from(byChannel.entries()).map(async ([channelId, channelItems]) => {
+        const linearName = channelItems[0].linearName;
+        const pods = channelItems.map((item) => ({ name: item.podName, encoders: [item.encoderId] }));
         try {
           await addLinear.mutateAsync({
-            channelEntityId,
-            podName,
-            linearName,
-            ...config,
+            channelId,
+            name: linearName,
+            pods,
+            tags: config.tags,
+            drm: config.drm,
+            adsReplacement: config.adsReplacement,
+            fragmentLength: config.fragmentLength,
+            disableDrmManifests: config.disableDrmManifests,
+            drmVendor: config.drmVendor,
+            contentId: config.contentId,
           });
-          return { podName, linearName, status: "created" as const };
+          return channelItems.map(({ podName }) => ({ podName, linearName, status: "created" as const }));
         } catch (e) {
           const err = e as Error & { curlCommand?: string };
-          return {
+          return channelItems.map(({ podName }) => ({
             podName,
             linearName,
             status: "error" as const,
             message: err.message || "Failed",
             curlCommand: err.curlCommand,
-          };
+          }));
         }
       })
     );
+
+    const results = perChannelResults.flat();
     const created = results.filter((r) => r.status === "created").length;
     const failed = results.filter((r) => r.status === "error").length;
     if (failed > 0) {

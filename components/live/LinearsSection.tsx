@@ -9,10 +9,12 @@ import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
-import { useDeleteLinear, useClearLinear } from "@/features/live/hooks";
+import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/live/hooks";
 import type { AddLinearData } from "./ActionConfirmModal";
 
 // ── Types ────────────────────────────────────────────────────────────────────
+
+const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV"] as const;
 
 type FormFields = {
   linearName: string;
@@ -22,6 +24,7 @@ type FormFields = {
   disableDrmManifests: boolean;
   drmVendor: string;
   contentId: string;
+  tags: string[];
 };
 
 const DEFAULT_FORM: FormFields = {
@@ -32,6 +35,7 @@ const DEFAULT_FORM: FormFields = {
   disableDrmManifests: false,
   drmVendor: "",
   contentId: "",
+  tags: ["Web", "Apps", "SmartTV"],
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -517,6 +521,7 @@ export function LinearsSection({
   const canManageLinears = usePermission([ROLES.ADMIN]);
   const deleteLinear = useDeleteLinear();
   const clearLinear = useClearLinear();
+  const configureLinear = useConfigureLinear();
 
   // Create form state
   const [createOpen, setCreateOpen] = useState(false);
@@ -524,6 +529,12 @@ export function LinearsSection({
   const [form, setForm] = useState<FormFields>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
+
+  // Configure form state (for cleared linears)
+  const [configuringLinear, setConfiguringLinear] = useState<EnigmaLinear | null>(null);
+  const [configForm, setConfigForm] = useState<FormFields>(DEFAULT_FORM);
+  const [configuring, setConfiguring] = useState(false);
+  const [showConfigValidation, setShowConfigValidation] = useState(false);
 
   // Tree state
   const [expandedPods, setExpandedPods] = useState<Set<number>>(new Set());
@@ -534,6 +545,9 @@ export function LinearsSection({
 
   const set = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const setConfigField = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
+    setConfigForm((prev) => ({ ...prev, [key]: value }));
 
   const existingPodNames = useMemo(
     () => new Set(channel.pods.filter((p) => p.linear?.linearName).map((p) => p.name)),
@@ -547,10 +561,10 @@ export function LinearsSection({
 
   const formValid = selectedPods.size > 0 && form.linearName.trim() !== "" && form.fragmentLength.trim() !== "";
 
-  function openCreate(preselectedPodNames?: string[]) {
+  function openCreate() {
     setForm(DEFAULT_FORM);
     setShowValidation(false);
-    setSelectedPods(preselectedPodNames ? new Set(preselectedPodNames) : new Set());
+    setSelectedPods(new Set());
     setCreateOpen(true);
   }
 
@@ -561,21 +575,71 @@ export function LinearsSection({
     setShowValidation(false);
   }
 
+  function openConfigure(linear: EnigmaLinear) {
+    setConfigForm(DEFAULT_FORM);
+    setShowConfigValidation(false);
+    setConfiguringLinear(linear);
+  }
+
+  function closeConfigure() {
+    setConfiguringLinear(null);
+    setConfigForm(DEFAULT_FORM);
+    setShowConfigValidation(false);
+  }
+
   const handleCreate = async () => {
     if (!formValid) { setShowValidation(true); return; }
     if (duplicatePods.length > 0) return;
     setCreating(true);
     try {
-      await Promise.all(
-        [...selectedPods].map((podName) =>
-          onCreateLinear({ podName, linearName: form.linearName, drm: form.drm, adsReplacement: form.adsReplacement, fragmentLength: form.fragmentLength, disableDrmManifests: form.disableDrmManifests, drmVendor: form.drmVendor, contentId: form.contentId })
-        )
-      );
+      const pods = [...selectedPods].map((podName) => ({
+        name: podName,
+        encoders: (channelForPod(podName, mediaexcelChannels)?.id != null
+          ? [channelForPod(podName, mediaexcelChannels)!.id]
+          : []) as number[],
+      }));
+      await onCreateLinear({
+        pods,
+        linearName: form.linearName,
+        drm: form.drm,
+        adsReplacement: form.adsReplacement,
+        fragmentLength: form.fragmentLength,
+        disableDrmManifests: form.disableDrmManifests,
+        drmVendor: form.drmVendor,
+        contentId: form.contentId,
+        tags: form.tags,
+      });
       closeCreate();
     } catch {
       // error toast handled by parent
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleConfigure = async () => {
+    if (!configuringLinear) return;
+    const configValid = configForm.linearName.trim() !== "" && configForm.fragmentLength.trim() !== "";
+    if (!configValid) { setShowConfigValidation(true); return; }
+    setConfiguring(true);
+    try {
+      await configureLinear.mutateAsync({
+        linearId: configuringLinear.id,
+        channelId: channel.id,
+        name: configForm.linearName,
+        drm: configForm.drm,
+        adsReplacement: configForm.adsReplacement,
+        fragmentLength: configForm.fragmentLength,
+        disableDrmManifests: configForm.disableDrmManifests,
+        drmVendor: configForm.drmVendor,
+        contentId: configForm.contentId,
+        tags: configForm.tags,
+      });
+      closeConfigure();
+    } catch {
+      // error toast handled by mutation
+    } finally {
+      setConfiguring(false);
     }
   };
 
@@ -618,6 +682,7 @@ export function LinearsSection({
           <button
             onClick={() => createOpen ? closeCreate() : openCreate()}
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-brand-600"
+            disabled={configuring}
           >
             <IconPlus className="h-3 w-3" />
             {createOpen ? "Cancel" : "Add linear"}
@@ -702,6 +767,27 @@ export function LinearsSection({
               </>
             )}
 
+            <FormRow label="Tags">
+              <div className="flex justify-end gap-3">
+                {AVAILABLE_TAGS.map((tag) => (
+                  <label key={tag} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={form.tags.includes(tag)}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...form.tags, tag]
+                          : form.tags.filter((t) => t !== tag);
+                        set("tags", next);
+                      }}
+                      className="rounded border-slate-300 text-brand-500 focus:ring-brand-500 dark:border-slate-600"
+                    />
+                    {tag}
+                  </label>
+                ))}
+              </div>
+            </FormRow>
+
             {showValidation && !formValid && (
               <p className="text-xs text-rose-600 dark:text-rose-400">Please fill in all required fields before confirming.</p>
             )}
@@ -711,8 +797,8 @@ export function LinearsSection({
                 {selectedPods.size === 0
                   ? "Select at least one pod."
                   : selectedPods.size === 1
-                  ? "1 linear will be created."
-                  : `${selectedPods.size} linears will be created.`}
+                  ? "1 linear will be created with 1 pod."
+                  : `1 linear will be created with ${selectedPods.size} pods.`}
               </span>
               <Button
                 onClick={handleCreate}
@@ -761,8 +847,8 @@ export function LinearsSection({
                     {canManageLinears && (
                       <div className="flex shrink-0 items-center gap-1">
                         {cleared ? (
-                          <GhostBtn tone="brand" onClick={() => openCreate(linear.pods.map((p) => p.name))}>
-                            <IconPlus className="h-3 w-3" /> Create
+                          <GhostBtn tone="brand" onClick={() => openConfigure(linear)}>
+                            <IconPlus className="h-3 w-3" /> Configure
                           </GhostBtn>
                         ) : (
                           <>
@@ -797,6 +883,109 @@ export function LinearsSection({
           </div>
         )}
       </div>
+
+      {/* Configure Linear modal */}
+      <Modal
+        open={configuringLinear !== null}
+        onClose={() => { if (!configuring) closeConfigure(); }}
+        title="Configure linear"
+        size="md"
+      >
+        {configuringLinear && (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Activate linear{" "}
+              <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+                #{configuringLinear.id}
+              </span>{" "}
+              with configuration data.
+            </p>
+
+            <FormRow label="Linear Name">
+              <Input
+                value={configForm.linearName}
+                placeholder="e.g. linear08"
+                onChange={(e) => { setConfigField("linearName", e.target.value); setShowConfigValidation(false); }}
+                error={showConfigValidation && !configForm.linearName.trim() ? "Required" : undefined}
+              />
+            </FormRow>
+
+            <FormRow label="Fragment Length">
+              <Input
+                value={configForm.fragmentLength}
+                placeholder="e.g. 48/25"
+                onChange={(e) => { setConfigField("fragmentLength", e.target.value); setShowConfigValidation(false); }}
+                error={showConfigValidation && !configForm.fragmentLength.trim() ? "Required" : undefined}
+              />
+            </FormRow>
+
+            <FormRow label="DRM">
+              <div className="flex justify-end">
+                <Toggle checked={configForm.drm} onChange={(v) => setConfigField("drm", v)} />
+              </div>
+            </FormRow>
+
+            <FormRow label="Ads Replacement">
+              <div className="flex justify-end">
+                <Toggle checked={configForm.adsReplacement} onChange={(v) => setConfigField("adsReplacement", v)} />
+              </div>
+            </FormRow>
+
+            <FormRow label="Disable DRM Manifests">
+              <div className="flex justify-end">
+                <Toggle checked={configForm.disableDrmManifests} onChange={(v) => setConfigField("disableDrmManifests", v)} />
+              </div>
+            </FormRow>
+
+            {configForm.drm && (
+              <>
+                <FormRow label="DRM Vendor">
+                  <Input
+                    value={configForm.drmVendor}
+                    placeholder="e.g. kms"
+                    onChange={(e) => setConfigField("drmVendor", e.target.value)}
+                  />
+                </FormRow>
+                <FormRow label="Content ID">
+                  <Input
+                    value={configForm.contentId}
+                    placeholder="e.g. premium"
+                    onChange={(e) => setConfigField("contentId", e.target.value)}
+                  />
+                </FormRow>
+              </>
+            )}
+
+            <FormRow label="Tags">
+              <div className="flex justify-end gap-3">
+                {AVAILABLE_TAGS.map((tag) => (
+                  <label key={tag} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={configForm.tags.includes(tag)}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...configForm.tags, tag]
+                          : configForm.tags.filter((t) => t !== tag);
+                        setConfigField("tags", next);
+                      }}
+                      className="rounded border-slate-300 text-brand-500 focus:ring-brand-500 dark:border-slate-600"
+                    />
+                    {tag}
+                  </label>
+                ))}
+              </div>
+            </FormRow>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="secondary" onClick={closeConfigure} disabled={configuring}>Cancel</Button>
+              <Button onClick={handleConfigure} disabled={configuring}>
+                {configuring ? "Configuring…" : "Configure"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Confirmation modal */}
       <Modal
