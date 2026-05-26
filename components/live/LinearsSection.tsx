@@ -602,7 +602,7 @@ export function LinearsSection({
     });
   }
 
-  const isCleared = (linear: EnigmaLinear) => linear.linearName === null;
+  const isCleared = (linear: EnigmaLinear) => linear.name === null;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -745,7 +745,7 @@ export function LinearsSection({
                         <span className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500">linear</span>
                         {cleared
                           ? <span className="italic text-slate-400 dark:text-slate-500">null</span>
-                          : <span className="font-semibold text-slate-900 dark:text-slate-100">{linear.linearName}</span>}
+                          : <span className="font-semibold text-slate-900 dark:text-slate-100">{linear.name}</span>}
                         {cleared
                           ? <Pill tone="cleared">cleared</Pill>
                           : <Pill tone="success">active</Pill>}
@@ -810,7 +810,7 @@ export function LinearsSection({
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Clear{" "}
               <span className="font-mono font-semibold text-slate-800 dark:text-slate-100">
-                {pendingAction.linear.linearName}
+                {pendingAction.linear.name}
               </span>
               ? The linear data will be nulled out but its pods will be preserved.
             </p>
@@ -831,7 +831,7 @@ export function LinearsSection({
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Delete{" "}
               <span className="font-mono font-semibold text-slate-800 dark:text-slate-100">
-                {pendingAction.linear.linearName}
+                {pendingAction.linear.name}
               </span>
               ? This will permanently remove the linear and all its pod relationships.
             </p>

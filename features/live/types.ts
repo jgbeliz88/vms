@@ -49,7 +49,7 @@ export type EnigmaLinearPod = {
 export type EnigmaLinear = {
   id: number;
   channelId: number;
-  linearName: string | null;
+  name: string | null;
   drm: number | null;
   adsReplacement: number | null;
   fragmentLength: string | null;
