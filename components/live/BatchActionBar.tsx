@@ -9,31 +9,12 @@ import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
+import { TAG_ICONS, TagChip } from "@/components/ui/TagChip";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const AVAILABLE_TAGS = ["Web", "Apps", "SmartTv"] as const;
+const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV"] as const;
 
-const TAG_ICONS: Record<string, React.ReactNode> = {
-  Web: (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3 shrink-0">
-      <circle cx="8" cy="8" r="6" />
-      <path d="M2 8h12M8 2c1.8 1.6 1.8 10.4 0 12M8 2c-1.8 1.6-1.8 10.4 0 12" />
-    </svg>
-  ),
-  Apps: (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="h-3 w-3 shrink-0">
-      <rect x="5" y="1.5" width="6" height="13" rx="1.5" />
-      <line x1="7" y1="12.5" x2="9" y2="12.5" />
-    </svg>
-  ),
-  SmartTv: (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="h-3 w-3 shrink-0">
-      <rect x="1.5" y="3" width="13" height="8" rx="1.5" />
-      <line x1="5" y1="14" x2="11" y2="14" />
-    </svg>
-  ),
-};
 
 const DEFAULT_CONFIG: LinearConfig = {
   drm: false,
@@ -199,7 +180,7 @@ function EncoderChip({ enc }: { enc: EnigmaEncoder }) {
     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10.5px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
       <span className="font-mono">{enc.name}</span>
       <span className="text-slate-400">·</span>
-      <span className="font-mono text-slate-400">{enc.deviceId}.{enc.channelIndex}</span>
+      <span className="font-mono text-slate-400">{enc.deviceId}.{enc.channelIndex}.{enc.id}</span>
     </span>
   );
 }
@@ -222,14 +203,6 @@ function PodLine({ pod }: { pod: EnigmaLinearPod }) {
   );
 }
 
-function TagChip({ tag }: { tag: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-      {TAG_ICONS[tag] && <span className="text-slate-400">{TAG_ICONS[tag]}</span>}
-      {tag}
-    </span>
-  );
-}
 
 function LinearTreeBlock({
   linear,
@@ -837,7 +810,7 @@ function CreateLinearModal({
                                       <button
                                         onClick={() => setEditingId(l.id)}
                                         title="Click to edit linear name"
-                                        className="group inline-flex items-center gap-1 rounded border border-transparent px-1 font-mono text-[12px] font-semibold text-brand-700 hover:border-brand-200 hover:bg-brand-50"
+                                        className="group inline-flex items-center gap-1 rounded border border-transparent px-1 font-mono text-[12px] font-semibold text-brand-700 hover:border-brand-200 hover:bg-brand-50 dark:text-slate-100 dark:hover:border-brand-700/40 dark:hover:bg-brand-500/10"
                                       >
                                         {name}
                                         <svg className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

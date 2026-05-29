@@ -11,6 +11,7 @@ import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
 import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/live/hooks";
 import type { AddLinearData } from "./ActionConfirmModal";
+import { TagChip } from "@/components/ui/TagChip";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -841,6 +842,11 @@ export function LinearsSection({
                         <div className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
                           drm:{linear.drm} · ads:{linear.adsReplacement} · frag:{linear.fragmentLength}
                           {linear.drmVendor && <> · vendor:{linear.drmVendor}</>}
+                        </div>
+                      )}
+                      {(linear.tags ?? []).length > 0 && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          {(linear.tags ?? []).map((t) => <TagChip key={t} tag={t} />)}
                         </div>
                       )}
                     </div>
