@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { BatchAction, ResolvedChannel, Linear } from "@/features/live/types";
-import { PodActionResult } from "@/features/live/hooks";
+import { useState, useMemo } from "react";
+import { ResolvedChannel, EnigmaLinear, EnigmaLinearPod, EnigmaEncoder, LinearBatchResult } from "@/features/live/types";
+import { useBatchLinearSync, useBatchLinearClean, useBatchLinearClear, useBatchLinearCreate } from "@/features/live/hooks";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -10,48 +10,130 @@ import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
 
-type PodFilter = "all" | "main" | "backup";
+// ── Constants ────────────────────────────────────────────────────────────────
 
-type DeleteLinearGroup = {
-  channelId: number;
-  pods: Array<{ podName: string; podId: number; linear: Linear | null }>;
+const AVAILABLE_TAGS = ["Web", "Apps", "SmartTv"] as const;
+
+const TAG_ICONS: Record<string, React.ReactNode> = {
+  Web: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3 shrink-0">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M2 8h12M8 2c1.8 1.6 1.8 10.4 0 12M8 2c-1.8 1.6-1.8 10.4 0 12" />
+    </svg>
+  ),
+  Apps: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="h-3 w-3 shrink-0">
+      <rect x="5" y="1.5" width="6" height="13" rx="1.5" />
+      <line x1="7" y1="12.5" x2="9" y2="12.5" />
+    </svg>
+  ),
+  SmartTv: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="h-3 w-3 shrink-0">
+      <rect x="1.5" y="3" width="13" height="8" rx="1.5" />
+      <line x1="5" y1="14" x2="11" y2="14" />
+    </svg>
+  ),
 };
 
-export type CreateLinearItem = {
-  channelEntityId: number;
-  podId: number;
-  podName: string;
-  encoderId: number;
-  linearName: string;
-};
-
-export type LinearFormConfig = {
-  drm: boolean;
-  adsReplacement: boolean;
-  fragmentLength: string;
-  disableDrmManifests: boolean;
-  drmVendor: string;
-  contentId: string;
-  tags: string[];
-};
-
-export type CreateLinearResult = {
-  podName: string;
-  linearName: string;
-  status: "created" | "skipped" | "error";
-  message?: string;
-  curlCommand?: string;
-};
-
-const DEFAULT_LINEAR_CONFIG: LinearFormConfig = {
+const DEFAULT_CONFIG: LinearConfig = {
   drm: false,
   adsReplacement: true,
   fragmentLength: "48/25",
   disableDrmManifests: false,
   drmVendor: "kms",
   contentId: "free_to_air_channels",
-  tags: ["Web", "Apps", "SmartTV"],
 };
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type LinearConfig = {
+  drm: boolean;
+  adsReplacement: boolean;
+  fragmentLength: string;
+  disableDrmManifests: boolean;
+  drmVendor: string;
+  contentId: string;
+};
+
+type ActionType = "sync" | "descache" | "clean";
+
+const ACTION_META: Record<ActionType, { label: string; destructive: boolean; blurb: string }> = {
+  sync: {
+    label: "Synchronize",
+    destructive: false,
+    blurb: "Force a metadata + cache sync on every linear of the selected channels.",
+  },
+  descache: {
+    label: "Descache",
+    destructive: false,
+    blurb: "Purge cache entries for every linear of the selected channels and reload origin data.",
+  },
+  clean: {
+    label: "Clean Channels",
+    destructive: true,
+    blurb: "Clear derived artifacts and rebuild caches for every linear of the selected channels.",
+  },
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function deriveLinearName(podName: string): string {
+  const withoutPrefix = podName.replace(/^uspori/, "");
+  return withoutPrefix.replace(/[a-z]$/i, "");
+}
+
+function linearMatchesTags(linear: EnigmaLinear, activeTags: string[]): boolean {
+  if (activeTags.length === 0) return true;
+  return activeTags.some((t) => (linear.tags ?? []).includes(t));
+}
+
+function filterChannelsLinears(
+  channels: ResolvedChannel[],
+  activeTags: string[],
+  predicate?: (l: EnigmaLinear) => boolean
+): ResolvedChannel[] {
+  return channels
+    .map((ch) => ({
+      ...ch,
+      linears: ch.linears.filter(
+        (l) => (predicate ? predicate(l) : true) && linearMatchesTags(l, activeTags)
+      ),
+    }))
+    .filter((ch) => ch.linears.length > 0);
+}
+
+function countByTag(
+  channels: ResolvedChannel[],
+  predicate?: (l: EnigmaLinear) => boolean
+): { counts: Record<string, number>; total: number } {
+  const counts: Record<string, number> = {};
+  AVAILABLE_TAGS.forEach((t) => (counts[t] = 0));
+  let total = 0;
+  channels.forEach((ch) =>
+    ch.linears.forEach((l) => {
+      if (predicate && !predicate(l)) return;
+      total += 1;
+      (l.tags ?? []).forEach((t) => {
+        if (counts[t] != null) counts[t] += 1;
+      });
+    })
+  );
+  return { counts, total };
+}
+
+function rollupCounts(channels: ResolvedChannel[]): { channels: number; linears: number; pods: number; encoders: number } {
+  let linears = 0, pods = 0, encoders = 0;
+  channels.forEach((ch) =>
+    ch.linears.forEach((l) => {
+      linears += 1;
+      pods += l.pods.length;
+      encoders += l.pods.reduce((n, p) => n + p.encoders.length, 0);
+    })
+  );
+  return { channels: channels.length, linears, pods, encoders };
+}
+
+// ── Small UI atoms ───────────────────────────────────────────────────────────
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -82,258 +164,925 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function deriveLinearName(channel: ResolvedChannel, podName: string): string {
-  const fromMeta = channel.metadata?.linear;
-  if (typeof fromMeta === "string" && fromMeta.trim()) {
-    return fromMeta.trim();
-  }
-  // Strip "uspori" prefix, then strip the trailing letter (e.g. m/b)
-  const withoutPrefix = podName.replace(/^uspori/, "");
-  return withoutPrefix.replace(/[a-z]$/i, "");
-}
-
-function PodFilterTabs({
-  value,
-  onChange,
-}: {
-  value: PodFilter;
-  onChange: (f: PodFilter) => void;
-}) {
+function StatTile({ label, value, tone = "default" }: { label: string; value: React.ReactNode; tone?: "default" | "brand" | "danger" | "ok" }) {
+  const colors = {
+    default: "text-slate-900 dark:text-slate-100",
+    brand: "text-brand-700 dark:text-brand-400",
+    danger: "text-rose-700 dark:text-rose-400",
+    ok: "text-emerald-700 dark:text-emerald-400",
+  };
   return (
-    <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-      {(["all", "main", "backup"] as PodFilter[]).map((f) => (
-        <button
-          key={f}
-          onClick={() => onChange(f)}
-          className={cn(
-            "flex-1 rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-            value === f
-              ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-          )}
-        >
-          {f}
-        </button>
-      ))}
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+      <div className={cn("mt-0.5 text-xl font-semibold tabular-nums", colors[tone])}>{value}</div>
     </div>
   );
 }
 
-function PodStatusBadge({ status }: { status: string }) {
+function StatusDot({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+        "inline-block h-1.5 w-1.5 shrink-0 rounded-full",
         status === "running"
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+          ? "bg-emerald-500"
           : status === "degraded"
-          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+          ? "bg-amber-500"
+          : "bg-slate-400"
       )}
-    >
-      {status}
+    />
+  );
+}
+
+function EncoderChip({ enc }: { enc: EnigmaEncoder }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10.5px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+      <span className="font-mono">{enc.name}</span>
+      <span className="text-slate-400">·</span>
+      <span className="font-mono text-slate-400">{enc.deviceId}.{enc.channelIndex}</span>
     </span>
   );
 }
 
-export function BatchActionBar({
-  actions,
-  selected,
-  onAction,
-  onDeleteLinear,
-  deleteLinearLoading,
-  onCreateLinear,
-}: {
-  actions: BatchAction[];
-  selected: ResolvedChannel[];
-  onAction: (actionId: string) => void;
-  onDeleteLinear: (groups: DeleteLinearGroup[]) => Promise<PodActionResult[]>;
-  deleteLinearLoading?: boolean;
-  onCreateLinear: (items: CreateLinearItem[], config: LinearFormConfig) => Promise<CreateLinearResult[]>;
-}) {
-  // --- Delete Linear state ---
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteFilter, setDeleteFilter] = useState<PodFilter>("all");
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [deleteResults, setDeleteResults] = useState<PodActionResult[] | null>(null);
-  const [lastDeleteGroups, setLastDeleteGroups] = useState<DeleteLinearGroup[]>([]);
-  const [isRetryingDelete, setIsRetryingDelete] = useState(false);
+function PodLine({ pod }: { pod: EnigmaLinearPod }) {
+  return (
+    <div className="py-0.5">
+      <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] text-slate-700 dark:text-slate-300">
+        <span className="text-[9px] uppercase tracking-widest text-slate-400">pod</span>
+        <span className="font-mono font-semibold">{pod.name}</span>
+        <StatusDot status={pod.status} />
+        {pod.encoders.length > 1 && (
+          <span className="text-[10.5px] text-slate-400">· {pod.encoders.length} encoders</span>
+        )}
+      </div>
+      <div className="mt-1 ml-5 flex flex-wrap items-center gap-1">
+        {pod.encoders.map((e) => <EncoderChip key={e.id} enc={e} />)}
+      </div>
+    </div>
+  );
+}
 
-  // --- Create Linear state ---
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createFilter, setCreateFilter] = useState<PodFilter>("all");
-  const [createConfig, setCreateConfig] = useState<LinearFormConfig>(DEFAULT_LINEAR_CONFIG);
-  const [createResults, setCreateResults] = useState<CreateLinearResult[] | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [showCreateValidation, setShowCreateValidation] = useState(false);
-  const [lastCreateItems, setLastCreateItems] = useState<CreateLinearItem[]>([]);
-  const [lastCreateConfig, setLastCreateConfig] = useState<LinearFormConfig>(DEFAULT_LINEAR_CONFIG);
+function TagChip({ tag }: { tag: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+      {TAG_ICONS[tag] && <span className="text-slate-400">{TAG_ICONS[tag]}</span>}
+      {tag}
+    </span>
+  );
+}
+
+function LinearTreeBlock({
+  linear,
+  override,
+}: {
+  linear: EnigmaLinear;
+  override?: React.ReactNode;
+}) {
+  const cleared = linear.name === null;
+  const encoderCount = linear.pods.reduce((n, p) => n + p.encoders.length, 0);
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[9px] uppercase tracking-widest text-slate-400">linear</span>
+            {cleared ? (
+              <span className="italic text-slate-400 text-[12px]">null</span>
+            ) : (
+              <span className="font-mono text-[13px] font-semibold text-slate-900 dark:text-slate-100">{linear.name}</span>
+            )}
+            {override}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap text-[10.5px] text-slate-400">
+            <span>{linear.pods.length} pod{linear.pods.length === 1 ? "" : "s"}</span>
+            <span>·</span>
+            <span>{encoderCount} encoder{encoderCount === 1 ? "" : "s"}</span>
+            {!cleared && (
+              <>
+                <span>·</span>
+                <span>drm:{linear.drm}</span>
+                <span>·</span>
+                <span>ads:{linear.adsReplacement}</span>
+                <span>·</span>
+                <span>frag:{linear.fragmentLength}</span>
+              </>
+            )}
+          </div>
+          <div className="mt-1.5 ml-2 space-y-1 border-l border-dashed border-slate-200 pl-3 dark:border-slate-700">
+            {linear.pods.map((p) => <PodLine key={p.id} pod={p} />)}
+          </div>
+          <div className="mt-2 ml-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pl-3 pt-2 dark:border-slate-800">
+            <span className="text-[9px] uppercase tracking-widest text-slate-400">tags</span>
+            {(linear.tags ?? []).length === 0 ? (
+              <span className="text-[10px] italic text-slate-400">no tags</span>
+            ) : (
+              (linear.tags ?? []).map((t) => <TagChip key={t} tag={t} />)
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelGroupHeader({ channel, count }: { channel: ResolvedChannel; count: number }) {
+  return (
+    <div className="sticky top-0 z-[1] flex items-center gap-2 border-b border-slate-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+      <span className="grid h-5 min-w-[1.4rem] place-items-center rounded-md bg-brand-50 px-1.5 text-[10.5px] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
+        {count}
+      </span>
+      <span className="text-[12.5px] font-semibold text-slate-900 dark:text-slate-100">{channel.name}</span>
+      <span className="text-[11px] text-slate-400">· {count} linear{count === 1 ? "" : "s"}</span>
+    </div>
+  );
+}
+
+// ── Tag filter bar ───────────────────────────────────────────────────────────
+
+function FilterChip({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition",
+        active
+          ? "border-brand-500 bg-brand-500 text-white shadow-sm"
+          : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:bg-brand-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      )}
+    >
+      {TAG_ICONS[label] && (
+        <span className={active ? "text-white" : "text-slate-400"}>{TAG_ICONS[label]}</span>
+      )}
+      {label}
+      <span
+        className={cn(
+          "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] leading-none tabular-nums",
+          active ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function TagFilterBar({
+  activeTags,
+  onToggle,
+  onAll,
+  counts,
+  total,
+}: {
+  activeTags: string[];
+  onToggle: (t: string) => void;
+  onAll: () => void;
+  counts: Record<string, number>;
+  total: number;
+}) {
+  const allActive = activeTags.length === 0;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Filter by tag
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <FilterChip active={allActive} onClick={onAll} label="All" count={total} />
+        <span className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+        {AVAILABLE_TAGS.map((t) => (
+          <FilterChip
+            key={t}
+            active={!allActive && activeTags.includes(t)}
+            onClick={() => onToggle(t)}
+            label={t}
+            count={counts[t] ?? 0}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Result row (per-linear, expandable to pod detail) ───────────────────────
+
+function ResultLinearRow({ result }: { result: LinearBatchResult }) {
+  const [open, setOpen] = useState(false);
+  const success = result.status === "success";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40"
+      >
+        <svg
+          className={cn("h-3 w-3 text-slate-400 transition-transform", open && "rotate-90")}
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 4l4 4-4 4" />
+        </svg>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[12.5px] font-semibold text-slate-900 dark:text-slate-100">
+              {result.linearName ?? <span className="italic text-slate-400">null</span>}
+            </span>
+            <span className="text-[11px] text-slate-400">· {result.channelName}</span>
+          </div>
+          {(result.tags ?? []).length > 0 && (
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {(result.tags ?? []).map((t) => <TagChip key={t} tag={t} />)}
+            </div>
+          )}
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+            success
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+              : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+          )}
+        >
+          {success ? "success" : "error"}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/30">
+          {result.error ? (
+            <p className="text-[11.5px] text-red-600 dark:text-red-400">{result.error}</p>
+          ) : (
+            <p className="text-[11.5px] text-slate-500">
+              {JSON.stringify(result.data).slice(0, 200)}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Impact modal (Sync / Descache / Clean) ───────────────────────────────────
+
+function ImpactModal({
+  open,
+  onClose,
+  action,
+  selected,
+}: {
+  open: boolean;
+  onClose: () => void;
+  action: ActionType | null;
+  selected: ResolvedChannel[];
+}) {
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [results, setResults] = useState<LinearBatchResult[] | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const syncMutation = useBatchLinearSync();
+  const cleanMutation = useBatchLinearClean();
+
+  const loading =
+    (action === "sync" && syncMutation.isPending) ||
+    (action === "clean" && cleanMutation.isPending);
+
+  const meta = action ? ACTION_META[action] : null;
+
+  const baseStats = useMemo(() => countByTag(selected), [selected]);
+  const filtered = useMemo(() => filterChannelsLinears(selected, activeTags), [selected, activeTags]);
+  const counts = useMemo(() => rollupCounts(filtered), [filtered]);
+
+  function toggleTag(t: string) {
+    setActiveTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
+
+  function handleClose() {
+    setActiveTags([]);
+    setResults(null);
+    onClose();
+  }
+
+  async function handleConfirm() {
+    if (!action || !meta) return;
+    const inputs = filtered.flatMap((ch) =>
+      ch.linears.map((l) => ({
+        linearId: l.id,
+        linearName: l.name,
+        channelId: ch.id,
+        channelName: ch.name,
+        tags: l.tags ?? [],
+      }))
+    );
+
+    if (action === "descache") {
+      // No HTTP call yet — immediately show success
+      setResults(inputs.map((l) => ({ ...l, status: "success" as const })));
+      return;
+    }
+
+    const mutation = action === "sync" ? syncMutation : cleanMutation;
+    const res = await mutation.mutateAsync(inputs);
+    setResults(res);
+  }
+
+  async function handleRetry() {
+    if (!results || !action || action === "descache") return;
+    const failed = results.filter((r) => r.status === "error");
+    if (failed.length === 0) return;
+    setIsRetrying(true);
+    try {
+      const mutation = action === "sync" ? syncMutation : cleanMutation;
+      const retryRes = await mutation.mutateAsync(failed);
+      const retryMap = new Map(retryRes.map((r) => [r.linearId, r]));
+      setResults((prev) => prev?.map((r) => retryMap.get(r.linearId) ?? r) ?? retryRes);
+    } finally {
+      setIsRetrying(false);
+    }
+  }
+
+  if (!open || !meta) return null;
+
+  const hasFailures = results?.some((r) => r.status === "error");
+
+  return (
+    <Modal open={open} onClose={handleClose} title={meta.label} size="lg">
+      <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+        {results ? (
+          <>
+            <div className="max-h-80 space-y-1.5 overflow-y-auto">
+              {results.map((r) => <ResultLinearRow key={r.linearId} result={r} />)}
+            </div>
+            <div className="flex justify-end gap-2">
+              {hasFailures && (
+                <Button variant="secondary" onClick={handleRetry} disabled={isRetrying || loading}>
+                  {isRetrying ? "Retrying…" : `Retry ${results.filter((r) => r.status === "error").length} failed`}
+                </Button>
+              )}
+              <Button variant="secondary" onClick={handleClose}>Close</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{meta.blurb}</p>
+            <div className="grid grid-cols-4 gap-2">
+              <StatTile label="Channels" value={counts.channels} tone="brand" />
+              <StatTile label="Linears" value={counts.linears} />
+              <StatTile label="Pods" value={counts.pods} />
+              <StatTile label="Encoders" value={counts.encoders} />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+              <TagFilterBar
+                activeTags={activeTags}
+                onToggle={toggleTag}
+                onAll={() => setActiveTags([])}
+                counts={baseStats.counts}
+                total={baseStats.total}
+              />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 dark:bg-slate-800/50 dark:border-slate-700">
+              <div className="border-b border-slate-200 px-3 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                Impact preview
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {filtered.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-xs text-slate-400">
+                    {activeTags.length > 0
+                      ? `No linears tagged "${activeTags.join(", ")}" in the selected channels.`
+                      : "No linears in the selected channels."}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filtered.map((ch) => (
+                      <div key={ch.id}>
+                        <ChannelGroupHeader channel={ch} count={ch.linears.length} />
+                        <div className="space-y-1.5 px-3 py-2">
+                          {ch.linears.map((l) => <LinearTreeBlock key={l.id} linear={l} />)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {meta.destructive && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-500/10 dark:text-amber-400">
+                <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M8 2L14 13H2L8 2Z" /><line x1="8" y1="7" x2="8" y2="10" /><circle cx="8" cy="12" r="0.5" fill="currentColor" />
+                </svg>
+                <span>{meta.label} clears derived artifacts. Active streams may experience a brief interruption while caches rebuild.</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {activeTags.length > 0 && (
+                  <>Tag filter: <b className="text-slate-700 dark:text-slate-300">{activeTags.join(", ")}</b> · </>
+                )}
+                Will affect <b className="text-slate-900 dark:text-slate-100">{counts.linears}</b> linear{counts.linears === 1 ? "" : "s"} across <b className="text-slate-900 dark:text-slate-100">{counts.channels}</b> channel{counts.channels === 1 ? "" : "s"}.
+              </span>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+                <Button
+                  variant={meta.destructive ? "danger" : "primary"}
+                  disabled={counts.linears === 0 || loading}
+                  onClick={handleConfirm}
+                >
+                  {loading
+                    ? `${meta.label}…`
+                    : `${meta.label} ${counts.linears} linear${counts.linears === 1 ? "" : "s"}`}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── Create Linear modal ──────────────────────────────────────────────────────
+
+function CreateLinearModal({
+  open,
+  onClose,
+  selected,
+}: {
+  open: boolean;
+  onClose: () => void;
+  selected: ResolvedChannel[];
+}) {
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [config, setConfig] = useState<LinearConfig>(DEFAULT_CONFIG);
+  const [overrides, setOverrides] = useState<Record<number, string>>({});
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [results, setResults] = useState<LinearBatchResult[] | null>(null);
+  const [showValidation, setShowValidation] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const createMutation = useBatchLinearCreate();
+
+  const isEmptyLinear = (l: EnigmaLinear) => l.name === null;
+  const baseStats = useMemo(() => countByTag(selected, isEmptyLinear), [selected]);
+  const groups = useMemo(
+    () => filterChannelsLinears(selected, activeTags, isEmptyLinear),
+    [selected, activeTags]
+  );
+  const totalToCreate = groups.reduce((n, ch) => n + ch.linears.length, 0);
+
+  function previewName(linear: EnigmaLinear): string {
+    if (overrides[linear.id]) return overrides[linear.id];
+    const firstPod = linear.pods[0]?.name ?? "";
+    return deriveLinearName(firstPod);
+  }
+
+  function setCfg<K extends keyof LinearConfig>(key: K, value: LinearConfig[K]) {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleTag(t: string) {
+    setActiveTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
+
+  function handleClose() {
+    setActiveTags([]);
+    setConfig(DEFAULT_CONFIG);
+    setOverrides({});
+    setEditingId(null);
+    setResults(null);
+    setShowValidation(false);
+    onClose();
+  }
+
+  async function handleConfirm() {
+    if (!config.fragmentLength.trim()) {
+      setShowValidation(true);
+      return;
+    }
+    const linears = groups.flatMap((ch) =>
+      ch.linears.map((l) => ({
+        linearId: l.id,
+        linearName: l.name,
+        channelId: ch.id,
+        channelName: ch.name,
+        tags: l.tags ?? [],
+        name: previewName(l),
+      }))
+    );
+    const res = await createMutation.mutateAsync({ linears, config });
+    setResults(res);
+  }
+
+  async function handleRetry() {
+    if (!results) return;
+    const failed = results.filter((r) => r.status === "error");
+    if (failed.length === 0) return;
+    setIsRetrying(true);
+    try {
+      // Rebuild failed inputs with their names
+      const failedInputs = failed.map((r) => ({
+        linearId: r.linearId,
+        linearName: r.linearName,
+        channelId: r.channelId,
+        channelName: r.channelName,
+        tags: r.tags,
+        name: overrides[r.linearId] ?? deriveLinearName(
+          groups.flatMap((ch) => ch.linears).find((l) => l.id === r.linearId)?.pods[0]?.name ?? ""
+        ),
+      }));
+      const retryRes = await createMutation.mutateAsync({ linears: failedInputs, config });
+      const retryMap = new Map(retryRes.map((r) => [r.linearId, r]));
+      setResults((prev) => prev?.map((r) => retryMap.get(r.linearId) ?? r) ?? retryRes);
+    } finally {
+      setIsRetrying(false);
+    }
+  }
+
+  const hasFailures = results?.some((r) => r.status === "error");
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Create Linear" size="lg">
+      <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+        {results ? (
+          <>
+            <div className="max-h-80 space-y-1.5 overflow-y-auto">
+              {results.map((r) => <ResultLinearRow key={r.linearId} result={r} />)}
+            </div>
+            <div className="flex justify-end gap-2">
+              {hasFailures && (
+                <Button variant="secondary" onClick={handleRetry} disabled={isRetrying || createMutation.isPending}>
+                  {isRetrying ? "Retrying…" : `Retry ${results.filter((r) => r.status === "error").length} failed`}
+                </Button>
+              )}
+              <Button variant="secondary" onClick={handleClose}>Close</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Config form */}
+            <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/40">
+              <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Linear Configuration
+              </p>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <FormRow label="Fragment Length">
+                  <Input
+                    value={config.fragmentLength}
+                    placeholder="e.g. 48/25"
+                    onChange={(e) => { setCfg("fragmentLength", e.target.value); setShowValidation(false); }}
+                    error={showValidation && !config.fragmentLength.trim() ? "Required" : undefined}
+                  />
+                </FormRow>
+                <FormRow label="DRM">
+                  <div className="flex justify-end">
+                    <Toggle checked={config.drm} onChange={(v) => setCfg("drm", v)} />
+                  </div>
+                </FormRow>
+                <FormRow label="Ads Replacement">
+                  <div className="flex justify-end">
+                    <Toggle checked={config.adsReplacement} onChange={(v) => setCfg("adsReplacement", v)} />
+                  </div>
+                </FormRow>
+                <FormRow label="Disable DRM Manifests">
+                  <div className="flex justify-end">
+                    <Toggle checked={config.disableDrmManifests} onChange={(v) => setCfg("disableDrmManifests", v)} />
+                  </div>
+                </FormRow>
+                {config.drm && (
+                  <>
+                    <FormRow label="DRM Vendor">
+                      <Input
+                        value={config.drmVendor}
+                        placeholder="e.g. kms"
+                        onChange={(e) => setCfg("drmVendor", e.target.value)}
+                      />
+                    </FormRow>
+                    <FormRow label="Content ID">
+                      <Input
+                        value={config.contentId}
+                        placeholder="e.g. premium"
+                        onChange={(e) => setCfg("contentId", e.target.value)}
+                      />
+                    </FormRow>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Tag filter */}
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+              <TagFilterBar
+                activeTags={activeTags}
+                onToggle={toggleTag}
+                onAll={() => setActiveTags([])}
+                counts={baseStats.counts}
+                total={baseStats.total}
+              />
+            </div>
+
+            {/* Empty linears tree */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 dark:bg-slate-800/50 dark:border-slate-700">
+              <div className="border-b border-slate-200 px-3 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                Linears to create
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {groups.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-xs text-slate-400">
+                    {activeTags.length > 0
+                      ? `No empty linears tagged "${activeTags.join(", ")}" in the selected channels.`
+                      : "No empty linears in the selected channels."}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {groups.map((ch) => (
+                      <div key={ch.id}>
+                        <ChannelGroupHeader channel={ch} count={ch.linears.length} />
+                        <div className="space-y-1.5 px-3 py-2">
+                          {ch.linears.map((l) => {
+                            const name = previewName(l);
+                            const isEditing = editingId === l.id;
+                            return (
+                              <LinearTreeBlock
+                                key={l.id}
+                                linear={l}
+                                override={
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
+                                      will be created as
+                                    </span>
+                                    {isEditing ? (
+                                      <input
+                                        autoFocus
+                                        value={name}
+                                        onChange={(e) => setOverrides((o) => ({ ...o, [l.id]: e.target.value }))}
+                                        onBlur={() => setEditingId(null)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" || e.key === "Escape") setEditingId(null);
+                                        }}
+                                        className="h-6 w-32 rounded border border-brand-300 bg-white px-1.5 font-mono text-[12px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:border-brand-600 dark:bg-slate-800 dark:text-slate-100"
+                                      />
+                                    ) : (
+                                      <button
+                                        onClick={() => setEditingId(l.id)}
+                                        title="Click to edit linear name"
+                                        className="group inline-flex items-center gap-1 rounded border border-transparent px-1 font-mono text-[12px] font-semibold text-brand-700 hover:border-brand-200 hover:bg-brand-50"
+                                      >
+                                        {name}
+                                        <svg className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                          <path d="M11 2l3 3-9 9H2v-3L11 2Z" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </span>
+                                }
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                <b className="text-slate-900 dark:text-slate-100">{totalToCreate}</b> linear{totalToCreate === 1 ? "" : "s"} will be created.
+              </span>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  disabled={totalToCreate === 0 || createMutation.isPending}
+                  onClick={handleConfirm}
+                >
+                  {createMutation.isPending ? "Creating…" : `Create ${totalToCreate} linear${totalToCreate === 1 ? "" : "s"}`}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── Delete Linear modal (Empty semantics) ────────────────────────────────────
+
+function DeleteLinearModal({
+  open,
+  onClose,
+  selected,
+}: {
+  open: boolean;
+  onClose: () => void;
+  selected: ResolvedChannel[];
+}) {
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [confirmText, setConfirmText] = useState("");
+  const [results, setResults] = useState<LinearBatchResult[] | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const clearMutation = useBatchLinearClear();
+
+  const isActiveLinear = (l: EnigmaLinear) => l.name !== null;
+  const baseStats = useMemo(() => countByTag(selected, isActiveLinear), [selected]);
+  const groups = useMemo(
+    () => filterChannelsLinears(selected, activeTags, isActiveLinear),
+    [selected, activeTags]
+  );
+  const totalToEmpty = groups.reduce((n, ch) => n + ch.linears.length, 0);
+  const totalPods = groups.reduce((n, ch) => n + ch.linears.reduce((m, l) => m + l.pods.length, 0), 0);
+  const canConfirm = confirmText === "Empty" && totalToEmpty > 0;
+
+  function toggleTag(t: string) {
+    setActiveTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
+
+  function handleClose() {
+    setActiveTags([]);
+    setConfirmText("");
+    setResults(null);
+    onClose();
+  }
+
+  async function handleConfirm() {
+    const inputs = groups.flatMap((ch) =>
+      ch.linears.map((l) => ({
+        linearId: l.id,
+        linearName: l.name,
+        channelId: ch.id,
+        channelName: ch.name,
+        tags: l.tags ?? [],
+      }))
+    );
+    const res = await clearMutation.mutateAsync(inputs);
+    setResults(res);
+    setConfirmText("");
+  }
+
+  async function handleRetry() {
+    if (!results) return;
+    const failed = results.filter((r) => r.status === "error");
+    if (failed.length === 0) return;
+    setIsRetrying(true);
+    try {
+      const retryRes = await clearMutation.mutateAsync(failed);
+      const retryMap = new Map(retryRes.map((r) => [r.linearId, r]));
+      setResults((prev) => prev?.map((r) => retryMap.get(r.linearId) ?? r) ?? retryRes);
+    } finally {
+      setIsRetrying(false);
+    }
+  }
+
+  const hasFailures = results?.some((r) => r.status === "error");
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Empty Linears" size="lg">
+      <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+        {results ? (
+          <>
+            <div className="max-h-80 space-y-1.5 overflow-y-auto">
+              {results.map((r) => <ResultLinearRow key={r.linearId} result={r} />)}
+            </div>
+            <div className="flex justify-end gap-2">
+              {hasFailures && (
+                <Button variant="secondary" onClick={handleRetry} disabled={isRetrying || clearMutation.isPending}>
+                  {isRetrying ? "Retrying…" : `Retry ${results.filter((r) => r.status === "error").length} failed`}
+                </Button>
+              )}
+              <Button variant="secondary" onClick={handleClose}>Close</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Clears the linear name on each linear below. Pods and encoders stay attached to the channel.
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              <StatTile label="Channels" value={groups.length} tone="brand" />
+              <StatTile label="To empty" value={totalToEmpty} tone="danger" />
+              <StatTile label="Pods preserved" value={totalPods} />
+              <StatTile label="Reversible?" value="Yes" tone="ok" />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+              <TagFilterBar
+                activeTags={activeTags}
+                onToggle={toggleTag}
+                onAll={() => setActiveTags([])}
+                counts={baseStats.counts}
+                total={baseStats.total}
+              />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 dark:bg-slate-800/50 dark:border-slate-700">
+              <div className="border-b border-slate-200 px-3 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                Linears that will be emptied
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {groups.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-xs text-slate-400">
+                    {activeTags.length > 0
+                      ? `No active linears tagged "${activeTags.join(", ")}" in the selected channels.`
+                      : "No active linears in the selected channels."}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {groups.map((ch) => (
+                      <div key={ch.id}>
+                        <ChannelGroupHeader channel={ch} count={ch.linears.length} />
+                        <div className="space-y-1.5 px-3 py-2">
+                          {ch.linears.map((l) => (
+                            <LinearTreeBlock
+                              key={l.id}
+                              linear={l}
+                              override={
+                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                  will be emptied
+                                </span>
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-700/40 dark:bg-rose-500/10 dark:text-rose-400">
+              <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8 2L14 13H2L8 2Z" /><line x1="8" y1="7" x2="8" y2="10" /><circle cx="8" cy="12" r="0.5" fill="currentColor" />
+              </svg>
+              <span>This nulls each linear&apos;s name. Pods and encoders are preserved, so the slot stays available for a future Create Linear.</span>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 dark:text-slate-400">Type</span>
+                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11.5px] text-slate-800 dark:bg-slate-700 dark:text-slate-200">Empty</code>
+                <span className="text-slate-500 dark:text-slate-400">to confirm</span>
+                <Input
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  className="!w-28 !py-1.5 !text-xs"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+                <Button
+                  variant="danger"
+                  disabled={!canConfirm || clearMutation.isPending}
+                  onClick={handleConfirm}
+                >
+                  {clearMutation.isPending
+                    ? "Emptying…"
+                    : `Empty ${totalToEmpty} linear${totalToEmpty === 1 ? "" : "s"}`}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── Main BatchActionBar ──────────────────────────────────────────────────────
+
+type ActiveModal = ActionType | "create" | "delete" | null;
+
+export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   const canOperate = usePermission([ROLES.OPERATOR]);
   const canManageLinears = usePermission([ROLES.ADMIN]);
 
+  const summary = useMemo(() => rollupCounts(selected), [selected]);
+
   if (!canOperate || selected.length === 0) return null;
 
-  // --- Delete: filter pods by tab ---
-  const deleteGroupedChannels = selected
-    .map((ch) => ({
-      channelId: ch.id,
-      channelName: ch.name,
-      pods: ch.pods.filter((pod) => {
-        if (deleteFilter === "all") return true;
-        const name = pod.name.toLowerCase();
-        return deleteFilter === "main" ? name.endsWith("m") : name.endsWith("b");
-      }),
-    }))
-    .filter((ch) => ch.pods.length > 0);
-
-  const deleteTotalLinears = deleteGroupedChannels.reduce(
-    (sum, ch) => sum + ch.pods.reduce((s, p) => s + (p.linear && p.linear.linearName ? 1 : 0), 0),
-    0
-  );
-
-  // --- Create: filter pods by tab ---
-  const createGroupedChannels = selected
-    .map((ch) => ({
-      channel: ch,
-      pods: ch.pods.filter((pod) => {
-        if (createFilter === "all") return true;
-        const name = pod.name.toLowerCase();
-        return createFilter === "main" ? name.endsWith("m") : name.endsWith("b");
-      }),
-    }))
-    .filter((g) => g.pods.length > 0);
-
-  const createFormValid = createConfig.fragmentLength.trim() !== "";
-
-  // --- Delete handlers ---
-  const openDeleteModal = () => {
-    setDeleteFilter("all");
-    setDeleteConfirmText("");
-    setDeleteResults(null);
-    setDeleteOpen(true);
-  };
-  const closeDeleteModal = () => {
-    setDeleteOpen(false);
-    setDeleteConfirmText("");
-    setDeleteResults(null);
-  };
-  const canConfirmDelete = deleteGroupedChannels.length > 0 && deleteConfirmText === "Delete";
-
-  const handleConfirmDelete = async () => {
-    const groups: DeleteLinearGroup[] = deleteGroupedChannels.map((ch) => ({
-      channelId: ch.channelId,
-      pods: ch.pods.map((pod) => ({ podName: pod.name, podId: pod.id, linear: pod.linear })),
-    }));
-    setLastDeleteGroups(groups);
-    try {
-      setDeleteResults(await onDeleteLinear(groups));
-    } catch (error) {
-      setDeleteResults(
-        deleteGroupedChannels.flatMap((ch) =>
-          ch.pods.map((pod) => ({
-            podName: pod.name,
-            podNode: pod.name,
-            status: 0,
-            data: { error: error instanceof Error ? error.message : "Request failed" },
-          }))
-        )
-      );
-    }
-    setDeleteConfirmText("");
-  };
-
-  const handleRetryDelete = async () => {
-    if (!deleteResults || lastDeleteGroups.length === 0) return;
-    const failedPodNames = new Set(
-      deleteResults.filter((r) => r.status === 0 || r.status < 200 || r.status >= 300).map((r) => r.podName)
-    );
-    const retryGroups = lastDeleteGroups
-      .map((g) => ({ ...g, pods: g.pods.filter((p) => failedPodNames.has(p.podName)) }))
-      .filter((g) => g.pods.length > 0);
-    if (retryGroups.length === 0) return;
-    setIsRetryingDelete(true);
-    try {
-      const retryResults = await onDeleteLinear(retryGroups);
-      const retryMap = new Map(retryResults.map((r) => [r.podName, r]));
-      setDeleteResults((prev) => prev?.map((r) => retryMap.get(r.podName) ?? r) ?? retryResults);
-    } finally {
-      setIsRetryingDelete(false);
-    }
-  };
-
-  // --- Create handlers ---
-  const openCreateModal = () => {
-    setCreateFilter("all");
-    setCreateConfig(DEFAULT_LINEAR_CONFIG);
-    setCreateResults(null);
-    setShowCreateValidation(false);
-    setCreateOpen(true);
-  };
-  const closeCreateModal = () => {
-    setCreateOpen(false);
-    setCreateResults(null);
-    setShowCreateValidation(false);
-  };
-  const setConfig = <K extends keyof LinearFormConfig>(key: K, value: LinearFormConfig[K]) =>
-    setCreateConfig((prev) => ({ ...prev, [key]: value }));
-
-  const handleConfirmCreate = async () => {
-    if (!createFormValid) {
-      setShowCreateValidation(true);
-      return;
-    }
-    setIsCreating(true);
-    try {
-      const items: CreateLinearItem[] = [];
-      const skipped: CreateLinearResult[] = [];
-      for (const { channel, pods } of createGroupedChannels) {
-        for (const pod of pods) {
-          const linearName = deriveLinearName(channel, pod.name);
-          if (pod.linear?.linearName === linearName) {
-            skipped.push({ podName: pod.name, linearName, status: "skipped" });
-          } else {
-            items.push({
-              channelEntityId: channel.id,
-              podId: pod.id,
-              podName: pod.name,
-              encoderId: pod.encoderId,
-              linearName,
-            });
-          }
-        }
-      }
-      setLastCreateItems(items);
-      setLastCreateConfig(createConfig);
-      const created = items.length > 0 ? await onCreateLinear(items, createConfig) : [];
-      setCreateResults([...skipped, ...created]);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleRetry = async () => {
-    if (!createResults) return;
-    const failedPodNames = new Set(
-      createResults.filter((r) => r.status === "error").map((r) => r.podName)
-    );
-    const retryItems = lastCreateItems.filter((item) => failedPodNames.has(item.podName));
-    if (retryItems.length === 0) return;
-    setIsCreating(true);
-    try {
-      const retryResults = await onCreateLinear(retryItems, lastCreateConfig);
-      const retryMap = new Map(retryResults.map((r) => [r.podName, r]));
-      setCreateResults((prev) =>
-        prev?.map((r) => {
-          const newResult = retryMap.get(r.podName);
-          if (!newResult) return r;
-          return { ...newResult, curlCommand: newResult.curlCommand ?? r.curlCommand };
-        }) ?? retryResults
-      );
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  function openModal(m: ActiveModal) {
+    setActiveModal(m);
+  }
+  function closeModal() {
+    setActiveModal(null);
+  }
 
   return (
     <>
@@ -343,41 +1092,52 @@ export function BatchActionBar({
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">
             {selected.length}
           </span>
-          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-            {selected.length} channel{selected.length === 1 ? "" : "s"} selected
-          </span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {selected.length} channel{selected.length === 1 ? "" : "s"} selected
+            </span>
+            <span className="text-[10.5px] text-slate-400">
+              <b className="text-slate-600 dark:text-slate-300">{summary.linears}</b> linears
+              {" · "}
+              <b className="text-slate-600 dark:text-slate-300">{summary.pods}</b> pods
+              {" · "}
+              <b className="text-slate-600 dark:text-slate-300">{summary.encoders}</b> encoders
+            </span>
+          </div>
         </div>
 
         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
 
-        {actions.map((action) => (
-          <button
-            key={action.id}
-            onClick={() => onAction(action.id)}
-            className={cn(
-              "inline-flex items-center whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition",
-              action.tone === "danger"
-                ? "border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
-                : action.tone === "warning"
-                ? "border-amber-200 bg-white text-amber-700 hover:bg-amber-50 dark:border-amber-700/40 dark:bg-slate-900 dark:text-amber-400 dark:hover:bg-amber-500/10"
-                : "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
-            )}
-          >
-            {action.label}
-          </button>
-        ))}
+        <button
+          onClick={() => openModal("sync")}
+          className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+        >
+          Synchronize
+        </button>
+        <button
+          onClick={() => openModal("descache")}
+          className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+        >
+          Descache
+        </button>
+        <button
+          onClick={() => openModal("clean")}
+          className="inline-flex items-center whitespace-nowrap rounded-md border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-700/40 dark:bg-slate-900 dark:text-amber-400 dark:hover:bg-amber-500/10"
+        >
+          Clean Channels
+        </button>
 
         {canManageLinears && (
           <>
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
             <button
-              onClick={openCreateModal}
+              onClick={() => openModal("create")}
               className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
             >
               Create Linear
             </button>
             <button
-              onClick={openDeleteModal}
+              onClick={() => openModal("delete")}
               className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
             >
               Delete Linear
@@ -386,342 +1146,23 @@ export function BatchActionBar({
         )}
       </div>
 
-      {/* ── Delete Linear Modal ── */}
-      <Modal open={deleteOpen} onClose={closeDeleteModal} title="Delete Linear" size="lg">
-        <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-          {deleteResults ? (
-            <>
-              <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                <table className="min-w-full text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-950">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Pod</th>
-                      <th className="px-4 py-2 text-left">Status</th>
-                      <th className="px-4 py-2 text-left">Response</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {deleteResults.map((r, i) => (
-                      <tr key={`${i}-${r.podName}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                        <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">{r.podName}</td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                              r.status >= 200 && r.status < 300
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-                                : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
-                            )}
-                          >
-                            {r.status}
-                          </span>
-                        </td>
-                        <td className="max-w-xs px-4 py-2 text-[11px] text-slate-600 dark:text-slate-300">
-                          {r.message ?? (
-                            <span className="block truncate font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                              {JSON.stringify(r.data)}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end gap-2">
-                {deleteResults.some((r) => r.status === 0 || r.status < 200 || r.status >= 300) && (
-                  <Button variant="secondary" onClick={handleRetryDelete} disabled={isRetryingDelete}>
-                    {isRetryingDelete
-                      ? "Retrying…"
-                      : `Retry ${deleteResults.filter((r) => r.status === 0 || r.status < 200 || r.status >= 300).length} failed`}
-                  </Button>
-                )}
-                <Button variant="secondary" onClick={closeDeleteModal}>
-                  Close
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <PodFilterTabs value={deleteFilter} onChange={setDeleteFilter} />
-
-              <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                {deleteGroupedChannels.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-slate-400">No pods found</div>
-                ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {deleteGroupedChannels.map((ch) => (
-                      <div key={ch.channelId}>
-                        <div className="bg-slate-50 px-3 py-2 dark:bg-slate-800/50">
-                          <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                            {ch.channelName}
-                          </span>
-                        </div>
-                        {ch.pods.map((pod) => (
-                          <div key={pod.name}>
-                            <div className="flex items-center gap-2 py-1.5 pl-6 pr-3">
-                              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                                {pod.name}
-                              </span>
-                              <PodStatusBadge status={pod.status} />
-                            </div>
-                            {!pod.linear || !pod.linear.linearName ? (
-                              <div className="py-1 pl-12 pr-3 text-xs italic text-slate-400">
-                                {pod.linear ? "Cleared" : "No linear"}
-                              </div>
-                            ) : (
-                              <div
-                                className="py-1 pl-12 pr-3 text-xs text-slate-600 dark:text-slate-400"
-                              >
-                                {pod.linear.linearName}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-700/40 dark:bg-rose-500/10 dark:text-rose-200">
-                This action is potentially destructive. Only linears will be deleted; pod data will remain stored.
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs">
-                  Type{" "}
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">Delete</span> to confirm.
-                </p>
-                <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={closeDeleteModal}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="danger"
-                  disabled={!canConfirmDelete || deleteLinearLoading}
-                  onClick={handleConfirmDelete}
-                >
-                  {deleteLinearLoading
-                    ? "Deleting…"
-                    : `Delete${deleteTotalLinears > 0 ? ` ${deleteTotalLinears} linear${deleteTotalLinears !== 1 ? "s" : ""}` : ""}`}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Modal>
-
-      {/* ── Create Linear Modal ── */}
-      <Modal open={createOpen} onClose={closeCreateModal} title="Create Linear" size="lg">
-        <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-          {createResults ? (
-            <>
-              <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                <table className="min-w-full text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-950">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Pod</th>
-                      <th className="px-4 py-2 text-left">Linear</th>
-                      <th className="px-4 py-2 text-left">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {createResults.map((r, i) => (
-                      <tr key={`${i}-${r.podName}-${r.linearName}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                        <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">{r.podName}</td>
-                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{r.linearName}</td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                              r.status === "created"
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-                                : r.status === "skipped"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
-                                : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
-                            )}
-                          >
-                            {r.status}
-                          </span>
-                          {r.message && (
-                            <span className="ml-2 text-[10px] text-slate-500 dark:text-slate-400">
-                              {r.message}
-                            </span>
-                          )}
-                          {r.curlCommand && (
-                            <details className="mt-1">
-                              <summary className="cursor-pointer text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                                Show curl
-                              </summary>
-                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all rounded bg-slate-900 p-2 text-[10px] leading-relaxed text-slate-100 dark:bg-slate-950">
-                                {r.curlCommand}
-                              </pre>
-                            </details>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end gap-2">
-                {createResults.some((r) => r.status === "error") && (
-                  <Button variant="secondary" onClick={handleRetry} disabled={isCreating}>
-                    {isCreating
-                      ? "Retrying…"
-                      : `Retry ${createResults.filter((r) => r.status === "error").length} failed`}
-                  </Button>
-                )}
-                <Button variant="secondary" onClick={closeCreateModal}>
-                  Close
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Linear config form */}
-              <div className="space-y-2.5 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Linear Configuration</p>
-                <FormRow label="Fragment Length">
-                  <Input
-                    value={createConfig.fragmentLength}
-                    placeholder="e.g. 48/25"
-                    onChange={(e) => {
-                      setConfig("fragmentLength", e.target.value);
-                      setShowCreateValidation(false);
-                    }}
-                    error={
-                      showCreateValidation && !createConfig.fragmentLength.trim() ? "Required" : undefined
-                    }
-                  />
-                </FormRow>
-                <FormRow label="DRM">
-                  <div className="flex justify-end">
-                    <Toggle checked={createConfig.drm} onChange={(v) => setConfig("drm", v)} />
-                  </div>
-                </FormRow>
-                <FormRow label="Ads Replacement">
-                  <div className="flex justify-end">
-                    <Toggle checked={createConfig.adsReplacement} onChange={(v) => setConfig("adsReplacement", v)} />
-                  </div>
-                </FormRow>
-                <FormRow label="Disable DRM Manifests">
-                  <div className="flex justify-end">
-                    <Toggle
-                      checked={createConfig.disableDrmManifests}
-                      onChange={(v) => setConfig("disableDrmManifests", v)}
-                    />
-                  </div>
-                </FormRow>
-                {createConfig.drm && (
-                  <>
-                    <FormRow label="DRM Vendor">
-                      <Input
-                        value={createConfig.drmVendor}
-                        placeholder="e.g. kms"
-                        onChange={(e) => setConfig("drmVendor", e.target.value)}
-                      />
-                    </FormRow>
-                    <FormRow label="Content ID">
-                      <Input
-                        value={createConfig.contentId}
-                        placeholder="e.g. premium"
-                        onChange={(e) => setConfig("contentId", e.target.value)}
-                      />
-                    </FormRow>
-                  </>
-                )}
-                <FormRow label="Tags">
-                  <div className="flex justify-end gap-3">
-                    {(["Web", "Apps", "SmartTV"] as const).map((tag) => (
-                      <label key={tag} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={createConfig.tags.includes(tag)}
-                          onChange={(e) => {
-                            const next = e.target.checked
-                              ? [...createConfig.tags, tag]
-                              : createConfig.tags.filter((t) => t !== tag);
-                            setConfig("tags", next);
-                          }}
-                          className="rounded border-slate-300 text-brand-500 focus:ring-brand-500 dark:border-slate-600"
-                        />
-                        {tag}
-                      </label>
-                    ))}
-                  </div>
-                </FormRow>
-              </div>
-
-              <PodFilterTabs value={createFilter} onChange={setCreateFilter} />
-
-              {/* Tree: Channel → Pod → linear to be created */}
-              <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                {createGroupedChannels.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-slate-400">No pods found</div>
-                ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {createGroupedChannels.map(({ channel, pods }) => (
-                      <div key={channel.id}>
-                        <div className="bg-slate-50 px-3 py-2 dark:bg-slate-800/50">
-                          <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                            {channel.name}
-                          </span>
-                        </div>
-                        {pods.map((pod) => {
-                          const linearName = deriveLinearName(channel, pod.name);
-                          const alreadyExists = pod.linear?.linearName === linearName;
-                          return (
-                            <div key={pod.name}>
-                              <div className="flex items-center gap-2 py-1.5 pl-6 pr-3">
-                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                                  {pod.name}
-                                </span>
-                                <PodStatusBadge status={pod.status} />
-                              </div>
-                              <div className="flex items-center gap-2 py-1 pl-12 pr-3">
-                                <span className="text-xs text-slate-600 dark:text-slate-400">
-                                  {linearName}
-                                </span>
-                                {alreadyExists ? (
-                                  <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                                    already exists — will be skipped
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                                    (to be created)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={closeCreateModal}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  disabled={!createFormValid || isCreating}
-                  onClick={handleConfirmCreate}
-                >
-                  {isCreating ? "Creating…" : "Confirm"}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Modal>
+      {/* Modals */}
+      <ImpactModal
+        open={activeModal === "sync" || activeModal === "descache" || activeModal === "clean"}
+        onClose={closeModal}
+        action={activeModal === "sync" || activeModal === "descache" || activeModal === "clean" ? activeModal : null}
+        selected={selected}
+      />
+      <CreateLinearModal
+        open={activeModal === "create"}
+        onClose={closeModal}
+        selected={selected}
+      />
+      <DeleteLinearModal
+        open={activeModal === "delete"}
+        onClose={closeModal}
+        selected={selected}
+      />
     </>
   );
 }

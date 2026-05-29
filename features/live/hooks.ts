@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ResolvedChannel, Linear, PlaybackDiagnostics, ChannelConfigRow } from "./types";
+import { ResolvedChannel, Linear, PlaybackDiagnostics, ChannelConfigRow, LinearBatchResult } from "./types";
 import { getToken } from "@/lib/storage/token";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -534,6 +534,150 @@ export function useUpdateChannelConfig() {
         throw new Error(json.message || `HTTP ${response.status}`);
       }
       return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+// ── Batch linear actions (linear-centric, operate on EnigmaLinear.id) ────────
+
+type BatchLinearInput = {
+  linearId: number;
+  linearName: string | null;
+  channelId: number;
+  channelName: string;
+  tags: string[];
+};
+
+async function runLinearSimpleAction(
+  linearId: number,
+  endpoint: string,
+  token: string | null
+): Promise<{ ok: boolean; data: unknown; error?: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const res = await fetch(`/api/live/linear/${linearId}/${endpoint}`, { method: "GET", headers });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = (data as Record<string, unknown>)?.message ?? `HTTP ${res.status}`;
+      return { ok: false, data, error: String(msg) };
+    }
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, data: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export function useBatchLinearSync() {
+  return useMutation({
+    mutationFn: async (linears: BatchLinearInput[]): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      return Promise.all(
+        linears.map(async (l) => {
+          const { ok, data, error } = await runLinearSimpleAction(l.linearId, "sync", token);
+          return { ...l, status: ok ? ("success" as const) : ("error" as const), data, error };
+        })
+      );
+    },
+  });
+}
+
+export function useBatchLinearClean() {
+  return useMutation({
+    mutationFn: async (linears: BatchLinearInput[]): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      return Promise.all(
+        linears.map(async (l) => {
+          const { ok, data, error } = await runLinearSimpleAction(l.linearId, "clean", token);
+          return { ...l, status: ok ? ("success" as const) : ("error" as const), data, error };
+        })
+      );
+    },
+  });
+}
+
+export function useBatchLinearClear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (linears: BatchLinearInput[]): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      return Promise.all(
+        linears.map(async (l) => {
+          const { ok, data, error } = await runLinearSimpleAction(l.linearId, "disable", token);
+          return { ...l, status: ok ? ("success" as const) : ("error" as const), data, error };
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+type BatchLinearCreateInput = BatchLinearInput & {
+  name: string;
+};
+
+type BatchLinearCreateConfig = {
+  drm: boolean;
+  adsReplacement: boolean;
+  fragmentLength: string;
+  disableDrmManifests: boolean;
+  drmVendor: string;
+  contentId: string;
+};
+
+export function useBatchLinearCreate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      linears,
+      config,
+    }: {
+      linears: BatchLinearCreateInput[];
+      config: BatchLinearCreateConfig;
+    }): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      return Promise.all(
+        linears.map(async (l) => {
+          try {
+            const res = await fetch(`/api/live/linear/${l.linearId}/activate`, {
+              method: "PATCH",
+              headers,
+              body: JSON.stringify({
+                channelId: l.channelId,
+                name: l.name,
+                drm: config.drm,
+                adsReplacement: config.adsReplacement,
+                fragmentLength: config.fragmentLength,
+                disableDrmManifests: config.disableDrmManifests,
+                drmVendor: config.drmVendor,
+                contentId: config.contentId,
+                tags: l.tags,
+              }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+              const msg = (data as Record<string, unknown>)?.message ?? `HTTP ${res.status}`;
+              return { ...l, linearName: l.name, status: "error" as const, data, error: String(msg) };
+            }
+            return { ...l, linearName: l.name, status: "success" as const, data };
+          } catch (err) {
+            return {
+              ...l,
+              linearName: l.name,
+              status: "error" as const,
+              data: null,
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
+        })
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
