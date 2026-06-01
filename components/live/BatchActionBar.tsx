@@ -686,7 +686,7 @@ function CreateLinearModal({
   const hasFailures = results?.some((r) => r.status === "error");
 
   return (
-    <Modal open={open} onClose={handleClose} title="Create Linear" size="lg">
+    <Modal open={open} onClose={handleClose} title="Configure Linears" size="lg">
       <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
         {results ? (
           <>
@@ -842,7 +842,7 @@ function CreateLinearModal({
                   disabled={totalToCreate === 0 || createMutation.isPending}
                   onClick={handleConfirm}
                 >
-                  {createMutation.isPending ? "Creating…" : `Create ${totalToCreate} linear${totalToCreate === 1 ? "" : "s"}`}
+                  {createMutation.isPending ? "Configuring…" : `Configure ${totalToCreate} linear${totalToCreate === 1 ? "" : "s"}`}
                 </Button>
               </div>
             </div>
@@ -1024,8 +1024,8 @@ function DeleteLinearModal({
                   onClick={handleConfirm}
                 >
                   {clearMutation.isPending
-                    ? "Emptying…"
-                    : `Empty ${totalToEmpty} linear${totalToEmpty === 1 ? "" : "s"}`}
+                    ? "Clearing…"
+                    : `Clear ${totalToEmpty} linear${totalToEmpty === 1 ? "" : "s"}`}
                 </Button>
               </div>
             </div>
@@ -1107,13 +1107,13 @@ export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
               onClick={() => openModal("create")}
               className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
             >
-              Create Linear
+              Configure Linears
             </button>
             <button
               onClick={() => openModal("delete")}
               className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
             >
-              Delete Linear
+              Clear Linears
             </button>
           </>
         )}

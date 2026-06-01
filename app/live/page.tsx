@@ -204,12 +204,12 @@ export default function LivePage() {
       const failed = results.filter((r) => r.status === "error").length;
       if (failed > 0) {
         notify({
-          title: "Delete Linear",
+          title: "Clear Linears",
           description: `${succeeded} eliminado(s), ${failed} fallido(s).`,
           variant: failed === results.length ? "error" : undefined,
         });
       } else {
-        notify({ title: "Delete Linear", description: `${succeeded} item(s) eliminado(s) de ${confirmChannel.name}.` });
+        notify({ title: "Clear Linears", description: `${succeeded} item(s) eliminado(s) de ${confirmChannel.name}.` });
       }
     } catch (error) {
       notify({
