@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ResolvedChannel, Linear, PlaybackDiagnostics, ChannelConfigRow } from "./types";
+import { ResolvedChannel, Linear, PlaybackDiagnostics, ChannelConfigRow, LinearBatchResult } from "./types";
 import { getToken } from "@/lib/storage/token";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -344,15 +344,29 @@ export function useVodManifestQuery(id: string, url: string | null, originBase: 
 }
 
 type AddLinearPayload = {
-  channelEntityId: number;
-  podName: string;
-  linearName: string;
+  channelId: number;
+  name: string;
   drm: boolean;
   adsReplacement: boolean;
   fragmentLength: string;
   disableDrmManifests: boolean;
   drmVendor: string;
   contentId: string;
+  tags: string[];
+  pods: { name: string; encoders: number[] }[];
+};
+
+type ConfigureLinearPayload = {
+  linearId: number;
+  channelId: number;
+  name: string;
+  drm: boolean;
+  adsReplacement: boolean;
+  fragmentLength: string;
+  disableDrmManifests: boolean;
+  drmVendor: string;
+  contentId: string;
+  tags: string[];
 };
 
 export function useAddLinear() {
@@ -448,12 +462,15 @@ export function useDeletePodReference() {
   });
 }
 
-// TODO: replace throw with fetch call once Enigma DELETE /live/linears/:linearId endpoint is ready
 export function useDeleteLinear() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_linearId: number) => {
-      throw new Error("Not implemented — Enigma endpoint pending");
+    mutationFn: async (linearId: number) => {
+      const response = await fetch(`/api/live/linear/${linearId}/delete`, { method: "DELETE" });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
@@ -461,12 +478,36 @@ export function useDeleteLinear() {
   });
 }
 
-// TODO: replace throw with fetch call once Enigma POST /live/linears/:linearId/clear endpoint is ready
 export function useClearLinear() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_linearId: number) => {
-      throw new Error("Not implemented — Enigma endpoint pending");
+    mutationFn: async (linearId: number) => {
+      const response = await fetch(`/api/live/linear/${linearId}/disable`, { method: "GET" });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+export function useConfigureLinear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ linearId, ...body }: ConfigureLinearPayload) => {
+      const response = await fetch(`/api/live/linear/${linearId}/activate`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
@@ -493,6 +534,150 @@ export function useUpdateChannelConfig() {
         throw new Error(json.message || `HTTP ${response.status}`);
       }
       return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+// ── Batch linear actions (linear-centric, operate on EnigmaLinear.id) ────────
+
+type BatchLinearInput = {
+  linearId: number;
+  linearName: string | null;
+  channelId: number;
+  channelName: string;
+  tags: string[];
+};
+
+async function runLinearSimpleAction(
+  linearId: number,
+  endpoint: string,
+  token: string | null
+): Promise<{ ok: boolean; data: unknown; error?: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const res = await fetch(`/api/live/linear/${linearId}/${endpoint}`, { method: "GET", headers });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = (data as Record<string, unknown>)?.message ?? `HTTP ${res.status}`;
+      return { ok: false, data, error: String(msg) };
+    }
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, data: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export function useBatchLinearSync() {
+  return useMutation({
+    mutationFn: async (linears: BatchLinearInput[]): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      return Promise.all(
+        linears.map(async (l) => {
+          const { ok, data, error } = await runLinearSimpleAction(l.linearId, "sync", token);
+          return { ...l, status: ok ? ("success" as const) : ("error" as const), data, error };
+        })
+      );
+    },
+  });
+}
+
+export function useBatchLinearClean() {
+  return useMutation({
+    mutationFn: async (linears: BatchLinearInput[]): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      return Promise.all(
+        linears.map(async (l) => {
+          const { ok, data, error } = await runLinearSimpleAction(l.linearId, "clean", token);
+          return { ...l, status: ok ? ("success" as const) : ("error" as const), data, error };
+        })
+      );
+    },
+  });
+}
+
+export function useBatchLinearClear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (linears: BatchLinearInput[]): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      return Promise.all(
+        linears.map(async (l) => {
+          const { ok, data, error } = await runLinearSimpleAction(l.linearId, "disable", token);
+          return { ...l, status: ok ? ("success" as const) : ("error" as const), data, error };
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
+type BatchLinearCreateInput = BatchLinearInput & {
+  name: string;
+};
+
+type BatchLinearCreateConfig = {
+  drm: boolean;
+  adsReplacement: boolean;
+  fragmentLength: string;
+  disableDrmManifests: boolean;
+  drmVendor: string;
+  contentId: string;
+};
+
+export function useBatchLinearCreate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      linears,
+      config,
+    }: {
+      linears: BatchLinearCreateInput[];
+      config: BatchLinearCreateConfig;
+    }): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      return Promise.all(
+        linears.map(async (l) => {
+          try {
+            const res = await fetch(`/api/live/linear/${l.linearId}/activate`, {
+              method: "PATCH",
+              headers,
+              body: JSON.stringify({
+                channelId: l.channelId,
+                name: l.name,
+                drm: config.drm,
+                adsReplacement: config.adsReplacement,
+                fragmentLength: config.fragmentLength,
+                disableDrmManifests: config.disableDrmManifests,
+                drmVendor: config.drmVendor,
+                contentId: config.contentId,
+                tags: l.tags,
+              }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+              const msg = (data as Record<string, unknown>)?.message ?? `HTTP ${res.status}`;
+              return { ...l, linearName: l.name, status: "error" as const, data, error: String(msg) };
+            }
+            return { ...l, linearName: l.name, status: "success" as const, data };
+          } catch (err) {
+            return {
+              ...l,
+              linearName: l.name,
+              status: "error" as const,
+              data: null,
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
+        })
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });

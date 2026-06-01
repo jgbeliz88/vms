@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils/cn";
 
 export type AddLinearData = {
-  podName: string;
+  pods: { name: string; encoders: number[] }[];
   linearName: string;
   drm: boolean;
   adsReplacement: boolean;
@@ -16,6 +16,7 @@ export type AddLinearData = {
   disableDrmManifests: boolean;
   drmVendor: string;
   contentId: string;
+  tags: string[];
 };
 
 export type DeleteFlowDeletion = {
@@ -24,17 +25,6 @@ export type DeleteFlowDeletion = {
   podId: number;
   linearName: string | null;
   deletePod: boolean;
-};
-
-const DEFAULT_FORM: AddLinearData = {
-  podName: "",
-  linearName: "",
-  drm: false,
-  adsReplacement: false,
-  fragmentLength: "",
-  disableDrmManifests: false,
-  drmVendor: "",
-  contentId: "",
 };
 
 // ---------------------------------------------------------------------------
