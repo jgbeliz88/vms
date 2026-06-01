@@ -1,27 +1,47 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { LightflowVodContent } from "./lightflow-types";
+import type { VodFilters, VodContent, PaginatedVodResponse } from "./vod-types";
 import { queryKeys } from "@/lib/query-keys";
 import { getToken } from "@/lib/storage/token";
 
-export function useBitmovinVodQuery() {
+function buildSearchParams(filters: VodFilters): URLSearchParams {
+  const sp = new URLSearchParams();
+  sp.set("page", String(filters.page));
+  sp.set("limit", String(filters.limit));
+  if (filters.sortBy) sp.set("sortBy", filters.sortBy);
+  if (filters.order) sp.set("order", filters.order);
+  if (filters.id) sp.set("id", filters.id);
+  if (filters.status) sp.set("status", filters.status);
+  if (filters.createdAtOlderThan) sp.set("createdAtOlderThan", filters.createdAtOlderThan);
+  if (filters.createdAtNewerThan) sp.set("createdAtNewerThan", filters.createdAtNewerThan);
+  if (filters.name) sp.set("name", filters.name);
+  if (filters.labels) filters.labels.forEach((l) => sp.append("labels", l));
+  return sp;
+}
+
+export function useBitmovinVodQuery(filters: VodFilters) {
   return useQuery({
-    queryKey: queryKeys.bitmovinVod(),
+    queryKey: queryKeys.bitmovinVod(filters),
     queryFn: async () => {
-      const response = await fetch("/api/vod/bitmovin", { cache: "no-store" });
+      const sp = buildSearchParams(filters);
+      const response = await fetch(`/api/vod/bitmovin?${sp}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to load Bitmovin VOD");
-      return await response.json();
+      return (await response.json()) as PaginatedVodResponse<VodContent>;
     },
+    placeholderData: (prev) => prev,
   });
 }
 
-export function useLightflowVodQuery() {
+export function useLightflowVodQuery(filters: VodFilters) {
   return useQuery({
-    queryKey: queryKeys.lightflowVod(),
+    queryKey: queryKeys.lightflowVod(filters),
     queryFn: async () => {
-      const response = await fetch("/api/vod/lightflow", { cache: "no-store" });
+      const sp = buildSearchParams(filters);
+      const response = await fetch(`/api/vod/lightflow?${sp}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to load Lightflow VOD");
-      return (await response.json()) as LightflowVodContent[];
-    }
+      return (await response.json()) as PaginatedVodResponse<LightflowVodContent>;
+    },
+    placeholderData: (prev) => prev,
   });
 }
 

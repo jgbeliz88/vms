@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
 import { VodTable } from "@/components/vod/VodTable";
@@ -8,11 +8,15 @@ import { LightflowVodTable } from "@/components/vod/LightflowVodTable";
 import { BulkActionBar } from "@/components/vod/BulkActionBar";
 import { BlockVodModal } from "@/components/vod/BlockVodModal";
 import { CreateManifestModal, type ManifestTarget, type ManifestParams } from "@/components/vod/CreateManifestModal";
+import { VodPaginator } from "@/components/vod/VodPaginator";
 import { useBitmovinVodQuery, useLightflowVodQuery, useBlockVod, useCreateServerManifest } from "@/features/vod/hooks";
+import type { VodFilters } from "@/features/vod/vod-types";
 import { useToast } from "@/components/ui/Toast";
 
 type EncoderTab = "bitmovin" | "lightflow";
 type BulkModal = "block" | "unblock" | "manifest" | null;
+
+const DEFAULT_FILTERS: VodFilters = { page: 0, limit: 10 };
 
 export default function VodPage() {
   const { notify } = useToast();
@@ -20,24 +24,91 @@ export default function VodPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkModal, setBulkModal] = useState<BulkModal>(null);
 
-  const bitmovinQuery = useBitmovinVodQuery();
-  const lightflowQuery = useLightflowVodQuery();
+  const [bitmovinFilters, setBitmovinFilters] = useState<VodFilters>(DEFAULT_FILTERS);
+  const [bitmovinKnownMaxPage, setBitmovinKnownMaxPage] = useState(5);
+  const [bitmovinSortKey, setBitmovinSortKey] = useState<string | null>(null);
+  const [bitmovinSortDir, setBitmovinSortDir] = useState<"asc" | "desc">("asc");
+
+  const [lightflowFilters, setLightflowFilters] = useState<VodFilters>(DEFAULT_FILTERS);
+  const [lightflowKnownMaxPage, setLightflowKnownMaxPage] = useState(5);
+  const [lightflowSortKey, setLightflowSortKey] = useState<string | null>(null);
+  const [lightflowSortDir, setLightflowSortDir] = useState<"asc" | "desc">("asc");
+
+  const bitmovinQuery = useBitmovinVodQuery(bitmovinFilters);
+  const lightflowQuery = useLightflowVodQuery(lightflowFilters);
   const blockMutation = useBlockVod();
   const manifestMutation = useCreateServerManifest();
+
+  useEffect(() => {
+    const d = bitmovinQuery.data;
+    if (d?.hasNextPage) {
+      setBitmovinKnownMaxPage((prev) => Math.max(prev, d.pageIndex + 2));
+    }
+  }, [bitmovinQuery.data]);
+
+  useEffect(() => {
+    const d = lightflowQuery.data;
+    if (d?.hasNextPage) {
+      setLightflowKnownMaxPage((prev) => Math.max(prev, d.pageIndex + 2));
+    }
+  }, [lightflowQuery.data]);
 
   const switchTab = (tab: EncoderTab) => {
     setActiveTab(tab);
     setSelected(new Set());
   };
 
+  const applyFilterKey = (raw: string, key: string): Partial<VodFilters> => {
+    if (key === "labels") {
+      return { labels: raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : undefined };
+    }
+    if (key === "createdAtOlderThan") {
+      return { createdAtOlderThan: raw ? `${raw}T23:59:59Z` : undefined };
+    }
+    if (key === "createdAtNewerThan") {
+      return { createdAtNewerThan: raw ? `${raw}T00:00:00Z` : undefined };
+    }
+    return { [key]: raw || undefined };
+  };
+
+  const handleBitmovinFilterChange = (key: string, raw: string) => {
+    setBitmovinFilters((prev) => ({ ...prev, page: 0, ...applyFilterKey(raw, key) }));
+  };
+
+  const handleBitmovinSortChange = (sortBy: string, order: "asc" | "desc") => {
+    setBitmovinSortKey(sortBy);
+    setBitmovinSortDir(order);
+    setBitmovinFilters((prev) => ({ ...prev, sortBy, order, page: 0 }));
+  };
+
+  const handleBitmovinPageChange = (page: number) => {
+    setBitmovinFilters((prev) => ({ ...prev, page: page - 1 }));
+    setSelected(new Set());
+  };
+
+  const handleLightflowFilterChange = (key: string, raw: string) => {
+    setLightflowFilters((prev) => ({ ...prev, page: 0, ...applyFilterKey(raw, key) }));
+  };
+
+  const handleLightflowSortChange = (sortBy: string, order: "asc" | "desc") => {
+    setLightflowSortKey(sortBy);
+    setLightflowSortDir(order);
+    setLightflowFilters((prev) => ({ ...prev, sortBy, order, page: 0 }));
+  };
+
+  const handleLightflowPageChange = (page: number) => {
+    setLightflowFilters((prev) => ({ ...prev, page: page - 1 }));
+    setSelected(new Set());
+  };
+
   const getBulkTargets = (): ManifestTarget[] => {
     if (activeTab === "bitmovin" && bitmovinQuery.data) {
-      return (bitmovinQuery.data as Array<{ _id: string; name: string }>)
+      return bitmovinQuery.data.items
         .filter((item) => selected.has(item._id))
         .map((item) => ({ mam: "bitmovin" as const, uuid: item._id, name: item.name, id: item._id }));
     }
     if (activeTab === "lightflow" && lightflowQuery.data) {
-      return lightflowQuery.data
+      return lightflowQuery.data.items
         .filter((item) => selected.has(item.uuid))
         .map((item) => ({ mam: "lightflow" as const, uuid: item.uuid, name: item._id, id: item._id }));
     }
@@ -117,8 +188,13 @@ export default function VodPage() {
             <div>
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">VOD</h1>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                {bitmovinQuery.data ? `${bitmovinQuery.data.length} Bitmovin contents` : "Bitmovin contents"}
-                {lightflowQuery.data ? ` · ${lightflowQuery.data.length} Lightflow contents` : ""}
+                {activeTab === "bitmovin"
+                  ? bitmovinQuery.data
+                      ? `Page ${bitmovinFilters.page + 1} · ${bitmovinQuery.data.items.length} items`
+                      : "Bitmovin contents"
+                  : lightflowQuery.data
+                      ? `Page ${lightflowFilters.page + 1} · ${lightflowQuery.data.items.length} items`
+                      : "Lightflow contents"}
               </p>
             </div>
 
@@ -152,25 +228,49 @@ export default function VodPage() {
             ) : bitmovinQuery.isError ? (
               <div className="text-sm text-rose-500">Failed to load Bitmovin data.</div>
             ) : bitmovinQuery.data ? (
-              <VodTable
-                items={bitmovinQuery.data}
-                encoder="bitmovin"
-                selectable
-                selected={selected}
-                onSelectionChange={setSelected}
-              />
+              <div className={bitmovinQuery.isFetching ? "pointer-events-none opacity-60 transition-opacity" : ""}>
+                <VodTable
+                  items={bitmovinQuery.data.items}
+                  encoder="bitmovin"
+                  selectable
+                  selected={selected}
+                  onSelectionChange={setSelected}
+                  onFilterChange={handleBitmovinFilterChange}
+                  onSortChange={handleBitmovinSortChange}
+                  sortKey={bitmovinSortKey}
+                  sortDir={bitmovinSortDir}
+                />
+                <VodPaginator
+                  currentPage={bitmovinFilters.page + 1}
+                  knownMaxPage={bitmovinKnownMaxPage}
+                  hasNextPage={bitmovinQuery.data.hasNextPage}
+                  onChange={handleBitmovinPageChange}
+                />
+              </div>
             ) : null
           ) : lightflowQuery.isLoading ? (
             <div className="text-sm text-slate-500">Loading Lightflow contents…</div>
           ) : lightflowQuery.isError ? (
             <div className="text-sm text-rose-500">Failed to load Lightflow data.</div>
           ) : lightflowQuery.data ? (
-            <LightflowVodTable
-              items={lightflowQuery.data}
-              selectable
-              selected={selected}
-              onSelectionChange={setSelected}
-            />
+            <div className={lightflowQuery.isFetching ? "pointer-events-none opacity-60 transition-opacity" : ""}>
+              <LightflowVodTable
+                items={lightflowQuery.data.items}
+                selectable
+                selected={selected}
+                onSelectionChange={setSelected}
+                onFilterChange={handleLightflowFilterChange}
+                onSortChange={handleLightflowSortChange}
+                sortKey={lightflowSortKey}
+                sortDir={lightflowSortDir}
+              />
+              <VodPaginator
+                currentPage={lightflowFilters.page + 1}
+                knownMaxPage={lightflowKnownMaxPage}
+                hasNextPage={lightflowQuery.data.hasNextPage}
+                onChange={handleLightflowPageChange}
+              />
+            </div>
           ) : null}
         </div>
       </AppShell>
