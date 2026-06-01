@@ -162,3 +162,14 @@ export type BatchAction = {
   description: string;
   tone: "default" | "warning" | "danger";
 };
+
+export type LinearBatchResult = {
+  linearId: number;
+  linearName: string | null;
+  channelId: number;
+  channelName: string;
+  tags: string[];
+  status: "success" | "error";
+  data?: unknown;
+  error?: string;
+};
