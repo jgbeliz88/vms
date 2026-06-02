@@ -12,6 +12,7 @@ import { ROLES } from "@/lib/auth/permissions";
 import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/live/hooks";
 import type { AddLinearData } from "./ActionConfirmModal";
 import { TagChip } from "@/components/ui/TagChip";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -520,6 +521,7 @@ export function LinearsSection({
   onCreateLinear: (data: AddLinearData) => Promise<void>;
 }) {
   const canManageLinears = usePermission([ROLES.ADMIN]);
+  const { notify } = useToast();
   const deleteLinear = useDeleteLinear();
   const clearLinear = useClearLinear();
   const configureLinear = useConfigureLinear();
@@ -637,8 +639,12 @@ export function LinearsSection({
         tags: configForm.tags,
       });
       closeConfigure();
-    } catch {
-      // error toast handled by mutation
+    } catch (error) {
+      notify({
+        title: "Configure failed",
+        description: error instanceof Error ? error.message : "Unable to configure linear",
+        variant: "error",
+      });
     } finally {
       setConfiguring(false);
     }
@@ -652,8 +658,12 @@ export function LinearsSection({
       } else {
         await clearLinear.mutateAsync(pendingAction.linear.id);
       }
-    } catch {
-      // error toast handled by mutation error boundary
+    } catch (error) {
+      notify({
+        title: pendingAction.type === "delete" ? "Delete failed" : "Clear failed",
+        description: error instanceof Error ? error.message : "Operation failed",
+        variant: "error",
+      });
     } finally {
       setPendingAction(null);
     }
