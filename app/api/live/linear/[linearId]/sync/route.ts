@@ -12,7 +12,7 @@ export async function GET(
 ) {
   const { linearId } = await params;
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/sync/${linearId}`;
+  const url = `${enigmaBase}/live/linear/sync/${linearId}`;
 
   let response: Response;
   try {
