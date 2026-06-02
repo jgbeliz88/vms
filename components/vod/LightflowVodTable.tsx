@@ -54,7 +54,7 @@ export function LightflowVodTable({
     {
       header: "Start Date",
       sortKey: "startDate",
-      filterKey: "createdAtNewerThan",
+      filterKey: "createdAtOlderThan",
       filterType: "date" as const,
       render: (item: LightflowVodContent) => (
         <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.startDate)}</span>
@@ -63,7 +63,7 @@ export function LightflowVodTable({
     {
       header: "End Date",
       sortKey: "endDate",
-      filterKey: "createdAtOlderThan",
+      filterKey: "createdAtNewerThan",
       filterType: "date" as const,
       render: (item: LightflowVodContent) => (
         <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.endDate)}</span>

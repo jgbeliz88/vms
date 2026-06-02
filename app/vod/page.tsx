@@ -63,10 +63,10 @@ export default function VodPage() {
       return { labels: raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : undefined };
     }
     if (key === "createdAtOlderThan") {
-      return { createdAtOlderThan: raw ? `${raw}T23:59:59Z` : undefined };
+      return { createdAtOlderThan: raw ? `${raw}T00:00:00Z` : undefined };
     }
     if (key === "createdAtNewerThan") {
-      return { createdAtNewerThan: raw ? `${raw}T00:00:00Z` : undefined };
+      return { createdAtNewerThan: raw ? `${raw}T23:59:59Z` : undefined };
     }
     return { [key]: raw || undefined };
   };
