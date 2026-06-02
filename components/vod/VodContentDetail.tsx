@@ -8,21 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { BaseVodContentDetail } from "@/components/vod/BaseVodContentDetail";
 import { VodActionsPanel } from "@/components/vod/VodActionsPanel";
 import { formatDuration, formatBitrate } from "@/lib/utils/media";
-
-type VodContent = {
-  _id: string;
-  name: string;
-  status: string;
-  labels: string[];
-  startedAt: string;
-  finishedAt: string;
-  input?: {
-    videos: { duration: number; codec: string; fps: string; bitrate: string; width: number; height: number }[];
-    audios: { codec: string; sampleRate: number; bitrate: string; channelFormat: string; language: string }[];
-  };
-  renditions?: { filename: string; videoTracks: { frameWidth: number; frameHeight: number; bitRate: number }[] }[];
-  subtitles?: { lang: string; url: string }[];
-};
+import type { VodContent } from "@/features/vod/vod-types";
 
 const errorStatuses = new Set(["FAILED", "COPIED_ERROR", "ENCODING_ERROR", "RENDITION_ERROR", "MANIFEST_ERROR"]);
 

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
@@ -6,8 +6,19 @@ import { extractUpstreamMessage } from "@/app/api/_lib/responses";
 
 const LOG_NAME = "app.api.vod.bitmovin.route";
 
-export async function GET() {
-  const endpoint = `${getEnigmaBaseUrl()}/jupiter/list`;
+const SCALAR_PARAMS = ["page", "limit", "sortBy", "order", "id", "status", "createdAtOlderThan", "createdAtNewerThan", "name"] as const;
+
+export async function GET(req: NextRequest) {
+  const sp = req.nextUrl.searchParams;
+  const upstream = new URLSearchParams();
+
+  for (const key of SCALAR_PARAMS) {
+    const v = sp.get(key);
+    if (v) upstream.set(key, v);
+  }
+  for (const l of sp.getAll("labels")) upstream.append("labels", l);
+
+  const endpoint = `${getEnigmaBaseUrl()}/jupiter/list?${upstream}`;
   let response: Response;
   try {
     response = await fetchVMS(endpoint, { cache: "no-store" });
