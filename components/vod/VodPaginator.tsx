@@ -16,8 +16,15 @@ const btnDefault =
 const btnDisabled =
   "border-slate-200 bg-white text-slate-300 cursor-not-allowed dark:border-slate-700 dark:bg-slate-900 dark:text-slate-600";
 
+const WINDOW_SIZE = 5;
+
 export function VodPaginator({ currentPage, knownMaxPage, hasNextPage, onChange }: Props) {
-  const visibleCount = hasNextPage && currentPage >= knownMaxPage ? knownMaxPage + 1 : knownMaxPage;
+  let windowStart = Math.max(1, currentPage - 2);
+  const windowEnd = Math.min(knownMaxPage, windowStart + WINDOW_SIZE - 1);
+  windowStart = Math.max(1, windowEnd - WINDOW_SIZE + 1);
+
+  const pages = Array.from({ length: windowEnd - windowStart + 1 }, (_, i) => windowStart + i);
+  const showFirstShortcut = windowStart > 1;
 
   return (
     <div className="flex items-center justify-center gap-1 pt-2">
@@ -30,7 +37,22 @@ export function VodPaginator({ currentPage, knownMaxPage, hasNextPage, onChange 
         ‹
       </button>
 
-      {Array.from({ length: visibleCount }, (_, i) => i + 1).map((page) => (
+      {showFirstShortcut && (
+        <>
+          <button
+            onClick={() => onChange(1)}
+            className={`${btnBase} ${btnDefault}`}
+            aria-label="Page 1"
+          >
+            1
+          </button>
+          <span className={`${btnBase} ${btnDisabled}`} aria-hidden="true">
+            …
+          </span>
+        </>
+      )}
+
+      {pages.map((page) => (
         <button
           key={page}
           onClick={() => onChange(page)}
