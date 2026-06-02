@@ -19,11 +19,19 @@ export function LightflowVodTable({
   selectable,
   selected,
   onSelectionChange,
+  onFilterChange,
+  onSortChange,
+  sortKey,
+  sortDir,
 }: {
   items: LightflowVodContent[];
   selectable?: boolean;
   selected?: Set<string>;
   onSelectionChange?: (next: Set<string>) => void;
+  onFilterChange: (key: string, value: string) => void;
+  onSortChange?: (key: string, dir: "asc" | "desc") => void;
+  sortKey?: string | null;
+  sortDir?: "asc" | "desc";
 }) {
   const columns = [
     {
@@ -45,23 +53,22 @@ export function LightflowVodTable({
     },
     {
       header: "Start Date",
-      filterKey: "startDate",
-      filterType: "text" as const,
       sortKey: "startDate",
+      filterKey: "createdAtNewerThan",
+      filterType: "date" as const,
       render: (item: LightflowVodContent) => (
         <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.startDate)}</span>
       ),
     },
     {
       header: "End Date",
-      filterKey: "endDate",
-      filterType: "text" as const,
       sortKey: "endDate",
+      filterKey: "createdAtOlderThan",
+      filterType: "date" as const,
       render: (item: LightflowVodContent) => (
         <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.endDate)}</span>
       ),
     },
-
   ];
 
   return (
@@ -71,22 +78,14 @@ export function LightflowVodTable({
       encoderLabel="Lightflow"
       encoderTone="warning"
       columns={columns}
-      getFilterValue={(item, key) => {
-        if (key === "id") return item.uuid;
-        if (key === "status") return item.status;
-        if (key === "startDate") return formatDate(item.startDate);
-        if (key === "endDate") return formatDate(item.endDate);
-        return "";
-      }}
-      getSortValue={(item, key) => {
-        if (key === "startDate") return item.startDate;
-        if (key === "endDate") return item.endDate;
-        return "";
-      }}
       renderDetail={(item) => <LightflowVodContentDetail item={item} />}
       selectable={selectable}
       selected={selected}
       onSelectionChange={onSelectionChange}
+      onFilterChange={onFilterChange}
+      onSortChange={onSortChange}
+      sortKey={sortKey}
+      sortDir={sortDir}
     />
   );
 }

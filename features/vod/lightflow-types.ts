@@ -23,8 +23,8 @@ export type LightflowVodContent = {
   creationDate: string;
   startDate: string;
   endDate: string;
-  error: string | null;
-  assetError: string | null;
+  error?: string | null;
+  assetError?: string | null;
   assetInfo: {
     format: {
       duration: string;
@@ -35,5 +35,6 @@ export type LightflowVodContent = {
   };
   ladderFull?: {
     x264?: LightflowRendition[];
+    clientIndustryLadders?: LightflowRendition[];
   };
 };

@@ -234,8 +234,8 @@ function FastChannelRow({ channel }: { channel: { name: string; uri: string } })
 export default function DashboardPage() {
   const channelsQuery = useChannelsQuery();
   const fastChannelsQuery = useFastChannelsQuery();
-  const bitmovinVodQuery = useBitmovinVodQuery();
-  const bitmovinVodItems = bitmovinVodQuery.data ?? [];
+  const bitmovinVodQuery = useBitmovinVodQuery({ page: 0, limit: 10 });
+  const bitmovinVodItems = bitmovinVodQuery.data?.items ?? [];
   const channels = channelsQuery.data ?? [];
   const fastChannels = fastChannelsQuery.data ?? [];
 
