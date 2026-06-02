@@ -92,7 +92,7 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
     {
       header: "Started At",
       sortKey: "startedAt",
-      filterKey: "createdAtOlderThan",
+      filterKey: "createdAtNewerThan",
       filterType: "date" as const,
       render: (item: VodContent) => (
         <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.startedAt)}</span>
@@ -101,7 +101,7 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
     {
       header: "Finished At",
       sortKey: "finishedAt",
-      filterKey: "createdAtNewerThan",
+      filterKey: "createdAtOlderThan",
       filterType: "date" as const,
       render: (item: VodContent) => (
         <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.finishedAt)}</span>
