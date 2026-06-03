@@ -414,19 +414,27 @@ function TargetPanel({
 function ActionsRow({
   linears,
   selectedLinearIds,
+  activeTags,
   onToggle,
   onSelectAll,
+  onToggleTag,
   onRequestConfirm,
 }: {
   linears: EnigmaLinear[];
   selectedLinearIds: number[];
+  activeTags: string[];
   onToggle: (id: number) => void;
   onSelectAll: (visibleIds: number[]) => void;
+  onToggleTag: (tag: string) => void;
   onRequestConfirm: (action: ChannelAction) => void;
 }) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
-  const visibleLinears = linears.filter((l) => l.name !== null);
+  const activeLinears = linears.filter((l) => l.name !== null);
+  const visibleLinears =
+    activeTags.length === 0
+      ? activeLinears
+      : activeLinears.filter((l) => activeTags.some((t) => l.tags.includes(t)));
   const visibleIds = visibleLinears.map((l) => l.id);
   const noTarget = selectedLinearIds.length === 0;
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedLinearIds.includes(id));
@@ -438,7 +446,6 @@ function ActionsRow({
       return next;
     });
 
-  const linearsWithTag = (tag: string) => visibleLinears.filter((l) => l.tags.includes(tag));
 
   const selectedLinears = visibleLinears.filter((l) => selectedLinearIds.includes(l.id));
 
@@ -464,23 +471,15 @@ function ActionsRow({
             </button>
           </div>
 
-          {/* Device-tag quick-select */}
+          {/* Device-tag filter */}
           <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 px-4 py-2 dark:border-slate-700">
             <span className="mr-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">By device</span>
             {AVAILABLE_TAGS.map((tag) => (
               <TagChip
                 key={tag}
                 tag={tag}
-                onClick={() => {
-                  const group = linearsWithTag(tag);
-                  const allOn = group.every((l) => selectedLinearIds.includes(l.id));
-                  const groupIds = group.map((l) => l.id);
-                  if (allOn) {
-                    onSelectAll(selectedLinearIds.filter((id) => !groupIds.includes(id)));
-                  } else {
-                    onSelectAll([...new Set([...selectedLinearIds, ...groupIds])]);
-                  }
-                }}
+                active={activeTags.includes(tag)}
+                onClick={() => onToggleTag(tag)}
               />
             ))}
           </div>
@@ -959,8 +958,14 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
   const [selectedLinearIds, setSelectedLinearIds] = useState<number[]>(() =>
     activeLinears.map((l) => l.id)
   );
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [selectedJules, setSelectedJules] = useState<string[]>(() => julesIds ?? []);
   const [confirmingAction, setConfirmingAction] = useState<ChannelAction | null>(null);
+
+  const toggleTagFilter = (tag: string) =>
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
 
   const handleSelectAll = (ids: number[]) => {
     setSelectedLinearIds(ids);
@@ -983,7 +988,11 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
     setSelectedJules(selectedJules.length === julesIds.length ? [] : [...julesIds]);
   };
 
-  const selectedLinears = channel.linears.filter((l) => selectedLinearIds.includes(l.id));
+  const selectedLinears = channel.linears.filter(
+    (l) =>
+      selectedLinearIds.includes(l.id) &&
+      (activeTags.length === 0 || activeTags.some((t) => l.tags.includes(t)))
+  );
 
   const isPending = batchSync.isPending || batchClean.isPending;
 
@@ -1056,8 +1065,10 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
         <ActionsRow
           linears={channel.linears}
           selectedLinearIds={selectedLinearIds}
+          activeTags={activeTags}
           onToggle={toggleLinear}
           onSelectAll={handleSelectAll}
+          onToggleTag={toggleTagFilter}
           onRequestConfirm={setConfirmingAction}
         />
       </div>
