@@ -583,7 +583,7 @@ function ActionsRow({
             <span className="text-[10px] text-slate-400/80">Send commands to selected linears</span>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-2.5 p-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 p-4">
           {channelActions.map((action) => {
             const meta = ACTION_META[action.id as keyof typeof ACTION_META];
             return (
