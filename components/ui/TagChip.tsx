@@ -19,10 +19,36 @@ export const TAG_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-export function TagChip({ tag }: { tag: string }) {
+export function TagChip({
+  tag,
+  active,
+  onClick,
+}: {
+  tag: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const interactive = typeof onClick === "function";
+  const base =
+    "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9.5px] font-medium transition-colors";
+  const tone = active
+    ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/15 dark:text-brand-300"
+    : interactive
+    ? "border-slate-200 bg-white text-slate-500 hover:border-brand-300 hover:text-brand-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-brand-500/50"
+    : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400";
+  const iconColor = active ? "text-brand-500 dark:text-brand-400" : "text-slate-400";
+
+  if (interactive) {
+    return (
+      <button type="button" onClick={onClick} className={`${base} ${tone}`}>
+        {TAG_ICONS[tag] && <span className={iconColor}>{TAG_ICONS[tag]}</span>}
+        {tag}
+      </button>
+    );
+  }
   return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-      {TAG_ICONS[tag] && <span className="text-slate-400">{TAG_ICONS[tag]}</span>}
+    <span className={`${base} ${tone}`}>
+      {TAG_ICONS[tag] && <span className={iconColor}>{TAG_ICONS[tag]}</span>}
       {tag}
     </span>
   );
