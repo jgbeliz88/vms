@@ -11,12 +11,10 @@ import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
 import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/live/hooks";
 import type { AddLinearData } from "./ActionConfirmModal";
-import { TagChip } from "@/components/ui/TagChip";
+import { AVAILABLE_TAGS, TagChip } from "@/components/ui/TagChip";
 import { useToast } from "@/components/ui/Toast";
 
 // ── Types ────────────────────────────────────────────────────────────────────
-
-const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV"] as const;
 
 type FormFields = {
   linearName: string;
@@ -37,7 +35,7 @@ const DEFAULT_FORM: FormFields = {
   disableDrmManifests: false,
   drmVendor: "",
   contentId: "",
-  tags: ["Web", "Apps", "SmartTV"],
+  tags: [...AVAILABLE_TAGS],
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
