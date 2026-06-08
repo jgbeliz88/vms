@@ -1,4 +1,4 @@
-export const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV", "LSG"] as const;
+export const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV", "LGS"] as const;
 export type AvailableTag = (typeof AVAILABLE_TAGS)[number];
 
 export const TAG_ICONS: Record<string, React.ReactNode> = {
@@ -20,7 +20,7 @@ export const TAG_ICONS: Record<string, React.ReactNode> = {
       <line x1="5" y1="14" x2="11" y2="14" />
     </svg>
   ),
-  LSG: (
+  LGS: (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
       {/* fingers */}
       <path d="M5.5 8V4.5a1 1 0 0 1 2 0V8" />
