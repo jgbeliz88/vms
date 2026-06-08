@@ -118,17 +118,20 @@ export function ChannelTable({
                   <div className="font-semibold text-slate-900 dark:text-slate-100">{channel.name}</div>
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
-                  {channel.pods.length > 0 ? (
-                    <div className="flex flex-col gap-0.5">
-                      {[...new Set(channel.pods.map((p) => p.encoderName))].map((name) => (
-                        <div key={name} className="text-sm text-slate-700 dark:text-slate-200">
-                          {name}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-slate-400">—</span>
-                  )}
+                  {(() => {
+                    const names = [...new Set(channel.linears.flatMap((l) => l.pods.flatMap((p) => p.encoders.map((e) => e.name))))];
+                    return names.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {names.map((name) => (
+                          <div key={name} className="text-sm text-slate-700 dark:text-slate-200">
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    );
+                  })()}
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} title={podTooltip} {...rowEvents}>
                   {channel.pods.length > 0 ? (
