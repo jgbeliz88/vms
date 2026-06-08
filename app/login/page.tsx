@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 
@@ -23,11 +22,15 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F1F5F9] dark:bg-[#1A222C] px-4">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <Image src="/logo.jpeg" alt="MFE logo" width={56} height={56} className="rounded-xl" />
+        <div className="mb-8 flex flex-col items-center gap-4">
+          <svg width="56" height="56" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="2" y="2" width="44" height="44" rx="12.5" fill="#3C50E0"/>
+            <path d="M20 15.5 L20 32.5 L34 24 Z" fill="#FFFFFF"/>
+          </svg>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-[#1C2434] dark:text-white">VMS</h1>
-            <p className="mt-1 text-sm text-[#64748B]">Use your Microsoft account to sign in</p>
+            <h1 className="text-2xl font-black tracking-tight text-[#1C2434] dark:text-white">VMS</h1>
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#64748B] dark:text-[#8899A8]">Video Management System</p>
+            <p className="mt-3 text-sm text-[#64748B]">Use your Microsoft account to sign in</p>
           </div>
         </div>
 
