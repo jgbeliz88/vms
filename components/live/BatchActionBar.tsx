@@ -9,11 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
-import { TAG_ICONS, TagChip } from "@/components/ui/TagChip";
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV"] as const;
+import { AVAILABLE_TAGS, TAG_ICONS, TagChip } from "@/components/ui/TagChip";
 
 
 const DEFAULT_CONFIG: LinearConfig = {
