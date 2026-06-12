@@ -400,12 +400,17 @@ export function useAddLinear() {
   });
 }
 
-type JulesEventResult = { julesId: string; success: boolean; error?: string };
+type LinearAdEventResult = {
+  linearId: number;
+  encoderName: string;
+  status: "fulfilled" | "rejected";
+  error?: string;
+};
 
-export function useSendJulesEvent() {
+export function useSendLinearAdEvent() {
   return useMutation({
     mutationFn: async (vars: {
-      julesIds: string[];
+      linearIds: number[];
       command: "scte" | "admode" | "blackout";
       payload: string;
     }) => {
@@ -419,7 +424,7 @@ export function useSendJulesEvent() {
         body: JSON.stringify(vars),
       });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-      return res.json() as Promise<{ results: JulesEventResult[] }>;
+      return res.json() as Promise<{ results: LinearAdEventResult[] }>;
     },
   });
 }
