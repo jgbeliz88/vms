@@ -1039,12 +1039,11 @@ type ActiveModal = ActionType | "create" | "delete" | null;
 export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
-  const canOperate = usePermission([ROLES.OPERATOR]);
-  const canManageLinears = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([ROLES.ADMIN]);
 
   const summary = useMemo(() => rollupCounts(selected), [selected]);
 
-  if (!canOperate || selected.length === 0) return null;
+  if (!canAdmin || selected.length === 0) return null;
 
   function openModal(m: ActiveModal) {
     setActiveModal(m);
@@ -1096,23 +1095,19 @@ export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
           Clean Channels
         </button>
 
-        {canManageLinears && (
-          <>
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
-            <button
-              onClick={() => openModal("create")}
-              className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
-            >
-              Configure Linears
-            </button>
-            <button
-              onClick={() => openModal("delete")}
-              className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
-            >
-              Clear Linears
-            </button>
-          </>
-        )}
+        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+        <button
+          onClick={() => openModal("create")}
+          className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+        >
+          Configure Linears
+        </button>
+        <button
+          onClick={() => openModal("delete")}
+          className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
+        >
+          Clear Linears
+        </button>
       </div>
 
       {/* Modals */}
