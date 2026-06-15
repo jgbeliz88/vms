@@ -9,7 +9,7 @@ type ColumnDef<T> = {
   render: (item: T) => ReactNode;
   sortKey?: string;
   filterKey?: string;
-  filterType?: "text" | "select";
+  filterType?: "text" | "select" | "date";
   filterOptions?: string[];
 };
 
@@ -19,15 +19,15 @@ type Props<T> = {
   encoderLabel: string;
   encoderTone: "purple" | "warning";
   columns: ColumnDef<T>[];
-  getFilterValue: (item: T, filterKey: string) => string;
-  getSortValue: (item: T, sortKey: string) => string;
   renderDetail: (item: T) => ReactNode;
   selectable?: boolean;
   selected?: Set<string>;
   onSelectionChange?: (next: Set<string>) => void;
+  onFilterChange: (key: string, value: string) => void;
+  onSortChange?: (key: string, dir: "asc" | "desc") => void;
+  sortKey?: string | null;
+  sortDir?: "asc" | "desc";
 };
-
-type SortDir = "asc" | "desc";
 
 const inputCls =
   "w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 placeholder-slate-300 focus:border-slate-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-600";
@@ -61,73 +61,71 @@ export function BaseVodTable<T>({
   encoderLabel,
   encoderTone,
   columns,
-  getFilterValue,
-  getSortValue,
   renderDetail,
   selectable,
   selected,
   onSelectionChange,
+  onFilterChange,
+  onSortChange,
+  sortKey,
+  sortDir = "asc",
 }: Props<T>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [localInputs, setLocalInputs] = useState<Record<string, string>>({});
+  // Pending text-input changes awaiting debounce
+  const [pendingText, setPendingText] = useState<Record<string, string>>({});
 
-  const setFilter = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setExpandedId(null);
+  // Debounce text filter callbacks
+  useEffect(() => {
+    if (Object.keys(pendingText).length === 0) return;
+    const timer = setTimeout(() => {
+      Object.entries(pendingText).forEach(([key, value]) => onFilterChange(key, value));
+      setPendingText({});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [pendingText, onFilterChange]);
+
+  const handleTextInput = (key: string, value: string) => {
+    setLocalInputs((prev) => ({ ...prev, [key]: value }));
+    setPendingText((prev) => ({ ...prev, [key]: value }));
   };
 
-  const toggleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+  const handleSelectInput = (key: string, value: string) => {
+    setLocalInputs((prev) => ({ ...prev, [key]: value }));
+    onFilterChange(key, value);
+  };
+
+  const handleDateInput = (key: string, value: string) => {
+    setLocalInputs((prev) => ({ ...prev, [key]: value }));
+    onFilterChange(key, value);
   };
 
   const clearFilters = () => {
-    const empty = Object.fromEntries(
-      columns.filter((c) => c.filterKey).map((c) => [c.filterKey!, ""])
-    );
-    setFilters(empty);
+    setLocalInputs({});
+    setPendingText({});
+    columns.filter((c) => c.filterKey).forEach((c) => onFilterChange(c.filterKey!, ""));
   };
 
-  const filtered = items.filter((item) =>
-    columns.every((col) => {
-      if (!col.filterKey) return true;
-      const filterVal = filters[col.filterKey] ?? "";
-      if (!filterVal) return true;
-      const itemVal = getFilterValue(item, col.filterKey).toLowerCase();
-      if (col.filterType === "select") return itemVal === filterVal.toLowerCase();
-      return itemVal.includes(filterVal.toLowerCase());
-    })
-  );
+  const handleSortClick = (key: string) => {
+    const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    onSortChange?.(key, newDir);
+  };
 
-  const sorted = sortKey
-    ? [...filtered].sort((a, b) => {
-        const aVal = new Date(getSortValue(a, sortKey)).getTime();
-        const bVal = new Date(getSortValue(b, sortKey)).getTime();
-        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
-      })
-    : filtered;
-
-  const hasFilters = Object.values(filters).some(Boolean);
+  const hasFilters = Object.values(localInputs).some(Boolean);
   const colSpan = columns.length + 1 + (selectable ? 1 : 0);
 
-  const filteredKeys = sorted.map((item) => getKey(item));
-  const selectedCount = selectable && selected ? filteredKeys.filter((k) => selected.has(k)).length : 0;
+  const allKeys = items.map((item) => getKey(item));
+  const selectedCount = selectable && selected ? allKeys.filter((k) => selected.has(k)).length : 0;
   const headerCheckState: "none" | "some" | "all" =
-    selectedCount === 0 ? "none" : selectedCount === filteredKeys.length ? "all" : "some";
+    selectedCount === 0 ? "none" : selectedCount === allKeys.length ? "all" : "some";
 
   const toggleAll = () => {
     if (!onSelectionChange || !selected) return;
     const next = new Set(selected);
     if (headerCheckState === "all") {
-      filteredKeys.forEach((k) => next.delete(k));
+      allKeys.forEach((k) => next.delete(k));
     } else {
-      filteredKeys.forEach((k) => next.add(k));
+      allKeys.forEach((k) => next.add(k));
     }
     onSelectionChange(next);
   };
@@ -146,7 +144,7 @@ export function BaseVodTable<T>({
         <div className="flex items-center gap-2">
           <Badge label={encoderLabel} tone={encoderTone} />
           <span className="text-xs text-slate-500">
-            {filtered.length} of {items.length} contents
+            {items.length} result{items.length !== 1 ? "s" : ""}
           </span>
           {selectable && selected && selected.size > 0 && (
             <span className="text-xs font-medium text-brand-600 dark:text-brand-400">
@@ -179,7 +177,7 @@ export function BaseVodTable<T>({
                     <th
                       key={col.header}
                       className="cursor-pointer select-none px-4 py-3 hover:text-slate-700 dark:hover:text-slate-300"
-                      onClick={() => toggleSort(col.sortKey!)}
+                      onClick={() => handleSortClick(col.sortKey!)}
                     >
                       <span className="flex items-center gap-1">
                         {col.header}
@@ -204,8 +202,8 @@ export function BaseVodTable<T>({
                     {col.filterKey && col.filterType === "select" ? (
                       <select
                         className={inputCls}
-                        value={filters[col.filterKey] ?? ""}
-                        onChange={(e) => setFilter(col.filterKey!, e.target.value)}
+                        value={localInputs[col.filterKey] ?? ""}
+                        onChange={(e) => handleSelectInput(col.filterKey!, e.target.value)}
                       >
                         {(col.filterOptions ?? []).map((opt) => (
                           <option key={opt} value={opt}>
@@ -213,12 +211,19 @@ export function BaseVodTable<T>({
                           </option>
                         ))}
                       </select>
+                    ) : col.filterKey && col.filterType === "date" ? (
+                      <input
+                        type="date"
+                        className={inputCls}
+                        value={localInputs[col.filterKey] ?? ""}
+                        onChange={(e) => handleDateInput(col.filterKey!, e.target.value)}
+                      />
                     ) : col.filterKey ? (
                       <input
                         className={inputCls}
                         placeholder="Filter…"
-                        value={filters[col.filterKey] ?? ""}
-                        onChange={(e) => setFilter(col.filterKey!, e.target.value)}
+                        value={localInputs[col.filterKey] ?? ""}
+                        onChange={(e) => handleTextInput(col.filterKey!, e.target.value)}
                       />
                     ) : null}
                   </th>
@@ -227,14 +232,14 @@ export function BaseVodTable<T>({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.length === 0 ? (
+              {items.length === 0 ? (
                 <tr>
                   <td colSpan={colSpan} className="px-4 py-6 text-center text-xs text-slate-400">
                     No results match the current filters.
                   </td>
                 </tr>
               ) : (
-                sorted.map((item) => {
+                items.map((item) => {
                   const key = getKey(item);
                   const isExpanded = expandedId === key;
                   const isSelected = selectable && selected ? selected.has(key) : false;

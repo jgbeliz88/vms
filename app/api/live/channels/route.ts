@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { Encoder, ResolvedChannel, ResolvedPod, ChannelStatus, ChannelConfigRow, Linear } from "@/features/live/types";
+import type { ResolvedChannel, ResolvedPod, ChannelStatus, ChannelConfigRow, Linear, EnigmaLinear } from "@/features/live/types";
 import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
 import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
@@ -21,63 +21,63 @@ const deleteSchema = z.object({
 type EnigmaChannel = {
   id: number;
   name: string;
-  platform: string;
   status: string;
   cacheState: string;
   lastSync: string | null;
   metadata: Record<string, unknown> | null;
-  linears: Linear[];
+  updatedAt: string;
+  linears: EnigmaLinear[];
   channelConfigs: ChannelConfigRow[];
 };
 
-type PodInfo = { name: string; status: "running" | "stopped" | "degraded"; encoderId: number; encoderName: string };
-
-function joinChannels(channels: EnigmaChannel[], encoders: Encoder[]): ResolvedChannel[] {
-  const podMap = new Map<number, PodInfo>();
-  for (const encoder of encoders) {
-    for (const pod of encoder.pods) {
-      podMap.set(pod.id, {
-        name: pod.name,
-        status: pod.status,
-        encoderId: encoder.id,
-        encoderName: encoder.encoderChannel,
-      });
-    }
-  }
-
+function buildChannels(channels: EnigmaChannel[]): ResolvedChannel[] {
   return channels.map((ch) => {
-    const pods: ResolvedPod[] = ch.linears.flatMap((linear): ResolvedPod[] => {
-      const info = podMap.get(linear.podId);
-      if (!info) return [];
-      return [{ id: linear.podId, name: info.name, status: info.status, encoderId: info.encoderId, encoderName: info.encoderName, linear }];
-    });
+    const pods: ResolvedPod[] = ch.linears.flatMap((linear): ResolvedPod[] =>
+      linear.pods.map((pod): ResolvedPod => {
+        const encoder = pod.encoders[0] ?? null;
+        const linearData: Linear = {
+          podId: pod.id,
+          channelId: linear.channelId,
+          linearName: linear.name,
+          drm: linear.drm,
+          adsReplacement: linear.adsReplacement,
+          fragmentLength: linear.fragmentLength,
+          disableDrmManifests: linear.disableDrmManifests,
+          drmVendor: linear.drmVendor,
+          contentId: linear.contentId,
+        };
+        return {
+          id: pod.id,
+          name: pod.name,
+          status: pod.status,
+          encoderId: encoder?.id ?? 0,
+          encoderName: encoder?.name ?? "",
+          linear: linearData,
+        };
+      })
+    );
 
     return {
       id: ch.id,
       name: ch.name,
-      platform: ch.platform,
       status: ch.status as ChannelStatus,
       cacheState: ch.cacheState as "warm" | "cold" | "stale",
       lastSync: ch.lastSync,
       metadata: ch.metadata,
       config: ch.channelConfigs,
       pods,
+      linears: ch.linears,
     };
   });
 }
 
 export async function GET() {
   const enigmaBase = getEnigmaBaseUrl();
-  const channelsUrl = `${enigmaBase}/live/channels`;
-  const encodersUrl = `${enigmaBase}/live/encoders`;
+  const channelsUrl = `${enigmaBase}/live/channel`;
 
   let channelsRes: Response;
-  let encodersRes: Response | null;
   try {
-    [channelsRes, encodersRes] = await Promise.all([
-      fetchVMS(channelsUrl),
-      fetchVMS(encodersUrl).catch(() => null),
-    ]);
+    channelsRes = await fetchVMS(channelsUrl);
   } catch (err) {
     logError({ name: LOG_NAME, fn: "GET", msg: `Fetch failed url=${channelsUrl}`, error: err });
     return NextResponse.json({ message: "Failed to fetch channels" }, { status: 500 });
@@ -90,8 +90,7 @@ export async function GET() {
   }
 
   const channels: EnigmaChannel[] = await channelsRes.json();
-  const encoders: Encoder[] = encodersRes?.ok ? await encodersRes.json() : [];
-  const result = joinChannels(channels, encoders);
+  const result = buildChannels(channels);
   logInfo({ name: LOG_NAME, fn: "GET", msg: "Enigma response", data: result });
   return NextResponse.json(result);
 }
@@ -105,7 +104,7 @@ export async function POST(request: Request) {
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/channels`;
+  const url = `${enigmaBase}/live/channel`;
   let response: Response;
   try {
     response = await fetchVMS(url, {
@@ -138,7 +137,7 @@ export async function DELETE(request: Request) {
   }
 
   const enigmaBase = getEnigmaBaseUrl();
-  const url = `${enigmaBase}/live/channels/${parsed.data.id}`;
+  const url = `${enigmaBase}/live/channel/${parsed.data.id}`;
   let response: Response;
   try {
     response = await fetchVMS(url, { method: "DELETE" });

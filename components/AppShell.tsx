@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -87,9 +86,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {/* Logo area */}
-      <div className="flex h-16 items-center gap-3 border-b border-[#E2E8F0] px-6">
-        <Image src="/logo.jpeg" alt="MFE logo" width={36} height={36} className="rounded-lg" />
-        <span className="text-base font-bold text-[#1C2434] dark:text-white">VMS</span>
+      <div className="flex h-16 items-center gap-3 border-b border-[#E2E8F0] px-6 dark:border-[#2E3A47]">
+        <svg width="36" height="36" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" className="shrink-0" aria-hidden="true">
+          <rect x="2" y="2" width="44" height="44" rx="12.5" fill="#3C50E0"/>
+          <path d="M20 15.5 L20 32.5 L34 24 Z" fill="#FFFFFF"/>
+        </svg>
+        <div className="flex flex-col leading-none">
+          <span className="text-lg font-black tracking-tight text-[#1C2434] dark:text-white">VMS</span>
+          <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#64748B] dark:text-[#8899A8]">Video Management System</span>
+        </div>
       </div>
 
       {/* Nav */}

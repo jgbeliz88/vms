@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { ResolvedChannel, ChannelAction, ChannelConfigRow, Encoder } from "@/features/live/types";
+import { ResolvedChannel, ChannelAction, ChannelConfigRow, MediaexcelChannel } from "@/features/live/types";
 import type { AddLinearData } from "./ActionConfirmModal";
 import type { ResolvedPod } from "@/features/live/types";
 import { StatusPill } from "./StatusPill";
@@ -30,7 +30,7 @@ export function ChannelTable({
   configLayout,
   onSaveConfig,
   savingConfigId,
-  encoders = [],
+  mediaexcelChannels = [],
   onCreateLinear,
   onDeleteLinear,
   onDeletePod,
@@ -46,7 +46,7 @@ export function ChannelTable({
   configLayout?: ConfigLayout;
   onSaveConfig?: (channelId: number, rows: ChannelConfigRow[]) => Promise<void>;
   savingConfigId?: number | null;
-  encoders?: Encoder[];
+  mediaexcelChannels?: MediaexcelChannel[];
   onCreateLinear?: (channelId: number, data: AddLinearData) => Promise<void>;
   onDeleteLinear?: (channelId: number, pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod?: (channelId: number, pod: ResolvedPod, linearName: string | null) => Promise<void>;
@@ -118,17 +118,20 @@ export function ChannelTable({
                   <div className="font-semibold text-slate-900 dark:text-slate-100">{channel.name}</div>
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
-                  {channel.pods.length > 0 ? (
-                    <div className="flex flex-col gap-0.5">
-                      {[...new Set(channel.pods.map((p) => p.encoderName))].map((name) => (
-                        <div key={name} className="text-sm text-slate-700 dark:text-slate-200">
-                          {name}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-slate-400">—</span>
-                  )}
+                  {(() => {
+                    const names = [...new Set(channel.linears.flatMap((l) => l.pods.flatMap((p) => p.encoders.map((e) => e.name))))];
+                    return names.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {names.map((name) => (
+                          <div key={name} className="text-sm text-slate-700 dark:text-slate-200">
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    );
+                  })()}
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} title={podTooltip} {...rowEvents}>
                   {channel.pods.length > 0 ? (
@@ -182,7 +185,7 @@ export function ChannelTable({
                       configLayout={configLayout}
                       onSaveConfig={onSaveConfig}
                       savingConfig={savingConfigId === channel.id}
-                      encoders={encoders}
+                      mediaexcelChannels={mediaexcelChannels}
                       onCreateLinear={onCreateLinear ? (data) => onCreateLinear(channel.id, data) : undefined}
                       onDeleteLinear={onDeleteLinear ? (pod, linearName) => onDeleteLinear(channel.id, pod, linearName) : undefined}
                       onDeletePod={onDeletePod ? (pod, linearName) => onDeletePod(channel.id, pod, linearName) : undefined}

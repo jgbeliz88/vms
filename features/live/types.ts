@@ -15,24 +15,58 @@ export type Linear = {
   contentId: string | null;
 };
 
-// ── Encoder / Pod infrastructure types ────────────────────────────────────────
+// ── Mediaexcel channel type (from GET /mediaexcel/channels) ──────────────────
 
-export type EncoderPod = {
+export type MediaexcelChannel = {
+  id: number;
+  deviceId: number;
+  encoderName: string;
+  name: string;
+  channelIndex: number;
+  pods: string[];
+};
+
+// ── Enigma nested linear types (preserved hierarchy from GET /live/channels) ─
+
+export type EnigmaEncoder = {
+  id: number;
+  name: string;
+  heroName: string;
+  deviceId: number;
+  channelIndex: number;
+  updatedAt: string;
+};
+
+export type EnigmaLinearPod = {
+  id: number;
+  name: string;
+  status: "running" | "stopped" | "degraded";
+  linearId: number;
+  updatedAt: string;
+  encoders: EnigmaEncoder[];
+};
+
+export type EnigmaLinear = {
+  id: number;
+  channelId: number;
+  name: string | null;
+  drm: number | null;
+  adsReplacement: number | null;
+  fragmentLength: string | null;
+  disableDrmManifests: number | null;
+  drmVendor: string | null;
+  contentId: string | null;
+  tags: string[];
+  updatedAt: string;
+  pods: EnigmaLinearPod[];
+};
+
+// Runtime-resolved view (joined by BFF from /live/channels response) — used by UI
+export type ResolvedPod = {
   id: number;
   name: string;
   status: "running" | "stopped" | "degraded";
   encoderId: number;
-};
-
-export type Encoder = {
-  id: number;
-  encoderChannel: string;
-  heroName: string;
-  pods: EncoderPod[];
-};
-
-// Runtime-resolved view (joined by BFF) — used by UI
-export type ResolvedPod = EncoderPod & {
   encoderName: string;
   linear: Linear | null;
 };
@@ -41,7 +75,6 @@ export type ResolvedPod = EncoderPod & {
 export type Channel = {
   id: number;
   name: string;
-  platform: string;
   status: ChannelStatus;
   linears: Linear[];
   cacheState: "warm" | "cold" | "stale";
@@ -53,6 +86,7 @@ export type Channel = {
 // Shape returned by GET /api/live/channels (pods joined from encoder data)
 export type ResolvedChannel = Omit<Channel, "linears" | "channelConfigs"> & {
   pods: ResolvedPod[];
+  linears: EnigmaLinear[];
   config?: ChannelConfigRow[];
 };
 
@@ -127,4 +161,15 @@ export type BatchAction = {
   label: string;
   description: string;
   tone: "default" | "warning" | "danger";
+};
+
+export type LinearBatchResult = {
+  linearId: number;
+  linearName: string | null;
+  channelId: number;
+  channelName: string;
+  tags: string[];
+  status: "success" | "error";
+  data?: unknown;
+  error?: string;
 };

@@ -4,21 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { VodContentDetail } from "@/components/vod/VodContentDetail";
 import { BaseVodTable } from "@/components/vod/BaseVodTable";
 import { formatDate } from "@/lib/utils/date";
-
-type VodContent = {
-  _id: string;
-  name: string;
-  status: string;
-  labels: string[];
-  startedAt: string;
-  finishedAt: string;
-  input: {
-    videos: { duration: number; codec: string; fps: string; bitrate: string; width: number; height: number }[];
-    audios: { codec: string; sampleRate: number; bitrate: string; channelFormat: string; language: string }[];
-  };
-  renditions: { filename: string; videoTracks: { frameWidth: number; frameHeight: number; bitRate: number }[] }[];
-  subtitles: { lang: string; url: string }[];
-};
+import type { VodContent } from "@/features/vod/vod-types";
 
 type EncoderKey = "bitmovin" | "lightflow";
 
@@ -28,6 +14,10 @@ type Props = {
   selectable?: boolean;
   selected?: Set<string>;
   onSelectionChange?: (next: Set<string>) => void;
+  onFilterChange: (key: string, value: string) => void;
+  onSortChange?: (key: string, dir: "asc" | "desc") => void;
+  sortKey?: string | null;
+  sortDir?: "asc" | "desc";
 };
 
 const encoderTone: Record<EncoderKey, "purple" | "warning"> = {
@@ -53,7 +43,7 @@ const STATUS_OPTIONS = [
 
 const ERROR_STATUSES = new Set(["FAILED", "COPIED_ERROR", "ENCODING_ERROR", "RENDITION_ERROR", "MANIFEST_ERROR"]);
 
-export function VodTable({ items, encoder, selectable, selected, onSelectionChange }: Props) {
+export function VodTable({ items, encoder, selectable, selected, onSelectionChange, onFilterChange, onSortChange, sortKey, sortDir }: Props) {
   const columns = [
     {
       header: "ID",
@@ -80,25 +70,11 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
       ),
     },
     {
-      header: "Encoder",
-      render: () => <Badge label={encoderLabel[encoder]} tone={encoderTone[encoder]} />,
-    },
-    {
-      header: "Started At",
-      filterKey: "startedAt",
+      header: "Name",
+      filterKey: "name",
       filterType: "text" as const,
-      sortKey: "startedAt",
       render: (item: VodContent) => (
-        <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.startedAt)}</span>
-      ),
-    },
-    {
-      header: "Finished At",
-      filterKey: "finishedAt",
-      filterType: "text" as const,
-      sortKey: "finishedAt",
-      render: (item: VodContent) => (
-        <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.finishedAt)}</span>
+        <span className="max-w-[200px] truncate text-xs text-slate-600 dark:text-slate-300 block">{item.name}</span>
       ),
     },
     {
@@ -113,6 +89,24 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
         </div>
       ),
     },
+    {
+      header: "Started At",
+      sortKey: "startedAt",
+      filterKey: "createdAtNewerThan",
+      filterType: "date" as const,
+      render: (item: VodContent) => (
+        <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.startedAt)}</span>
+      ),
+    },
+    {
+      header: "Finished At",
+      sortKey: "finishedAt",
+      filterKey: "createdAtOlderThan",
+      filterType: "date" as const,
+      render: (item: VodContent) => (
+        <span className="text-xs text-slate-600 dark:text-slate-300">{formatDate(item.finishedAt)}</span>
+      ),
+    },
   ];
 
   return (
@@ -122,23 +116,14 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
       encoderLabel={encoderLabel[encoder]}
       encoderTone={encoderTone[encoder]}
       columns={columns}
-      getFilterValue={(item, key) => {
-        if (key === "id") return item._id;
-        if (key === "status") return item.status;
-        if (key === "labels") return item.labels.join(" ");
-        if (key === "startedAt") return formatDate(item.startedAt);
-        if (key === "finishedAt") return formatDate(item.finishedAt);
-        return "";
-      }}
-      getSortValue={(item, key) => {
-        if (key === "startedAt") return item.startedAt;
-        if (key === "finishedAt") return item.finishedAt;
-        return "";
-      }}
       renderDetail={(item) => <VodContentDetail item={item} mam={encoder} />}
       selectable={selectable}
       selected={selected}
       onSelectionChange={onSelectionChange}
+      onFilterChange={onFilterChange}
+      onSortChange={onSortChange}
+      sortKey={sortKey}
+      sortDir={sortDir}
     />
   );
 }
