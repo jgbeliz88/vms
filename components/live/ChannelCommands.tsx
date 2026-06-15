@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ResolvedChannel, EnigmaLinear, EnigmaLinearPod, ChannelAction } from "@/features/live/types";
 import { channelActions } from "@/features/live/config";
-import { useBatchLinearSync, useBatchLinearClean, useSendJulesEvent } from "@/features/live/hooks";
+import { useBatchLinearSync, useBatchLinearClean, useSendLinearAdEvent } from "@/features/live/hooks";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/lib/auth/usePermission";
 import { ROLES } from "@/lib/auth/permissions";
@@ -356,279 +356,57 @@ function LinearSummaryLine({ linear }: { linear: EnigmaLinear }) {
   );
 }
 
-// ── TargetPanel (shared left-side selector for both rows) ─────────────────────
-
-function TargetPanel({
-  title,
-  hint,
-  accent,
-  children,
-  onSelectAll,
-  isAllSelected,
-  warn,
-}: {
-  title: string;
-  hint?: string;
-  accent?: "violet";
-  children: React.ReactNode;
-  onSelectAll?: () => void;
-  isAllSelected?: boolean;
-  warn?: boolean;
-}) {
-  const accentText =
-    accent === "violet"
-      ? "text-violet-600 dark:text-violet-400 hover:underline"
-      : "text-brand-600 dark:text-brand-400 hover:underline";
-
-  return (
-    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
-        <div className="flex flex-col">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</span>
-          {hint && <span className="text-[10px] text-slate-400/80">{hint}</span>}
-        </div>
-        {onSelectAll && (
-          <button
-            type="button"
-            onClick={onSelectAll}
-            className={cn("shrink-0 text-[11px] font-medium", accentText)}
-          >
-            {isAllSelected ? "Deselect all" : "Select all"}
-          </button>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        {children}
-        {warn && (
-          <span className="mt-1 self-start rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
-            ⚠ No target selected
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── ActionsRow ────────────────────────────────────────────────────────────────
 
 function ActionsRow({
-  linears,
   selectedLinearIds,
-  activeTags,
-  onToggle,
-  onSelectAll,
-  onToggleTag,
   onRequestConfirm,
 }: {
-  linears: EnigmaLinear[];
   selectedLinearIds: number[];
-  activeTags: string[];
-  onToggle: (id: number) => void;
-  onSelectAll: (visibleIds: number[]) => void;
-  onToggleTag: (tag: string) => void;
   onRequestConfirm: (action: ChannelAction) => void;
 }) {
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-
-  const activeLinears = linears.filter((l) => l.name !== null);
-  const visibleLinears =
-    activeTags.length === 0
-      ? activeLinears
-      : activeLinears.filter((l) => activeTags.some((t) => l.tags.includes(t)));
-  const visibleIds = visibleLinears.map((l) => l.id);
   const noTarget = selectedLinearIds.length === 0;
-  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedLinearIds.includes(id));
-
-  const toggleExpand = (id: number) =>
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
-      return next;
-    });
-
-
-  const selectedLinears = visibleLinears.filter((l) => selectedLinearIds.includes(l.id));
 
   return (
-    <div className="grid grid-cols-[minmax(320px,380px)_1fr]">
-      {/* Left: Target Linears */}
-      <div className="border-r border-slate-200 dark:border-slate-700">
-        <div className="flex flex-col bg-slate-50 dark:bg-slate-950">
-          {/* Header */}
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
-            <div className="min-w-0 flex-1">
-              <span className="block whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-slate-400">Target linears</span>
-              <span className="block whitespace-nowrap text-[10px] text-slate-400/80">
-                {selectedLinearIds.length}/{visibleLinears.length} selected · {countLinearPods(selectedLinears)} pods
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => onSelectAll(allSelected ? [] : visibleIds)}
-              className="shrink-0 text-[11px] font-medium text-brand-600 hover:underline dark:text-brand-400"
-            >
-              {allSelected ? "Deselect all" : "Select all"}
-            </button>
-          </div>
-
-          {/* Device-tag filter */}
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 px-4 py-2 dark:border-slate-700">
-            <span className="mr-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">By device</span>
-            {AVAILABLE_TAGS.map((tag) => (
-              <TagChip
-                key={tag}
-                tag={tag}
-                active={activeTags.includes(tag)}
-                onClick={() => onToggleTag(tag)}
-              />
-            ))}
-          </div>
-
-          {/* Linear list */}
-          <div className="flex flex-col gap-2 p-3">
-            {visibleLinears.length === 0 ? (
-              <span className="text-xs text-slate-400">No linears configured</span>
-            ) : (
-              visibleLinears.map((linear) => {
-                const active = selectedLinearIds.includes(linear.id);
-                const isOpen = expandedIds.has(linear.id);
-                return (
-                  <div
-                    key={linear.id}
-                    className={cn(
-                      "select-none rounded-lg border transition-all",
-                      active
-                        ? "border-brand-500 bg-brand-50/70 dark:border-brand-400 dark:bg-brand-900/20"
-                        : "border-slate-200 bg-white hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-600"
-                    )}
-                  >
-                    <div className="flex items-start gap-2.5 px-3 py-2">
-                      {/* Checkbox */}
-                      <button
-                        type="button"
-                        onClick={() => onToggle(linear.id)}
-                        className="mt-0.5 flex shrink-0 items-center"
-                        aria-label={`Toggle ${linear.name}`}
-                      >
-                        <span
-                          className={cn(
-                            "grid h-3.5 w-3.5 place-items-center rounded-[4px] border transition-colors",
-                            active
-                              ? "border-brand-500 bg-brand-500 dark:border-brand-400 dark:bg-brand-400"
-                              : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
-                          )}
-                        >
-                          {active && (
-                            <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-                              <path d="M1.5 4.5l2 2 4-4.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </span>
-                      </button>
-
-                      {/* Linear info */}
-                      <button
-                        type="button"
-                        onClick={() => onToggle(linear.id)}
-                        className="min-w-0 flex-1 text-left"
-                      >
-                        <span className="flex flex-wrap items-center gap-1.5">
-                          <IconLinear className="h-3.5 w-3.5 shrink-0 text-brand-500" />
-                          <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{linear.name}</span>
-                          <StatusDot status={deriveLinearStatus(linear)} />
-                        </span>
-                        <span className="mt-1 flex flex-wrap gap-1">
-                          {linear.tags.map((t) => <TagChip key={t} tag={t} />)}
-                        </span>
-                        <LinearSummaryLine linear={linear} />
-                      </button>
-
-                      {/* Disclosure toggle */}
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(linear.id)}
-                        className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                        aria-expanded={isOpen}
-                      >
-                        details
-                        <svg
-                          className={cn("h-3 w-3 transition-transform", isOpen ? "rotate-0" : "-rotate-90")}
-                          viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"
-                          strokeLinecap="round" strokeLinejoin="round"
-                        >
-                          <polyline points="5,6 8,9 11,6" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Accordion body */}
-                    {isOpen && (
-                      <div className="border-t border-slate-200/70 px-3 py-2.5 dark:border-slate-700/60">
-                        <PodEncoderTree linear={linear} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+    <div className="grid grid-cols-1 gap-2.5 p-4">
+      {channelActions.map((action) => {
+        const meta = ACTION_META[action.id as keyof typeof ACTION_META];
+        return (
+          <button
+            key={action.id}
+            type="button"
+            disabled={noTarget}
+            onClick={() => onRequestConfirm(action)}
+            className={cn(
+              "group flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all",
+              noTarget
+                ? "cursor-not-allowed border-slate-200 opacity-45 dark:border-slate-700"
+                : "border-slate-200 bg-white hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-500 dark:hover:bg-brand-900/10"
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex flex-col">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Actions</span>
-            <span className="text-[10px] text-slate-400/80">Send commands to selected linears</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-2.5 p-4">
-          {channelActions.map((action) => {
-            const meta = ACTION_META[action.id as keyof typeof ACTION_META];
-            return (
-              <button
-                key={action.id}
-                type="button"
-                disabled={noTarget}
-                onClick={() => onRequestConfirm(action)}
-                className={cn(
-                  "group flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all",
-                  noTarget
-                    ? "cursor-not-allowed border-slate-200 opacity-45 dark:border-slate-700"
-                    : "border-slate-200 bg-white hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-500 dark:hover:bg-brand-900/10"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                    meta?.iconBg
-                  )}
-                >
-                  <span className={meta?.iconColor}>{meta?.icon}</span>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {action.label}
-                  </span>
-                  <span className="block text-[10px] leading-snug text-slate-400">{action.description}</span>
-                </span>
-                <svg
-                  className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
-                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            );
-          })}
-        </div>
-        {noTarget && (
-          <p className="mx-4 mb-4 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-            Select at least one linear to enable actions
-          </p>
-        )}
-      </div>
+          >
+            <span
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                meta?.iconBg
+              )}
+            >
+              <span className={meta?.iconColor}>{meta?.icon}</span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                {action.label}
+              </span>
+              <span className="block text-[10px] leading-snug text-slate-400">{action.description}</span>
+            </span>
+            <svg
+              className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -637,33 +415,25 @@ function ActionsRow({
 
 function AdReplacementRow({
   channelName,
-  julesIds,
-  selectedJules,
-  onToggleJules,
-  onSelectAllJules,
+  selectedLinearIds,
 }: {
   channelName: string;
-  julesIds: string[] | null;
-  selectedJules: string[];
-  onToggleJules: (id: string) => void;
-  onSelectAllJules: () => void;
+  selectedLinearIds: number[];
 }) {
   const [activeCmd, setActiveCmd] = useState<CommandKey>("scte");
   const [activeSubtype, setActiveSubtype] = useState(COMMAND_CONFIG.scte.subtypes[0].id);
   const [payloads, setPayloads] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
 
-  const sendEvent = useSendJulesEvent();
+  const sendEvent = useSendLinearAdEvent();
   const { notify } = useToast();
 
   const cfg = COMMAND_CONFIG[activeCmd];
   const subtypeCfg = cfg.subtypes.find((s) => s.id === activeSubtype) ?? cfg.subtypes[0];
   const payloadKey = `${activeCmd}_${activeSubtype}`;
   const payload = payloads[payloadKey] ?? subtypeCfg.template(channelName);
-  const noTarget = julesIds === null || selectedJules.length === 0;
+  const noTarget = selectedLinearIds.length === 0;
   const sending = sendEvent.isPending;
-
-  const allSelected = julesIds !== null && julesIds.length > 0 && selectedJules.length === julesIds.length;
 
   const switchCmd = (cmd: CommandKey) => {
     setActiveCmd(cmd);
@@ -675,19 +445,20 @@ function AdReplacementRow({
     if (noTarget || sending) return;
     try {
       const { results } = await sendEvent.mutateAsync({
-        julesIds: selectedJules,
+        linearIds: selectedLinearIds,
         command: activeCmd,
         payload,
       });
-      const failed = results.filter((r) => !r.success);
+      const failed = results.filter((r) => r.status === "rejected");
       if (failed.length === 0) {
         notify({ title: `${cfg.label} sent successfully`, variant: "success" });
         setSent(true);
         setTimeout(() => setSent(false), 2500);
       } else {
-        const ids = failed.map((r) => r.julesId).join(", ");
-        const description = failed.map((r) => `${r.julesId}: ${r.error ?? "unknown error"}`).join(" · ");
-        notify({ title: `Failed to send ${cfg.label} to: ${ids}`, description, variant: "error" });
+        const description = failed
+          .map((r) => `${r.encoderName}: ${r.error ?? "unknown error"}`)
+          .join("\n");
+        notify({ title: `Failed to send ${cfg.label} to`, description, variant: "error" });
       }
     } catch {
       notify({ title: `Failed to send ${cfg.label}`, variant: "error" });
@@ -695,252 +466,167 @@ function AdReplacementRow({
   };
 
   return (
-    <div className="grid grid-cols-[minmax(260px,340px)_1fr]">
-      {/* Left: Jules IDs */}
-      <div className="border-r border-slate-200 dark:border-slate-700">
-        <TargetPanel
-          title="Jules IDs"
-          hint={julesIds !== null ? `${selectedJules.length}/${julesIds.length} selected` : undefined}
-          accent="violet"
-          onSelectAll={julesIds !== null && julesIds.length > 0 ? onSelectAllJules : undefined}
-          isAllSelected={allSelected}
-          warn={julesIds !== null && julesIds.length > 0 && selectedJules.length === 0}
-        >
-          {julesIds === null ? (
-            <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-              Configure the{" "}
-              <code className="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">jules-ids</code>{" "}
-              property in the channel metadata to enable Ad Replacement.
-            </p>
-          ) : julesIds.length === 0 ? (
-            <span className="text-xs text-slate-400">No Jules IDs configured</span>
-          ) : (
-            julesIds.map((id) => {
-              const active = selectedJules.includes(id);
-              return (
+    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_1.4fr]">
+      {/* Column A: command + subtype + send */}
+      <div className="flex flex-col gap-3">
+        <div>
+          <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Command
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.entries(COMMAND_CONFIG) as [CommandKey, (typeof COMMAND_CONFIG)[CommandKey]][]).map(
+              ([key, c]) => (
                 <button
-                  key={id}
+                  key={key}
                   type="button"
-                  onClick={() => onToggleJules(id)}
+                  onClick={() => switchCmd(key)}
                   className={cn(
-                    "flex select-none items-center gap-2 rounded-lg border px-3 py-1.5 text-left transition-all",
-                    active
-                      ? "border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-violet-900/20"
-                      : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-600 dark:hover:bg-violet-900/10"
+                    "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-center transition-all",
+                    activeCmd === key
+                      ? "border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-900/20 dark:text-brand-400"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
-                      active
-                        ? "border-violet-600 bg-violet-600 dark:border-violet-400 dark:bg-violet-500"
-                        : "border-slate-300 dark:border-slate-600"
+                      "flex h-7 w-7 items-center justify-center rounded-md",
+                      activeCmd === key
+                        ? "bg-brand-100 dark:bg-brand-900/40"
+                        : "bg-slate-100 dark:bg-slate-800"
                     )}
                   >
-                    {active && (
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
+                    {CMD_ICONS[key]}
                   </span>
-                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{id}</span>
+                  <span className="text-[11px] font-semibold">{c.label}</span>
                 </button>
-              );
-            })
-          )}
-        </TargetPanel>
-      </div>
-
-      {/* Right: Event payload */}
-      <div className="flex flex-col">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Event payload
-            </span>
-            <span className="text-[10px] text-slate-400/80">
-              SCTE, ID3 or Blackout — sent to selected Jules services
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_1.4fr]">
-          {/* Column A: command + subtype + send */}
-          <div className="flex flex-col gap-3">
-            <div>
-              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Command
-              </span>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.entries(COMMAND_CONFIG) as [CommandKey, (typeof COMMAND_CONFIG)[CommandKey]][]).map(
-                  ([key, c]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => switchCmd(key)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-center transition-all",
-                        activeCmd === key
-                          ? "border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-900/20 dark:text-brand-400"
-                          : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-7 w-7 items-center justify-center rounded-md",
-                          activeCmd === key
-                            ? "bg-brand-100 dark:bg-brand-900/40"
-                            : "bg-slate-100 dark:bg-slate-800"
-                        )}
-                      >
-                        {CMD_ICONS[key]}
-                      </span>
-                      <span className="text-[11px] font-semibold">{c.label}</span>
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div>
-              <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Event type
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {cfg.subtypes.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveSubtype(s.id);
-                      setSent(false);
-                    }}
-                    className={cn(
-                      "rounded-md border px-3 py-1.5 text-[11px] font-medium transition-all",
-                      activeSubtype === s.id
-                        ? "border-brand-500 bg-brand-500 text-white"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[10px] text-slate-400">{subtypeCfg.desc}</p>
-            </div>
-
-            <button
-              type="button"
-              disabled={noTarget || sending}
-              onClick={handleSend}
-              className={cn(
-                "mt-auto flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-all",
-                sent
-                  ? "bg-emerald-600 dark:bg-emerald-700"
-                  : sending
-                  ? "cursor-wait bg-brand-400"
-                  : noTarget
-                  ? "cursor-not-allowed bg-brand-400 opacity-50"
-                  : "bg-brand-500 hover:-translate-y-px hover:bg-brand-600 hover:shadow-md dark:bg-brand-600 dark:hover:bg-brand-500"
-              )}
-            >
-              {sending ? (
-                <>
-                  <svg
-                    className="animate-spin"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <path d="M21 12a9 9 0 11-6.219-8.56" />
-                  </svg>
-                  Sending…
-                </>
-              ) : sent ? (
-                <>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Sent!
-                </>
-              ) : (
-                <>
-                  Send {cfg.label} {subtypeCfg.label}
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                  </svg>
-                </>
-              )}
-            </button>
-
-            {noTarget && julesIds !== null && (
-              <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
-                Select Jules IDs to enable sending
-              </p>
+              )
             )}
           </div>
-
-          {/* Column B: payload editor */}
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Payload · {cfg.payloadType.toUpperCase()}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
-                }
-                className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-              >
-                Reset template
-              </button>
-            </div>
-            <textarea
-              value={payload}
-              onChange={(e) =>
-                setPayloads((p) => ({ ...p, [payloadKey]: e.target.value }))
-              }
-              spellCheck={false}
-              className={cn(
-                "w-full flex-1 resize-none rounded-lg border bg-slate-50 px-3.5 py-3 font-mono text-[11px] leading-relaxed outline-none transition-all focus:bg-white focus:ring-2 dark:bg-slate-950 dark:focus:bg-slate-900",
-                "min-h-[180px]",
-                cfg.payloadType === "xml"
-                  ? "border-slate-200 text-teal-700 focus:border-teal-400 focus:ring-teal-400/10 dark:border-slate-700 dark:text-teal-300 dark:focus:border-teal-500"
-                  : "border-slate-200 text-purple-700 focus:border-purple-400 focus:ring-purple-400/10 dark:border-slate-700 dark:text-purple-300 dark:focus:border-purple-500"
-              )}
-            />
-          </div>
         </div>
+
+        <div>
+          <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Event type
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {cfg.subtypes.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setActiveSubtype(s.id);
+                  setSent(false);
+                }}
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-[11px] font-medium transition-all",
+                  activeSubtype === s.id
+                    ? "border-brand-500 bg-brand-500 text-white"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[10px] text-slate-400">{subtypeCfg.desc}</p>
+        </div>
+
+        <button
+          type="button"
+          disabled={noTarget || sending}
+          onClick={handleSend}
+          className={cn(
+            "mt-auto flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-all",
+            sent
+              ? "bg-emerald-600 dark:bg-emerald-700"
+              : sending
+              ? "cursor-wait bg-brand-400"
+              : noTarget
+              ? "cursor-not-allowed bg-brand-400 opacity-50"
+              : "bg-brand-500 hover:-translate-y-px hover:bg-brand-600 hover:shadow-md dark:bg-brand-600 dark:hover:bg-brand-500"
+          )}
+        >
+          {sending ? (
+            <>
+              <svg
+                className="animate-spin"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M21 12a9 9 0 11-6.219-8.56" />
+              </svg>
+              Sending…
+            </>
+          ) : sent ? (
+            <>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Sent!
+            </>
+          ) : (
+            <>
+              Send {cfg.label} {subtypeCfg.label}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Column B: payload editor */}
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Payload · {cfg.payloadType.toUpperCase()}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setPayloads((p) => ({ ...p, [payloadKey]: subtypeCfg.template(channelName) }))
+            }
+            className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+          >
+            Reset template
+          </button>
+        </div>
+        <textarea
+          value={payload}
+          onChange={(e) =>
+            setPayloads((p) => ({ ...p, [payloadKey]: e.target.value }))
+          }
+          spellCheck={false}
+          className={cn(
+            "w-full flex-1 resize-none rounded-lg border bg-slate-50 px-3.5 py-3 font-mono text-[11px] leading-relaxed outline-none transition-all focus:bg-white focus:ring-2 dark:bg-slate-950 dark:focus:bg-slate-900",
+            "min-h-[180px]",
+            cfg.payloadType === "xml"
+              ? "border-slate-200 text-teal-700 focus:border-teal-400 focus:ring-teal-400/10 dark:border-slate-700 dark:text-teal-300 dark:focus:border-teal-500"
+              : "border-slate-200 text-purple-700 focus:border-purple-400 focus:ring-purple-400/10 dark:border-slate-700 dark:text-purple-300 dark:focus:border-purple-500"
+          )}
+        />
       </div>
     </div>
   );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function extractJulesIds(metadata: Record<string, unknown> | null): string[] | null {
-  const val = metadata?.["jules-ids"];
-  if (!Array.isArray(val)) return null;
-  return val.map(String);
 }
 
 // ── ChannelCommands ───────────────────────────────────────────────────────────
@@ -951,48 +637,44 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
   const batchClean = useBatchLinearClean();
   const { notify } = useToast();
 
-  const julesIds = extractJulesIds(channel.metadata);
-
   const activeLinears = channel.linears.filter((l) => l.name !== null);
 
   const [selectedLinearIds, setSelectedLinearIds] = useState<number[]>(() =>
     activeLinears.map((l) => l.id)
   );
   const [activeTags, setActiveTags] = useState<string[]>([]);
-  const [selectedJules, setSelectedJules] = useState<string[]>(() => julesIds ?? []);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [confirmingAction, setConfirmingAction] = useState<ChannelAction | null>(null);
+
+  const visibleLinears =
+    activeTags.length === 0
+      ? activeLinears
+      : activeLinears.filter((l) => activeTags.some((t) => l.tags.includes(t)));
+  const visibleIds = visibleLinears.map((l) => l.id);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedLinearIds.includes(id));
+  const noTarget = selectedLinearIds.length === 0;
+
+  const selectedLinears = visibleLinears.filter((l) => selectedLinearIds.includes(l.id));
 
   const toggleTagFilter = (tag: string) =>
     setActiveTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
 
-  const handleSelectAll = (ids: number[]) => {
-    setSelectedLinearIds(ids);
-  };
-
-  const toggleLinear = (id: number) => {
+  const toggleLinear = (id: number) =>
     setSelectedLinearIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
-  };
 
-  const toggleJules = (id: string) => {
-    setSelectedJules((prev) =>
-      prev.includes(id) ? prev.filter((j) => j !== id) : [...prev, id]
-    );
-  };
+  const handleSelectAll = () =>
+    setSelectedLinearIds(allSelected ? [] : visibleIds);
 
-  const handleSelectAllJules = () => {
-    if (!julesIds) return;
-    setSelectedJules(selectedJules.length === julesIds.length ? [] : [...julesIds]);
-  };
-
-  const selectedLinears = channel.linears.filter(
-    (l) =>
-      selectedLinearIds.includes(l.id) &&
-      (activeTags.length === 0 || activeTags.some((t) => l.tags.includes(t)))
-  );
+  const toggleExpand = (id: number) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
 
   const isPending = batchSync.isPending || batchClean.isPending;
 
@@ -1050,47 +732,173 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
           Channel Commands
         </div>
         <div className="mt-0.5 text-xs text-slate-400">
-          Pick targets on the left, fire the matching control on the right
+          Select linears once — use them for actions or ad-replacement events
         </div>
       </div>
 
-      {/* Row 1 — Linear Actions */}
-      <div>
-        <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-1.5 dark:border-slate-800 dark:bg-slate-950/50">
-          <span className="size-1.5 rounded-full bg-brand-500" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            Linear actions
-          </span>
-        </div>
-        <ActionsRow
-          linears={channel.linears}
-          selectedLinearIds={selectedLinearIds}
-          activeTags={activeTags}
-          onToggle={toggleLinear}
-          onSelectAll={handleSelectAll}
-          onToggleTag={toggleTagFilter}
-          onRequestConfirm={setConfirmingAction}
-        />
-      </div>
+      {/* Two-column layout: shared Target Linears left + stacked sections right */}
+      <div className="grid grid-cols-[minmax(340px,388px)_1fr]">
 
-      {/* Divider between rows */}
-      <div className="h-px bg-slate-200 dark:bg-slate-700" />
+        {/* LEFT: Shared Target Linears */}
+        <div className="border-r border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col bg-slate-50 dark:bg-slate-950">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
+              <div className="min-w-0 flex-1">
+                <span className="block whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-slate-400">Target linears</span>
+                <span className="block whitespace-nowrap text-[10px] text-slate-400/80">
+                  {selectedLinearIds.length}/{visibleLinears.length} selected · {countLinearPods(selectedLinears)} pods
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="shrink-0 text-[11px] font-medium text-brand-600 hover:underline dark:text-brand-400"
+              >
+                {allSelected ? "Deselect all" : "Select all"}
+              </button>
+            </div>
 
-      {/* Row 2 — Ad Replacement */}
-      <div>
-        <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-1.5 dark:border-slate-800 dark:bg-slate-950/50">
-          <span className="size-1.5 rounded-full bg-violet-500" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
-            Ad Replacement
-          </span>
+            {/* Device-tag filter */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 px-4 py-2 dark:border-slate-700">
+              <span className="mr-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">By device</span>
+              {AVAILABLE_TAGS.map((tag) => (
+                <TagChip
+                  key={tag}
+                  tag={tag}
+                  active={activeTags.includes(tag)}
+                  onClick={() => toggleTagFilter(tag)}
+                />
+              ))}
+            </div>
+
+            {/* Linear list */}
+            <div className="flex flex-col gap-2 p-3">
+              {visibleLinears.length === 0 ? (
+                <span className="text-xs text-slate-400">No linears configured</span>
+              ) : (
+                visibleLinears.map((linear) => {
+                  const active = selectedLinearIds.includes(linear.id);
+                  const isOpen = expandedIds.has(linear.id);
+                  return (
+                    <div
+                      key={linear.id}
+                      className={cn(
+                        "select-none rounded-lg border transition-all",
+                        active
+                          ? "border-brand-500 bg-brand-50/70 dark:border-brand-400 dark:bg-brand-900/20"
+                          : "border-slate-200 bg-white hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-600"
+                      )}
+                    >
+                      <div className="flex items-start gap-2.5 px-3 py-2">
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={() => toggleLinear(linear.id)}
+                          className="mt-0.5 flex shrink-0 items-center"
+                          aria-label={`Toggle ${linear.name}`}
+                        >
+                          <span
+                            className={cn(
+                              "grid h-3.5 w-3.5 place-items-center rounded-[4px] border transition-colors",
+                              active
+                                ? "border-brand-500 bg-brand-500 dark:border-brand-400 dark:bg-brand-400"
+                                : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
+                            )}
+                          >
+                            {active && (
+                              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                                <path d="M1.5 4.5l2 2 4-4.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                        </button>
+
+                        {/* Linear info */}
+                        <button
+                          type="button"
+                          onClick={() => toggleLinear(linear.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <IconLinear className="h-3.5 w-3.5 shrink-0 text-brand-500" />
+                            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{linear.name}</span>
+                            <StatusDot status={deriveLinearStatus(linear)} />
+                          </span>
+                          <span className="mt-1 flex flex-wrap gap-1">
+                            {linear.tags.map((t) => <TagChip key={t} tag={t} />)}
+                          </span>
+                          <LinearSummaryLine linear={linear} />
+                        </button>
+
+                        {/* Disclosure toggle */}
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(linear.id)}
+                          className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                          aria-expanded={isOpen}
+                        >
+                          details
+                          <svg
+                            className={cn("h-3 w-3 transition-transform", isOpen ? "rotate-0" : "-rotate-90")}
+                            viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"
+                            strokeLinecap="round" strokeLinejoin="round"
+                          >
+                            <polyline points="5,6 8,9 11,6" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Accordion body */}
+                      {isOpen && (
+                        <div className="border-t border-slate-200/70 px-3 py-2.5 dark:border-slate-700/60">
+                          <PodEncoderTree linear={linear} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
-        <AdReplacementRow
-          channelName={channel.name}
-          julesIds={julesIds}
-          selectedJules={selectedJules}
-          onToggleJules={toggleJules}
-          onSelectAllJules={handleSelectAllJules}
-        />
+
+        {/* RIGHT: Stacked sections */}
+        <div className="flex flex-col">
+          {/* Linear Actions */}
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-1.5 dark:border-slate-800 dark:bg-slate-950/50">
+            <span className="size-1.5 rounded-full bg-brand-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+              Linear actions
+            </span>
+          </div>
+          <ActionsRow
+            selectedLinearIds={selectedLinearIds}
+            onRequestConfirm={setConfirmingAction}
+          />
+
+          {/* Divider */}
+          <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+          {/* Ad Replacement */}
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-1.5 dark:border-slate-800 dark:bg-slate-950/50">
+            <span className="size-1.5 rounded-full bg-violet-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+              Ad Replacement
+            </span>
+          </div>
+          <AdReplacementRow
+            channelName={channel.name}
+            selectedLinearIds={selectedLinearIds}
+          />
+
+          {/* Shared no-target warning */}
+          {noTarget && (
+            <p className="mx-4 mb-4 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center text-[10px] text-amber-600 dark:border-amber-700/30 dark:bg-amber-900/10 dark:text-amber-400">
+              Select at least one linear to enable actions and ad-replacement events
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Action confirm dialog */}
