@@ -9,7 +9,7 @@ import { usePlaybackDiagnostics } from "@/features/live/hooks";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
-import { usePlaybackSettings, formatOptions, drmOptions, cdnOptions, FormatKey, DrmKey, CdnKey } from "@/features/playback/hooks";
+import { usePlaybackSettings, useCdnToken, buildCdnAcl, formatOptions, drmOptions, cdnOptions, FormatKey, DrmKey, CdnKey } from "@/features/playback/hooks";
 
 type PlaybackMode = "direct" | "cdn";
 
@@ -21,6 +21,8 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
   const [playerActive, setPlayerActive] = useState(false);
   const [adEvents, setAdEvents] = useState<AdEvent[]>([]);
   const [bufferStats, setBufferStats] = useState<BufferStats | null>(null);
+  const [cdnToken, setCdnToken] = useState<string | null>(null);
+  const cdnTokenMutation = useCdnToken();
   const diagnosticsOrigin = usePlaybackDiagnostics();
   const diagnosticsCdn = usePlaybackDiagnostics();
 
@@ -30,6 +32,7 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
 
   useEffect(() => {
     setPlayerActive(false);
+    setCdnToken(null);
   }, [contentId]);
 
   const distOriginVod = vmsSettings?.origin.vod ?? "";
@@ -42,8 +45,8 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
   const encoderSegment = encoder ? `/${encoder}` : "";
 
   const originUrl = `${originBase}/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}${drmSegment}/main.ism/${extension}`;
-  const cdnUrl = `${cdnBase}/vod${encoderSegment}/${seg1}/${seg2}/${contentId}${drmSegment}/main.ism/${extension}`;
-  const playbackUrl = mode === "direct" ? originUrl : cdnUrl;
+  const cdnUrl = `${cdnBase}/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}${drmSegment}/main.ism/${extension}`;
+  const cdnPlaybackUrl = cdnToken ? `${cdnUrl}?${cdnToken}` : cdnUrl;
 
   useEffect(() => {
     if (!diagnosticsOrigin.data || !originUrl) return;
@@ -70,7 +73,22 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
     setPlayerActive(true);
     setAdEvents([]);
     setBufferStats(null);
-    await diagnosticsCdn.mutateAsync({ url: cdnUrl });
+
+    let diagnosticsUrl = cdnUrl;
+    if (drmKey === "clear" && cdnBase) {
+      const acl = buildCdnAcl(cdnBase, `/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}/*`);
+      try {
+        const token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" });
+        setCdnToken(token);
+        diagnosticsUrl = `${cdnUrl}?${token}`;
+      } catch {
+        setCdnToken(null);
+      }
+    } else {
+      setCdnToken(null);
+    }
+
+    await diagnosticsCdn.mutateAsync({ url: diagnosticsUrl });
   };
 
   const resolvedFormatLabel = useMemo(
@@ -146,7 +164,13 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
         {/* Player + Ad Events */}
         <div className="w-1/3 shrink-0 space-y-3">
           {playerActive ? (
-            <StreamPlayer url={playbackUrl} format={formatKey} onAdEvent={handleAdEvent} onBufferUpdate={setBufferStats} />
+            <StreamPlayer
+              url={mode === "cdn" ? cdnUrl : originUrl}
+              format={formatKey}
+              cdnToken={mode === "cdn" ? cdnToken ?? undefined : undefined}
+              onAdEvent={handleAdEvent}
+              onBufferUpdate={setBufferStats}
+            />
           ) : (
             <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900">
               Select Origin or CDN to start playback.
@@ -259,7 +283,7 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">CDN</div>
             <div className="space-y-1">
               <div className="break-all"><span className="font-semibold">URL:</span> {cdnBase || "Not configured in Settings"}</div>
-              <div className="break-all"><span className="font-semibold">Playback URL:</span> {cdnUrl}</div>
+              <div className="break-all"><span className="font-semibold">Playback URL:</span> {cdnPlaybackUrl}</div>
             </div>
             {(diagnosticsCdn.isPending || diagnosticsCdn.data) && (
               <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">

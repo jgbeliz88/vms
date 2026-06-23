@@ -12,6 +12,8 @@ import { Select } from "@/components/ui/Select";
 import { StreamPlayer, AdEvent } from "@/components/live/StreamPlayer";
 import {
   usePlaybackSettings,
+  useCdnToken,
+  buildCdnAcl,
   formatOptions,
   drmOptions,
   cdnOptions,
@@ -21,7 +23,7 @@ import {
 } from "@/features/playback/hooks";
 
 export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
-  const { formatKey, setFormatKey, drmKey, setDrmKey, cdnKey, setCdnKey, extension, drmSegment } =
+  const { formatKey, setFormatKey, drmKey, setDrmKey, cdnKey, setCdnKey, extension } =
     usePlaybackSettings();
   const { data: vmsSettings } = useVmsSettingsQuery();
   const [mode, setMode] = useState<PlaybackMode>("direct");
@@ -31,6 +33,9 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const [adEventFilter, setAdEventFilter] = useState<Set<AdEvent["type"]>>(new Set());
   const [adEventSearch, setAdEventSearch] = useState("");
   const [showNoLinearWarning, setShowNoLinearWarning] = useState(false);
+  const [cdnToken, setCdnToken] = useState<string | null>(null);
+  const [selectedCdnLinearName, setSelectedCdnLinearName] = useState<string>("");
+  const cdnTokenMutation = useCdnToken();
   const diagnostics = usePlaybackDiagnostics();
   const lastFetchedUrlRef = useRef<string>("");
 
@@ -70,6 +75,8 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     setPlayerActive(false);
     setSelectedLinearIdx(0);
     setShowNoLinearWarning(false);
+    setCdnToken(null);
+    setSelectedCdnLinearName("");
   }, [channel.id, setFormatKey]);
 
   const distOriginLive = vmsSettings?.origin.live;
@@ -77,11 +84,29 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const originBase = distOriginLive;
   const activeCdnLive = distCdnLive;
   const cdnBase = activeCdnLive[cdnKey] || "";
-  const path = String(channel.id);
-  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+
+  const podsWithLinears = channel.pods.filter((p) => p.linear !== null);
+  const selectedPod = podsWithLinears[selectedLinearIdx] ?? null;
+  const uniqueLinearNames = [...new Set(
+    podsWithLinears
+      .map(p => p.linear!.linearName)
+      .filter((n): n is string => Boolean(n))
+  )];
+  const effectiveCdnLinear = selectedCdnLinearName || uniqueLinearNames[0] || "";
+  const originUrl = selectedPod
+    ? `${originBase}/${selectedPod.name}/live/${selectedPod.linear!.linearName}/main/main.isml/${extension}`
+    : "";
+  const cdnUrl = effectiveCdnLinear
+    ? `${cdnBase}/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/main/main.isml/${extension}`
+    : "";
+  const cdnPlaybackUrl = cdnToken ? `${cdnUrl}?${cdnToken}` : cdnUrl;
 
   const runDiagnostics = async (nextMode: PlaybackMode) => {
     if (nextMode === "direct" && podsWithLinears.length === 0) {
+      setShowNoLinearWarning(true);
+      return;
+    }
+    if (nextMode === "caronte" && !effectiveCdnLinear) {
       setShowNoLinearWarning(true);
       return;
     }
@@ -89,31 +114,38 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     setMode(nextMode);
     setPlayerActive(true);
     setAdEvents([]);
-    const url = nextMode === "direct" ? originUrl : cdnUrl;
-    lastFetchedUrlRef.current = url;
-    await diagnostics.mutateAsync({ url });
+
+    let diagnosticsUrl = nextMode === "direct" ? originUrl : cdnUrl;
+
+    if (nextMode === "caronte" && drmKey === "clear" && cdnBase && effectiveCdnLinear) {
+      const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
+      try {
+        const token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" });
+        setCdnToken(token);
+        diagnosticsUrl = `${cdnUrl}?${token}`;
+      } catch {
+        setCdnToken(null);
+      }
+    } else {
+      setCdnToken(null);
+    }
+
+    lastFetchedUrlRef.current = diagnosticsUrl;
+    await diagnostics.mutateAsync({ url: diagnosticsUrl });
   };
 
-  const podsWithLinears = channel.pods.filter((p) => p.linear !== null);
-  const selectedPod = podsWithLinears[selectedLinearIdx] ?? null;
-  const originUrl = selectedPod
-    ? `${originBase}/${selectedPod.name}/live/${selectedPod.linear!.linearName}/main/main.isml/${extension}`
-    : "";
-  const cdnUrl = `${cdnBase}/${normalizedPath}${drmSegment}${extension}`;
-  const playbackUrl = mode === "direct" ? originUrl : cdnUrl;
-  const activeUrl = mode === "direct" ? originUrl : cdnUrl;
-
   useEffect(() => {
-    if (!playerActive || !activeUrl || activeUrl === lastFetchedUrlRef.current) return;
-    lastFetchedUrlRef.current = activeUrl;
-    void diagnostics.mutateAsync({ url: activeUrl });
+    if (!playerActive || !cdnPlaybackUrl || cdnPlaybackUrl === lastFetchedUrlRef.current) return;
+    lastFetchedUrlRef.current = cdnPlaybackUrl;
+    void diagnostics.mutateAsync({ url: cdnPlaybackUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUrl]);
+  }, [cdnPlaybackUrl]);
 
   const linearOptions = podsWithLinears.map((p, i) => ({
     label: `${p.linear!.linearName} (${p.name})`,
     value: String(i),
   }));
+  const cdnLinearOptions = uniqueLinearNames.map(name => ({ label: name, value: name }));
 
   const resolvedFormatLabel = useMemo(
     () => formatOptions.find((option) => option.value === formatKey)?.label ?? "HLS",
@@ -169,13 +201,23 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-4">
-        <Select
-          label="Linear"
-          options={linearOptions.length > 0 ? linearOptions : [{ label: "No linears", value: "" }]}
-          value={linearOptions.length > 0 ? String(selectedLinearIdx) : ""}
-          onChange={(event) => setSelectedLinearIdx(Number(event.target.value))}
-          disabled={linearOptions.length === 0}
-        />
+        {mode === "direct" ? (
+          <Select
+            label="Linear"
+            options={linearOptions.length > 0 ? linearOptions : [{ label: "No linears", value: "" }]}
+            value={linearOptions.length > 0 ? String(selectedLinearIdx) : ""}
+            onChange={(event) => setSelectedLinearIdx(Number(event.target.value))}
+            disabled={linearOptions.length === 0}
+          />
+        ) : (
+          <Select
+            label="Linear"
+            options={cdnLinearOptions.length > 0 ? cdnLinearOptions : [{ label: "No linears", value: "" }]}
+            value={effectiveCdnLinear}
+            onChange={(event) => setSelectedCdnLinearName(event.target.value)}
+            disabled={cdnLinearOptions.length === 0}
+          />
+        )}
         <Select
           label="Streaming Format"
           options={formatOptions}
@@ -200,8 +242,9 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
         <div className="w-1/3 shrink-0 space-y-3">
           {playerActive ? (
             <StreamPlayer
-              url={playbackUrl}
+              url={mode === "caronte" ? cdnUrl : originUrl}
               format={formatKey}
+              cdnToken={mode === "caronte" ? cdnToken ?? undefined : undefined}
               onAdEvent={handleAdEvent}
             />
           ) : (
@@ -330,7 +373,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
               <span className="font-semibold">CDN:</span> {cdnBase || "Not set (using fallback)"}
             </div>
             <div className="break-all">
-              <span className="font-semibold">Playback URL:</span> {playbackUrl}
+              <span className="font-semibold">Playback URL:</span> {cdnPlaybackUrl}
             </div>
           </div>
           <div className="mt-3 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">

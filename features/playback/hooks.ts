@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import type { StreamingFormatMapping, DrmPathMapping } from "@/lib/storage/settings";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 
@@ -28,6 +29,40 @@ export const cdnOptions = [
   { label: "Akamai", value: "akamai" },
   { label: "Fastly", value: "fastly" },
 ];
+
+export function useCdnToken() {
+  return useMutation({
+    mutationFn: async ({
+      provider,
+      acl,
+      contentType,
+    }: {
+      provider: CdnKey;
+      acl: string;
+      contentType: "live" | "vod";
+    }) => {
+      const res = await fetch(`/api/cdn/token/${provider}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acl, contentType }),
+      });
+      if (!res.ok) throw new Error(`CDN token fetch failed: ${res.status}`);
+      const data = await res.json();
+      return data.cdn as string;
+    },
+  });
+}
+
+export function buildCdnAcl(cdnBase: string, path: string): string {
+  let base = "";
+  try {
+    const p = new URL(cdnBase).pathname;
+    base = p === "/" ? "" : p.replace(/\/$/, "");
+  } catch {
+    // invalid URL — use empty base
+  }
+  return base + path;
+}
 
 export function usePlaybackSettings() {
   const { data } = useVmsSettingsQuery();
