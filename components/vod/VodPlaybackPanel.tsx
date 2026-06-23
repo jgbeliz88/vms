@@ -55,10 +55,20 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
   }, [originUrl]);
 
   useEffect(() => {
-    if (!diagnosticsCdn.data || !cdnUrl) return;
-    void diagnosticsCdn.mutateAsync({ url: cdnUrl });
+    if (!diagnosticsCdn.data || !cdnPlaybackUrl) return;
+    void diagnosticsCdn.mutateAsync({ url: cdnPlaybackUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cdnUrl]);
+  }, [cdnPlaybackUrl]);
+
+  useEffect(() => {
+    if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase) return;
+    setCdnToken(null);
+    const acl = buildCdnAcl(cdnBase, `/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}/*`);
+    void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" })
+      .then(token => setCdnToken(token))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cdnKey]);
 
   const runOrigin = async () => {
     setMode("direct");

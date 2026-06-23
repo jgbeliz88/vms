@@ -145,7 +145,7 @@ export type ChannelAction = {
   allowedRoles?: Role[]; // if omitted → unrestricted
 };
 
-export type PlaybackMode = "direct" | "caronte";
+export type PlaybackMode = "direct" | "cdn";
 
 export type PlaybackDiagnostics = {
   url: string;

@@ -52,10 +52,20 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
   }, [originUrl]);
 
   useEffect(() => {
-    if (!diagnosticsCdn.data || !cdnUrl) return;
-    void diagnosticsCdn.mutateAsync({ url: cdnUrl });
+    if (!diagnosticsCdn.data || !cdnPlaybackUrl) return;
+    void diagnosticsCdn.mutateAsync({ url: cdnPlaybackUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cdnUrl]);
+  }, [cdnPlaybackUrl]);
+
+  useEffect(() => {
+    if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase) return;
+    setCdnToken(null);
+    const acl = buildCdnAcl(cdnBase, `/${channelName}.isml/*`);
+    void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
+      .then(token => setCdnToken(token))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cdnKey]);
 
   const runOrigin = async () => {
     setMode("direct");

@@ -106,7 +106,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
       setShowNoLinearWarning(true);
       return;
     }
-    if (nextMode === "caronte" && !effectiveCdnLinear) {
+    if (nextMode === "cdn" && !effectiveCdnLinear) {
       setShowNoLinearWarning(true);
       return;
     }
@@ -117,7 +117,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
 
     let diagnosticsUrl = nextMode === "direct" ? originUrl : cdnUrl;
 
-    if (nextMode === "caronte" && drmKey === "clear" && cdnBase && effectiveCdnLinear) {
+    if (nextMode === "cdn" && drmKey === "clear" && cdnBase && effectiveCdnLinear) {
       const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
       try {
         const token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" });
@@ -140,6 +140,16 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     void diagnostics.mutateAsync({ url: cdnPlaybackUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cdnPlaybackUrl]);
+
+  useEffect(() => {
+    if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase || !effectiveCdnLinear) return;
+    setCdnToken(null);
+    const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
+    void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
+      .then(token => setCdnToken(token))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cdnKey]);
 
   const linearOptions = podsWithLinears.map((p, i) => ({
     label: `${p.linear!.linearName} (${p.name})`,
@@ -180,10 +190,10 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
           {playerActive && mode === "direct" ? "Origin Active" : "Origin"}
         </Button>
         <Button
-          variant={playerActive && mode === "caronte" ? "primary" : "secondary"}
-          onClick={() => runDiagnostics("caronte")}
+          variant={playerActive && mode === "cdn" ? "primary" : "secondary"}
+          onClick={() => runDiagnostics("cdn")}
         >
-          {playerActive && mode === "caronte" ? "CDN Active" : "CDN"}
+          {playerActive && mode === "cdn" ? "CDN Active" : "CDN"}
         </Button>
         {showNoLinearWarning ? (
           <span className="text-xs text-amber-600 dark:text-amber-400">
@@ -242,9 +252,9 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
         <div className="w-1/3 shrink-0 space-y-3">
           {playerActive ? (
             <StreamPlayer
-              url={mode === "caronte" ? cdnUrl : originUrl}
+              url={mode === "cdn" ? cdnUrl : originUrl}
               format={formatKey}
-              cdnToken={mode === "caronte" ? cdnToken ?? undefined : undefined}
+              cdnToken={mode === "cdn" ? cdnToken ?? undefined : undefined}
               onAdEvent={handleAdEvent}
             />
           ) : (
