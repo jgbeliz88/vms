@@ -25,12 +25,12 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 
 
 export default function LivePage() {
   const { notify } = useToast();
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.LIVE_MANAGE_CHANNELS]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [confirmAction, setConfirmAction] = useState<ChannelAction | null>(null);
   const [confirmChannel, setConfirmChannel] = useState<ResolvedChannel | null>(null);

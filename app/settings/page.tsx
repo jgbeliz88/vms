@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import type { StreamingFormatMapping, DrmPathMapping } from "@/lib/storage/settings";
 import { useToast } from "@/components/ui/Toast";
-import { hasRole, ROLES } from "@/lib/auth/permissions";
+import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import type { EntraSession } from "@/lib/session/types";
 import { useVmsSettingsQuery, useUpdateVmsSettings } from "@/features/settings/hooks";
 
@@ -33,7 +33,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { data: sessionData, status } = useSession();
   const session = sessionData as EntraSession | null;
-  const isAdmin = status !== "loading" && hasRole(session?.user ?? null, [ROLES.ADMIN]);
+  const isAdmin = status !== "loading" && hasPermission(session?.user ?? null, [PERMISSIONS.SETTINGS_PAGE]);
 
   useEffect(() => {
     if (status === "loading") return;
