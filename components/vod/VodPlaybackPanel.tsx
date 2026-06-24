@@ -62,11 +62,17 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
 
   useEffect(() => {
     if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase) return;
+    setPlayerActive(false);
     setCdnToken(null);
     const acl = buildCdnAcl(cdnBase, `/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}/*`);
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" })
-      .then(token => setCdnToken(token))
-      .catch(() => {});
+      .then(token => {
+        setCdnToken(token);
+        setPlayerActive(true);
+      })
+      .catch(() => {
+        setCdnToken(null);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cdnKey]);
 
@@ -80,24 +86,24 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
 
   const runCdn = async () => {
     setMode("cdn");
-    setPlayerActive(true);
+    setPlayerActive(false);
     setAdEvents([]);
     setBufferStats(null);
+    setCdnToken(null);
 
+    let token: string | null = null;
     let diagnosticsUrl = cdnUrl;
     if (drmKey === "clear" && cdnBase) {
       const acl = buildCdnAcl(cdnBase, `/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}/*`);
       try {
-        const token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" });
-        setCdnToken(token);
+        token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" });
         diagnosticsUrl = `${cdnUrl}?${token}`;
       } catch {
-        setCdnToken(null);
+        token = null;
       }
-    } else {
-      setCdnToken(null);
     }
-
+    setCdnToken(token);
+    setPlayerActive(true);
     await diagnosticsCdn.mutateAsync({ url: diagnosticsUrl });
   };
 

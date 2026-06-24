@@ -112,24 +112,25 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     }
     setShowNoLinearWarning(false);
     setMode(nextMode);
-    setPlayerActive(true);
+    setPlayerActive(false);
     setAdEvents([]);
+    setCdnToken(null);
 
     let diagnosticsUrl = nextMode === "direct" ? originUrl : cdnUrl;
 
     if (nextMode === "cdn" && drmKey === "clear" && cdnBase && effectiveCdnLinear) {
       const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
+      let token: string | null = null;
       try {
-        const token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" });
-        setCdnToken(token);
+        token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" });
         diagnosticsUrl = `${cdnUrl}?${token}`;
       } catch {
-        setCdnToken(null);
+        token = null;
       }
-    } else {
-      setCdnToken(null);
+      setCdnToken(token);
     }
 
+    setPlayerActive(true);
     lastFetchedUrlRef.current = diagnosticsUrl;
     await diagnostics.mutateAsync({ url: diagnosticsUrl });
   };
@@ -143,11 +144,17 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
 
   useEffect(() => {
     if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase || !effectiveCdnLinear) return;
+    setPlayerActive(false);
     setCdnToken(null);
     const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
-      .then(token => setCdnToken(token))
-      .catch(() => {});
+      .then(token => {
+        setCdnToken(token);
+        setPlayerActive(true);
+      })
+      .catch(() => {
+        setCdnToken(null);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cdnKey]);
 
