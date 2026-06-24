@@ -99,6 +99,10 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
     let hlsInstance: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let dashInstance: any;
+    // Guards the async dynamic imports below: if the effect is cleaned up
+    // (URL/CDN switch, unmount, StrictMode remount) before import() resolves,
+    // we must not create an orphaned player that keeps polling the old URL.
+    let cancelled = false;
     const seenDateRanges = new Set<string>();
     const seenCueTags = new Set<string>();
 
@@ -141,6 +145,7 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
 
     const setupHls = async () => {
       const { default: Hls } = await import("hls.js");
+      if (cancelled) return;
       if (Hls.isSupported()) {
         hlsInstance = new Hls(cdnToken ? {
           xhrSetup: (xhr: XMLHttpRequest, reqUrl: string) => {
@@ -270,6 +275,7 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
 
     const setupDash = async () => {
       const dashjs = await import("dashjs");
+      if (cancelled) return;
       dashInstance = dashjs.MediaPlayer().create();
       dashRef.current = dashInstance;
       if (cdnToken) {
@@ -369,6 +375,7 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
     }
 
     return () => {
+      cancelled = true;
       clearInterval(bufferInterval);
       if (hlsInstance) {
         hlsInstance.destroy();

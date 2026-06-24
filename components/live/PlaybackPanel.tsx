@@ -38,6 +38,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const cdnTokenMutation = useCdnToken();
   const diagnostics = usePlaybackDiagnostics();
   const lastFetchedUrlRef = useRef<string>("");
+  const cdnRunVersionRef = useRef(0);
 
   const handleAdEvent = useCallback((event: AdEvent) => {
     setAdEvents((prev) => [...prev, event]);
@@ -110,6 +111,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
       setShowNoLinearWarning(true);
       return;
     }
+    const version = ++cdnRunVersionRef.current;
     setShowNoLinearWarning(false);
     setMode(nextMode);
     setPlayerActive(false);
@@ -127,9 +129,11 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
       } catch {
         token = null;
       }
+      if (cdnRunVersionRef.current !== version) return;
       setCdnToken(token);
     }
 
+    if (cdnRunVersionRef.current !== version) return;
     setPlayerActive(true);
     lastFetchedUrlRef.current = diagnosticsUrl;
     await diagnostics.mutateAsync({ url: diagnosticsUrl });
@@ -143,16 +147,21 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   }, [cdnPlaybackUrl]);
 
   useEffect(() => {
-    if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase || !effectiveCdnLinear) return;
+    if (mode !== "cdn" || drmKey !== "clear" || !cdnBase || !effectiveCdnLinear) return;
+    ++cdnRunVersionRef.current;
+    if (!playerActive) return;
+    const version = cdnRunVersionRef.current;
     setPlayerActive(false);
     setCdnToken(null);
     const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
       .then(token => {
+        if (cdnRunVersionRef.current !== version) return;
         setCdnToken(token);
         setPlayerActive(true);
       })
       .catch(() => {
+        if (cdnRunVersionRef.current !== version) return;
         setCdnToken(null);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps

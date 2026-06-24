@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
@@ -25,6 +25,7 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
   const cdnTokenMutation = useCdnToken();
   const diagnosticsOrigin = usePlaybackDiagnostics();
   const diagnosticsCdn = usePlaybackDiagnostics();
+  const cdnRunVersionRef = useRef(0);
 
   const handleAdEvent = useCallback((event: AdEvent) => {
     setAdEvents((prev) => [...prev, event]);
@@ -52,22 +53,28 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
   }, [originUrl]);
 
   useEffect(() => {
-    if (!diagnosticsCdn.data || !cdnPlaybackUrl) return;
+    if (!playerActive || !diagnosticsCdn.data || !cdnPlaybackUrl) return;
     void diagnosticsCdn.mutateAsync({ url: cdnPlaybackUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cdnPlaybackUrl]);
+  }, [cdnPlaybackUrl, playerActive]);
 
   useEffect(() => {
-    if (mode !== "cdn" || !playerActive || drmKey !== "clear" || !cdnBase) return;
+    if (mode !== "cdn" || drmKey !== "clear" || !cdnBase) return;
+    // Always bump the version so any in-flight runCdn() sees a stale version and bails out.
+    ++cdnRunVersionRef.current;
+    if (!playerActive) return;
+    const version = cdnRunVersionRef.current;
     setPlayerActive(false);
     setCdnToken(null);
     const acl = buildCdnAcl(cdnBase, `/${channelName}.isml/*`);
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
       .then(token => {
+        if (cdnRunVersionRef.current !== version) return;
         setCdnToken(token);
         setPlayerActive(true);
       })
       .catch(() => {
+        if (cdnRunVersionRef.current !== version) return;
         setCdnToken(null);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,6 +89,7 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
   };
 
   const runCdn = async () => {
+    const version = ++cdnRunVersionRef.current;
     setMode("cdn");
     setPlayerActive(false);
     setAdEvents([]);
@@ -99,6 +107,8 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
         token = null;
       }
     }
+    // If the CDN key changed while we were awaiting the token, discard this stale result.
+    if (cdnRunVersionRef.current !== version) return;
     setCdnToken(token);
     setPlayerActive(true);
     await diagnosticsCdn.mutateAsync({ url: diagnosticsUrl });
