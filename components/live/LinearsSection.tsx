@@ -8,7 +8,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/live/hooks";
 import type { AddLinearData } from "./ActionConfirmModal";
 import { AVAILABLE_TAGS, TagChip } from "@/components/ui/TagChip";
@@ -518,7 +518,7 @@ export function LinearsSection({
   mediaexcelChannels: MediaexcelChannel[];
   onCreateLinear: (data: AddLinearData) => Promise<void>;
 }) {
-  const canManageLinears = usePermission([ROLES.ADMIN]);
+  const canManageLinears = usePermission([PERMISSIONS.LIVE_MANAGE_LINEARS]);
   const { notify } = useToast();
   const deleteLinear = useDeleteLinear();
   const clearLinear = useClearLinear();

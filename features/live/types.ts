@@ -1,4 +1,4 @@
-import type { Role } from "@/lib/auth/permissions";
+import type { Permission } from "@/lib/auth/permissions";
 
 export type ChannelStatus = "ok" | "warning" | "error";
 
@@ -142,10 +142,10 @@ export type ChannelAction = {
   tone: "default" | "warning" | "danger";
   requiresConfirm: boolean;
   requireNameMatch?: boolean;
-  allowedRoles?: Role[]; // if omitted → unrestricted
+  allowedPermissions?: Permission[]; // if omitted → unrestricted
 };
 
-export type PlaybackMode = "direct" | "caronte";
+export type PlaybackMode = "direct" | "cdn";
 
 export type PlaybackDiagnostics = {
   url: string;

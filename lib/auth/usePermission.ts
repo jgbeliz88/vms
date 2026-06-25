@@ -1,7 +1,7 @@
 import { useSession } from "@/lib/session/provider";
-import { hasRole, type Role } from "./permissions";
+import { hasPermission, type Permission } from "./permissions";
 
-export function usePermission(allowed: Role[]): boolean {
+export function usePermission(allowed: Permission[]): boolean {
   const { user } = useSession();
-  return hasRole(user, allowed);
+  return hasPermission(user, allowed);
 }

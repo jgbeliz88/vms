@@ -13,7 +13,7 @@ import { ChannelCommands } from "./ChannelCommands";
 import { useUpdateChannelMetadata, useChannelDetailStatus } from "@/features/live/hooks";
 import type { ChannelDetailSection } from "@/features/live/hooks";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { useToast } from "@/components/ui/Toast";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import type { ConfigLayout } from "@/features/live/hooks";
@@ -102,7 +102,7 @@ export function ChannelDetail({
   onDeleteLinear?: (pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod?: (pod: ResolvedPod, linearName: string | null) => Promise<void>;
 }) {
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.LIVE_MANAGE_CHANNELS]);
   const updateMetadata = useUpdateChannelMetadata();
   const { notify } = useToast();
   const { data: settings } = useVmsSettingsQuery();

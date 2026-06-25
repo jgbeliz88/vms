@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { AVAILABLE_TAGS, TAG_ICONS, TagChip } from "@/components/ui/TagChip";
 
 
@@ -1039,11 +1039,12 @@ type ActiveModal = ActionType | "create" | "delete" | null;
 export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canLinearActions = usePermission([PERMISSIONS.LINEAR_ACTIONS]);
+  const canManageLinears = usePermission([PERMISSIONS.LIVE_MANAGE_LINEARS]);
 
   const summary = useMemo(() => rollupCounts(selected), [selected]);
 
-  if (!canAdmin || selected.length === 0) return null;
+  if ((!canLinearActions && !canManageLinears) || selected.length === 0) return null;
 
   function openModal(m: ActiveModal) {
     setActiveModal(m);
@@ -1076,38 +1077,49 @@ export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
 
         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
 
-        <button
-          onClick={() => openModal("sync")}
-          className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
-        >
-          Synchronize
-        </button>
-        <button
-          onClick={() => openModal("descache")}
-          className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
-        >
-          Descache
-        </button>
-        <button
-          onClick={() => openModal("clean")}
-          className="inline-flex items-center whitespace-nowrap rounded-md border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-700/40 dark:bg-slate-900 dark:text-amber-400 dark:hover:bg-amber-500/10"
-        >
-          Clean Channels
-        </button>
+        {canLinearActions && (
+          <>
+            <button
+              onClick={() => openModal("sync")}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+            >
+              Synchronize
+            </button>
+            <button
+              onClick={() => openModal("descache")}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+            >
+              Descache
+            </button>
+            <button
+              onClick={() => openModal("clean")}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-700/40 dark:bg-slate-900 dark:text-amber-400 dark:hover:bg-amber-500/10"
+            >
+              Clean Channels
+            </button>
+          </>
+        )}
 
-        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
-        <button
-          onClick={() => openModal("create")}
-          className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
-        >
-          Configure Linears
-        </button>
-        <button
-          onClick={() => openModal("delete")}
-          className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
-        >
-          Clear Linears
-        </button>
+        {canLinearActions && canManageLinears && (
+          <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+        )}
+
+        {canManageLinears && (
+          <>
+            <button
+              onClick={() => openModal("create")}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+            >
+              Configure Linears
+            </button>
+            <button
+              onClick={() => openModal("delete")}
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-700/40 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              Clear Linears
+            </button>
+          </>
+        )}
       </div>
 
       {/* Modals */}
