@@ -13,6 +13,14 @@ spec:
           key: AUTH_SECRET
         - objectName: AUTH_AZURE_AD_CLIENT_SECRET
           key: AUTH_AZURE_AD_CLIENT_SECRET
+        - objectName: AKAMAI_CDN_LIVE_KEY
+          key: AKAMAI_CDN_LIVE_KEY
+        - objectName: AKAMAI_CDN_VOD_KEY
+          key: AKAMAI_CDN_VOD_KEY
+        - objectName: FASTLY_CDN_LIVE_KEY
+          key: FASTLY_CDN_LIVE_KEY
+        - objectName: FASTLY_CDN_VOD_KEY
+          key: FASTLY_CDN_VOD_KEY
   parameters:
     roleName: vms
     vaultKubernetesMountPath: aks-unifiedstreaming-pre
@@ -23,3 +31,15 @@ spec:
       - objectName: "AUTH_AZURE_AD_CLIENT_SECRET"
         secretPath: "apps_multi/data/vms/staging/pre"
         secretKey: "AUTH_AZURE_AD_CLIENT_SECRET"
+      - objectName: "AKAMAI_CDN_LIVE_KEY"
+        secretPath: "apps_multi/data/vms/staging/pre"
+        secretKey: "AKAMAI_CDN_LIVE_KEY"
+      - objectName: "AKAMAI_CDN_VOD_KEY"
+        secretPath: "apps_multi/data/vms/staging/pre"
+        secretKey: "AKAMAI_CDN_VOD_KEY"
+      - objectName: "FASTLY_CDN_LIVE_KEY"
+        secretPath: "apps_multi/data/vms/staging/pre"
+        secretKey: "FASTLY_CDN_LIVE_KEY"
+      - objectName: "FASTLY_CDN_VOD_KEY"
+        secretPath: "apps_multi/data/vms/staging/pre"
+        secretKey: "FASTLY_CDN_VOD_KEY"
