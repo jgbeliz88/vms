@@ -13,6 +13,7 @@ import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { DataTable } from "@/components/ui/DataTable";
 import type { ColumnDef } from "@/components/ui/DataTable";
 import { useBitmovinVodQuery } from "@/features/vod/hooks";
+import { useManifestPathTooltip } from "@/components/ui/ManifestPathTooltip";
 
 function SectionHeader({ title, count, href }: { title: string; count?: number; href: string }) {
   return (
@@ -49,6 +50,7 @@ function VodManifestBadge({
 }) {
   const url = originBase ? buildVodManifestUrl(originBase, id, encoder) : null;
   const query = useVodManifestQuery(id, url, originBase);
+  const { bindPath } = useManifestPathTooltip();
 
   useEffect(() => {
     if (!onResult) return;
@@ -59,10 +61,21 @@ function VodManifestBadge({
 
   if (!url) return <span className="text-[#8899A8]">—</span>;
   if (query.isLoading) return <span className="text-xs text-[#8899A8] animate-pulse">checking…</span>;
-  if (query.isError || !query.data) return <Badge label="error" tone="error" />;
-  return query.data.status === "ready"
-    ? <Badge label="OK" tone="success" />
-    : <Badge label={`${query.data.httpStatus ?? "err"}`} tone="error" />;
+
+  const badge =
+    query.isError || !query.data ? (
+      <Badge label="error" tone="error" />
+    ) : query.data.status === "ready" ? (
+      <Badge label="OK" tone="success" />
+    ) : (
+      <Badge label={`${query.data.httpStatus ?? "err"}`} tone="error" />
+    );
+
+  return (
+    <span {...bindPath(url)} className="inline-flex cursor-pointer rounded-full transition-shadow hover:ring-2 hover:ring-brand-500/40">
+      {badge}
+    </span>
+  );
 }
 
 function vodStatusTone(status: string): "success" | "error" | "warning" | "default" {
@@ -77,6 +90,7 @@ function formatDate(iso: string) {
 }
 
 function ManifestDetail({ data }: { data: ManifestStatusResult }) {
+  const { bindPath } = useManifestPathTooltip();
   return (
     <div className="space-y-3 px-6 pb-4 pt-3">
       {data.pods.map((pod) => (
@@ -88,10 +102,11 @@ function ManifestDetail({ data }: { data: ManifestStatusResult }) {
             {pod.manifests.map((m) => (
               <div
                 key={m.label}
-                className={`rounded-lg border px-3 py-2 text-xs ${
+                {...bindPath(m.url)}
+                className={`cursor-pointer rounded-lg border px-3 py-2 text-xs transition-shadow hover:ring-2 ${
                   m.ok
-                    ? "border-[#219653]/30 bg-[#DCFCE7] dark:border-emerald-700/40 dark:bg-emerald-900/20"
-                    : "border-[#D34053]/30 bg-[#FEE2E2] dark:border-rose-700/40 dark:bg-rose-900/20"
+                    ? "border-[#219653]/30 bg-[#DCFCE7] hover:ring-[#219653]/45 dark:border-emerald-700/40 dark:bg-emerald-900/20"
+                    : "border-[#D34053]/30 bg-[#FEE2E2] hover:ring-[#D34053]/45 dark:border-rose-700/40 dark:bg-rose-900/20"
                 }`}
               >
                 <div className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</div>
