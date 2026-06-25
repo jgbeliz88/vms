@@ -15,6 +15,7 @@ import type { ChannelDetailSection } from "@/features/live/hooks";
 import { usePermission } from "@/lib/auth/usePermission";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { useToast } from "@/components/ui/Toast";
+import { useManifestPathTooltip } from "@/components/ui/ManifestPathTooltip";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import type { ConfigLayout } from "@/features/live/hooks";
 import type { MediaexcelChannel } from "@/features/live/types";
@@ -34,6 +35,7 @@ function StatusCard({
   isError: boolean;
   expanded: boolean;
 }) {
+  const { bindPath } = useManifestPathTooltip();
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
       <div className="text-slate-500">{label}</div>
@@ -59,10 +61,11 @@ function StatusCard({
                 {pod.manifests.map((m) => (
                   <div
                     key={m.url}
-                    className={`rounded-lg border px-2 py-1.5 ${
+                    {...bindPath(m.url)}
+                    className={`cursor-pointer rounded-lg border px-2 py-1.5 transition-shadow hover:ring-2 ${
                       m.ok
-                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-700/40 dark:bg-emerald-900/20"
-                        : "border-red-200 bg-red-50 dark:border-red-700/40 dark:bg-red-900/20"
+                        ? "border-emerald-200 bg-emerald-50 hover:ring-emerald-500/45 dark:border-emerald-700/40 dark:bg-emerald-900/20"
+                        : "border-red-200 bg-red-50 hover:ring-red-500/45 dark:border-red-700/40 dark:bg-red-900/20"
                     }`}
                   >
                     <div className="font-medium text-slate-700 dark:text-slate-200">{m.label}</div>
