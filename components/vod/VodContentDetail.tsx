@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { BaseVodContentDetail } from "@/components/vod/BaseVodContentDetail";
 import { VodActionsPanel } from "@/components/vod/VodActionsPanel";
+import { VodConfigPanel } from "@/components/vod/VodConfigPanel";
 import { formatDuration, formatBitrate } from "@/lib/utils/media";
 import type { VodContent } from "@/features/vod/vod-types";
 
@@ -114,6 +115,7 @@ export function VodContentDetail({
   return (
     <BaseVodContentDetail
       actionsPanel={<VodActionsPanel mam={mam} uuid={item._id} contentName={item.name} />}
+      configPanel={<VodConfigPanel />}
       infoChildren={infoChildren}
       editControls={
         onUpdate && (
