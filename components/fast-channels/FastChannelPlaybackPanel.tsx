@@ -10,6 +10,7 @@ import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
 import { usePlaybackSettings, useCdnToken, buildCdnAcl, formatOptions, drmOptions, cdnOptions, FormatKey, DrmKey, CdnKey } from "@/features/playback/hooks";
+import { fastAclPath } from "@/features/playback/acl";
 
 type PlaybackMode = "direct" | "cdn";
 
@@ -99,7 +100,7 @@ export function FastChannelPlaybackPanel({ channelName }: { channelName: string 
     let token: string | null = null;
     let diagnosticsUrl = cdnUrl;
     if (drmKey === "clear" && cdnBase) {
-      const acl = buildCdnAcl(cdnBase, `/${channelName}.isml/*`);
+      const acl = buildCdnAcl(cdnBase, fastAclPath(channelName));
       try {
         token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" });
         diagnosticsUrl = `${cdnUrl}?${token}`;
