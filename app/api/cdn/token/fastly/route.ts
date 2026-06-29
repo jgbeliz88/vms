@@ -9,6 +9,7 @@ const LOG_NAME = "app.api.cdn.token.fastly.route";
 const requestSchema = z.object({
   acl: z.string().min(1),
   contentType: z.enum(["live", "vod"]),
+  window: z.number().int().positive().optional(),
 });
 
 export async function POST(request: Request) {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
-  const { acl, contentType } = parsed.data;
+  const { acl, contentType, window } = parsed.data;
   const key = contentType === "vod" ? getFastlyVodKey() : getFastlyLiveKey();
 
   const url = `${getEnigmaBaseUrl()}/cdn/token/fastly`;
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     response = await fetchVMS(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acl, key, window: 7200 }),
+      body: JSON.stringify({ acl, key, window: window ?? 7200 }),
     });
   } catch (error: unknown) {
     logError({ name: LOG_NAME, fn: "POST", msg: `Fetch failed url=${url}`, error });
