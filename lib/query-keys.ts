@@ -12,6 +12,7 @@ export const queryKeys = {
   bitmovinVod: (filters: VodFilters) => ["bitmovin-vod", filters] as const,
   lightflowVod: (filters: VodFilters) => ["lightflow-vod", filters] as const,
   vodManifest: (id: string, originBase: string) => ["vod-manifest", id, originBase],
+  vodConfig: () => ["vod-config"],
   health: () => ["health"],
   history: (page: number, pageSize: number) => ["history", page, pageSize],
   vmsSettings: () => ["vms-settings"],

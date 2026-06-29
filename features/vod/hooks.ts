@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LightflowVodContent } from "./lightflow-types";
-import type { VodFilters, VodContent, PaginatedVodResponse } from "./vod-types";
+import type { VodFilters, VodContent, PaginatedVodResponse, VodConfigRow } from "./vod-types";
 import { queryKeys } from "@/lib/query-keys";
 import { getToken } from "@/lib/storage/token";
 
@@ -72,6 +72,47 @@ export function useCreateServerManifest() {
         );
       }
       return data;
+    },
+  });
+}
+
+/**
+ * The shared VOD configuration. Returns the full collection of UI rows (one per
+ * platform/device combo that exists in the backend). This config is global — it is
+ * not scoped to a single VOD.
+ */
+export function useVodConfigQuery() {
+  return useQuery({
+    queryKey: queryKeys.vodConfig(),
+    queryFn: async () => {
+      const response = await fetch("/api/vod/config", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load VOD config");
+      return (await response.json()) as VodConfigRow[];
+    },
+  });
+}
+
+export function useUpdateVodConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (config: VodConfigRow[]) => {
+      const response = await fetch("/api/vod/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          (data as Record<string, unknown>).message as string ||
+          `Request failed with status ${response.status}`
+        );
+      }
+      return data;
+    },
+    // POST returns only the modified rows, so refetch the full collection.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vodConfig() });
     },
   });
 }
