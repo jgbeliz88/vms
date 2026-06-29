@@ -36,15 +36,17 @@ export function useCdnToken() {
       provider,
       acl,
       contentType,
+      window,
     }: {
       provider: CdnKey;
       acl: string;
       contentType: "live" | "vod";
+      window?: number;
     }) => {
       const res = await fetch(`/api/cdn/token/${provider}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acl, contentType }),
+        body: JSON.stringify({ acl, contentType, ...(window != null ? { window } : {}) }),
       });
       if (!res.ok) throw new Error(`CDN token fetch failed: ${res.status}`);
       const data = await res.json();

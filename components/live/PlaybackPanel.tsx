@@ -21,6 +21,7 @@ import {
   DrmKey,
   CdnKey,
 } from "@/features/playback/hooks";
+import { liveAclPath } from "@/features/playback/acl";
 
 export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const { formatKey, setFormatKey, drmKey, setDrmKey, cdnKey, setCdnKey, extension } =
@@ -121,7 +122,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     let diagnosticsUrl = nextMode === "direct" ? originUrl : cdnUrl;
 
     if (nextMode === "cdn" && drmKey === "clear" && cdnBase && effectiveCdnLinear) {
-      const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
+      const acl = buildCdnAcl(cdnBase, liveAclPath(effectiveCdnLinear));
       let token: string | null = null;
       try {
         token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" });
@@ -153,7 +154,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     const version = cdnRunVersionRef.current;
     setPlayerActive(false);
     setCdnToken(null);
-    const acl = buildCdnAcl(cdnBase, `/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/*`);
+    const acl = buildCdnAcl(cdnBase, liveAclPath(effectiveCdnLinear));
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
       .then(token => {
         if (cdnRunVersionRef.current !== version) return;

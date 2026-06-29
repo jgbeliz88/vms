@@ -10,6 +10,7 @@ import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
 import { usePlaybackSettings, useCdnToken, buildCdnAcl, formatOptions, drmOptions, cdnOptions, FormatKey, DrmKey, CdnKey } from "@/features/playback/hooks";
+import { vodAclPath } from "@/features/playback/acl";
 
 type PlaybackMode = "direct" | "cdn";
 
@@ -68,7 +69,7 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
     const version = cdnRunVersionRef.current;
     setPlayerActive(false);
     setCdnToken(null);
-    const acl = buildCdnAcl(cdnBase, `/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}/*`);
+    const acl = buildCdnAcl(cdnBase, vodAclPath(encoder ?? "", contentId));
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" })
       .then(token => {
         if (cdnRunVersionRef.current !== version) return;
@@ -101,7 +102,7 @@ export function VodPlaybackPanel({ contentId, encoder }: { contentId: string; en
     let token: string | null = null;
     let diagnosticsUrl = cdnUrl;
     if (drmKey === "clear" && cdnBase) {
-      const acl = buildCdnAcl(cdnBase, `/orivod/vod${encoderSegment}/${seg1}/${seg2}/${contentId}/*`);
+      const acl = buildCdnAcl(cdnBase, vodAclPath(encoder ?? "", contentId));
       try {
         token = await cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "vod" });
         diagnosticsUrl = `${cdnUrl}?${token}`;

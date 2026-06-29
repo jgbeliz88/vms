@@ -7,6 +7,7 @@ import {
   Radio,
   Film,
   Tv2,
+  Boxes,
   Settings,
   LogOut,
   Bell,
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { href: "/live", label: "Live", icon: Radio },
   { href: "/vod", label: "VOD", icon: Film },
   { href: "/fast-channels", label: "Fast Channels", icon: Tv2 },
+  { href: "/cdn-tokens", label: "CDN", icon: Boxes },
   { href: "/settings", label: "Settings", icon: Settings, allowedPermissions: [PERMISSIONS.SETTINGS_PAGE] },
 ];
 
