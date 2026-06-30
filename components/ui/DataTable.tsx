@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
+import { useColumnResize } from "./useColumnResize";
 
 type SortDir = "asc" | "desc";
 
@@ -36,10 +37,9 @@ export function DataTable<T,>({
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [colWidths, setColWidths] = useState<Record<string, number>>(
-    Object.fromEntries(columns.map((c) => [c.key, c.defaultWidth ?? 150]))
+  const { tableRef, getColStyle, getTableStyle, startResize } = useColumnResize(
+    columns.map((c) => ({ key: c.key, defaultWidth: c.defaultWidth ?? 150 }))
   );
-  const resizeRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -49,30 +49,6 @@ export function DataTable<T,>({
       setSortDir("asc");
     }
   };
-
-  const startResize = useCallback(
-    (key: string, e: React.MouseEvent) => {
-      e.preventDefault();
-      resizeRef.current = { key, startX: e.clientX, startWidth: colWidths[key] };
-
-      const onMouseMove = (e: MouseEvent) => {
-        if (!resizeRef.current) return;
-        const { key, startX, startWidth } = resizeRef.current;
-        const newWidth = Math.max(60, startWidth + e.clientX - startX);
-        setColWidths((prev) => ({ ...prev, [key]: newWidth }));
-      };
-
-      const onMouseUp = () => {
-        resizeRef.current = null;
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    },
-    [colWidths]
-  );
 
   const filtered =
     searchable && query.trim()
@@ -106,10 +82,10 @@ export function DataTable<T,>({
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="min-w-full text-xs" style={{ tableLayout: "fixed" }}>
+        <table ref={tableRef} className="text-xs" style={getTableStyle()}>
           <colgroup>
             {columns.map((col) => (
-              <col key={col.key} style={{ width: colWidths[col.key] }} />
+              <col key={col.key} style={getColStyle(col.key)} />
             ))}
           </colgroup>
           <thead className="border-b border-[#E2E8F0] bg-[#F7F9FC] text-[10px] uppercase tracking-wide text-[#64748B] dark:border-[#2E3A47] dark:bg-[#1A222C]">
@@ -118,7 +94,7 @@ export function DataTable<T,>({
                 <th
                   key={col.key}
                   className="relative select-none px-4 py-3 text-left font-semibold"
-                  style={{ width: colWidths[col.key] }}
+                  style={getColStyle(col.key)}
                 >
                   {col.sortable ? (
                     <button

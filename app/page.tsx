@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import { DataTable } from "@/components/ui/DataTable";
 import type { ColumnDef } from "@/components/ui/DataTable";
+import { useColumnResize } from "@/components/ui/useColumnResize";
 import { useBitmovinVodQuery } from "@/features/vod/hooks";
 import { useManifestPathTooltip } from "@/components/ui/ManifestPathTooltip";
 
@@ -188,8 +189,8 @@ function FastChannelRow({ channel }: { channel: { name: string; uri: string } })
   return (
     <>
       <tr className="hover:bg-[#F7F9FC] dark:hover:bg-[#333A48]/40">
-        <td className="px-4 py-3 font-medium text-[#1C2434] dark:text-[#DEE4EE]">{channel.name}</td>
-        <td className="px-4 py-3 font-mono text-xs text-[#64748B] dark:text-[#8899A8] break-all">{channel.uri}</td>
+        <td className="truncate px-4 py-3 font-medium text-[#1C2434] dark:text-[#DEE4EE]">{channel.name}</td>
+        <td className="overflow-hidden text-ellipsis whitespace-nowrap px-4 py-3 font-mono text-xs text-[#64748B] dark:text-[#8899A8]">{channel.uri}</td>
         <td className="px-4 py-3">
           {isLoading ? (
             <span className="text-xs text-[#8899A8] animate-pulse">checking…</span>
@@ -258,6 +259,8 @@ export default function DashboardPage() {
   const originLiveUrl = vmsSettings?.origin.live ?? "";
   const vodOriginUrl = vmsSettings?.origin.vod ?? "";
 
+  const { bindText } = useManifestPathTooltip();
+
   // VOD manifest results for sorting
   const [vodManifestResults, setVodManifestResults] = useState<Record<string, boolean | null>>({});
   const handleVodManifestResult = useCallback((id: string, ok: boolean | null) => {
@@ -265,25 +268,23 @@ export default function DashboardPage() {
   }, []);
 
   // Live Channels table: resize, search, sort
-  const liveDefaultWidths: Record<string, number> = { channel: 220, status: 100, lastSync: 160, expand: 40 };
-  const [liveColWidths, setLiveColWidths] = useState<Record<string, number>>(liveDefaultWidths);
+  const live = useColumnResize([
+    { key: "channel", defaultWidth: 220 },
+    { key: "status", defaultWidth: 100 },
+    { key: "lastSync", defaultWidth: 160 },
+    { key: "expand", defaultWidth: 40 },
+  ]);
   const [liveSearch, setLiveSearch] = useState("");
   const [liveSortKey, setLiveSortKey] = useState<string | null>(null);
   const [liveSortDir, setLiveSortDir] = useState<"asc" | "desc">("asc");
-  const liveResizeRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
 
-  const startLiveResize = useCallback((key: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    liveResizeRef.current = { key, startX: e.clientX, startWidth: liveColWidths[key] };
-    const onMove = (e: MouseEvent) => {
-      if (!liveResizeRef.current) return;
-      const { key, startX, startWidth } = liveResizeRef.current;
-      setLiveColWidths((p) => ({ ...p, [key]: Math.max(60, startWidth + e.clientX - startX) }));
-    };
-    const onUp = () => { liveResizeRef.current = null; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [liveColWidths]);
+  // Fast Channels table: resize
+  const fast = useColumnResize([
+    { key: "name", defaultWidth: 200 },
+    { key: "uri", defaultWidth: 460 },
+    { key: "status", defaultWidth: 110 },
+    { key: "expand", defaultWidth: 48 },
+  ]);
 
   const handleLiveSort = (key: string) => {
     if (liveSortKey === key) setLiveSortDir((d) => d === "asc" ? "desc" : "asc");
@@ -306,7 +307,7 @@ export default function DashboardPage() {
   type VodEntry = { _id: string; name?: string; status: string; finishedAt?: string };
   const vodColumns: ColumnDef<VodEntry>[] = [
     { key: "id", header: "ID", defaultWidth: 290, sortable: true, sortValue: (v) => v._id, render: (v) => <span className="font-mono text-[#8899A8]">{v._id}</span> },
-    { key: "name", header: "Name", defaultWidth: 240, sortable: true, sortValue: (v) => v.name ?? v._id, render: (v) => <span className="block truncate font-medium text-[#1C2434] dark:text-[#DEE4EE]">{v.name ?? v._id}</span> },
+    { key: "name", header: "Name", defaultWidth: 240, sortable: true, sortValue: (v) => v.name ?? v._id, render: (v) => <span {...bindText(v.name ?? v._id)} className="block truncate font-medium text-[#1C2434] dark:text-[#DEE4EE]">{v.name ?? v._id}</span> },
     { key: "status", header: "Status", defaultWidth: 110, sortable: true, sortValue: (v) => v.status, render: (v) => <Badge label={v.status} tone={vodStatusTone(v.status)} /> },
     { key: "manifest", header: "Manifest", defaultWidth: 100, sortable: true, sortValue: (v) => vodManifestResults[v._id] === true ? "0-ok" : vodManifestResults[v._id] === false ? "1-fail" : "2-pending", render: (v) => <VodManifestBadge id={v._id} encoder="bitmovin" originBase={vodOriginUrl} onResult={handleVodManifestResult} /> },
     { key: "finishedAt", header: "Finished At", defaultWidth: 140, sortable: true, sortValue: (v) => v.finishedAt ?? "", render: (v) => <span className="text-[#8899A8]">{v.finishedAt ? formatDate(v.finishedAt) : "—"}</span> },
@@ -339,23 +340,23 @@ export default function DashboardPage() {
               <div className="px-4 py-6 text-sm text-[#D34053]">Error al cargar los canales.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm" style={{ tableLayout: "fixed" }}>
+                <table ref={live.tableRef} className="text-sm" style={live.getTableStyle()}>
                   <colgroup>
-                    {(["channel", "status", "lastSync", "expand"] as const).map((k) => <col key={k} style={{ width: liveColWidths[k] }} />)}
+                    {(["channel", "status", "lastSync", "expand"] as const).map((k) => <col key={k} style={live.getColStyle(k)} />)}
                   </colgroup>
                   <thead className="border-b border-[#E2E8F0] bg-[#F7F9FC] text-[10px] font-semibold uppercase tracking-wide text-[#64748B] dark:border-[#2E3A47] dark:bg-[#1A222C]">
                     <tr>
                       {(["channel", "status", "lastSync"] as const).map((key) => (
-                        <th key={key} className="relative select-none px-4 py-3 text-left" style={{ width: liveColWidths[key] }}>
+                        <th key={key} className="relative select-none px-4 py-3 text-left" style={live.getColStyle(key)}>
                           <button onClick={() => handleLiveSort(key)} className="flex items-center gap-1 hover:text-[#1C2434] dark:hover:text-white">
                             {key === "channel" ? "Channel" : key === "status" ? "Status" : "Last sync"}
                             <span className="text-[#E2E8F0] dark:text-[#2E3A47]">{liveSortIcon(key)}</span>
                           </button>
-                          <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-500/30" onMouseDown={(e) => startLiveResize(key, e)} />
+                          <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-500/30" onMouseDown={(e) => live.startResize(key, e)} />
                         </th>
                       ))}
-                      <th className="relative px-4 py-3" style={{ width: liveColWidths.expand }}>
-                        <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-500/30" onMouseDown={(e) => startLiveResize("expand", e)} />
+                      <th className="relative px-4 py-3" style={live.getColStyle("expand")}>
+                        <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-500/30" onMouseDown={(e) => live.startResize("expand", e)} />
                       </th>
                     </tr>
                   </thead>
@@ -411,13 +412,21 @@ export default function DashboardPage() {
               <div className="px-4 py-6 text-sm text-[#D34053]">Error loading fast channels.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table ref={fast.tableRef} className="text-sm" style={fast.getTableStyle()}>
+                  <colgroup>
+                    {(["name", "uri", "status", "expand"] as const).map((k) => <col key={k} style={fast.getColStyle(k)} />)}
+                  </colgroup>
                   <thead className="border-b border-[#E2E8F0] bg-[#F7F9FC] text-[10px] font-semibold uppercase tracking-wide text-[#64748B] dark:border-[#2E3A47] dark:bg-[#1A222C]">
                     <tr>
-                      <th className="px-4 py-3 text-left">Name</th>
-                      <th className="px-4 py-3 text-left">URI</th>
-                      <th className="px-4 py-3 text-left">Status</th>
-                      <th className="px-4 py-3" />
+                      {(["name", "uri", "status"] as const).map((key) => (
+                        <th key={key} className="relative select-none px-4 py-3 text-left" style={fast.getColStyle(key)}>
+                          {key === "name" ? "Name" : key === "uri" ? "URI" : "Status"}
+                          <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-500/30" onMouseDown={(e) => fast.startResize(key, e)} />
+                        </th>
+                      ))}
+                      <th className="relative px-4 py-3" style={fast.getColStyle("expand")}>
+                        <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-500/30" onMouseDown={(e) => fast.startResize("expand", e)} />
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2E3A47]">
