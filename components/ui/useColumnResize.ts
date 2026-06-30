@@ -42,7 +42,7 @@ export function useColumnResize(columns: ResizeColumn[]) {
   /** Style for the `<table>`: keeps a definite width so fixed layout always applies. */
   const getTableStyle = useCallback((): React.CSSProperties => {
     const total = columns.reduce((sum, c) => sum + (widths[c.key] ?? 0), 0);
-    return { tableLayout: "fixed", width: resized ? total : "100%" };
+    return { tableLayout: "fixed", width: resized ? total : "100%", minWidth: "100%" };
   }, [resized, widths, columns]);
 
   const startResize = useCallback(

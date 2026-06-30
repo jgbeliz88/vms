@@ -15,18 +15,25 @@ import { Copy, Check } from "lucide-react";
 type Placement = "above" | "below";
 
 type PopoverState = {
-  path: string;
+  text: string;
+  /** "path" shows the "Manifest path" heading + copy button; "text" is a plain tooltip. */
+  kind: "path" | "text";
   left: number;
   anchorTop: number;
   anchorBottom: number;
   placement: Placement;
 };
 
+type Binder = (value: string) => {
+  onMouseEnter: (e: React.MouseEvent<HTMLElement>) => void;
+  onMouseLeave: () => void;
+};
+
 type ContextValue = {
-  bindPath: (url: string) => {
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => void;
-    onMouseLeave: () => void;
-  };
+  /** Bind a manifest URL — shown as a copyable path. */
+  bindPath: Binder;
+  /** Bind arbitrary text — shown as a plain tooltip (e.g. a full, truncated name). */
+  bindText: Binder;
 };
 
 const ManifestPathTooltipContext = createContext<ContextValue | null>(null);
@@ -74,25 +81,38 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
     }, 130);
   }, [clearHide]);
 
+  const show = useCallback(
+    (text: string, kind: PopoverState["kind"], e: React.MouseEvent<HTMLElement>) => {
+      if (!text) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      clearHide();
+      setCopied(false);
+      setPop({
+        text,
+        kind,
+        left: rect.left + rect.width / 2,
+        anchorTop: rect.top,
+        anchorBottom: rect.bottom,
+        placement: rect.top < 170 ? "below" : "above",
+      });
+    },
+    [clearHide]
+  );
+
   const bindPath = useCallback(
     (url: string) => ({
-      onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-        const path = toPath(url);
-        if (!path) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        clearHide();
-        setCopied(false);
-        setPop({
-          path,
-          left: rect.left + rect.width / 2,
-          anchorTop: rect.top,
-          anchorBottom: rect.bottom,
-          placement: rect.top < 170 ? "below" : "above",
-        });
-      },
+      onMouseEnter: (e: React.MouseEvent<HTMLElement>) => show(toPath(url), "path", e),
       onMouseLeave: scheduleHide,
     }),
-    [clearHide, scheduleHide]
+    [show, scheduleHide]
+  );
+
+  const bindText = useCallback(
+    (value: string) => ({
+      onMouseEnter: (e: React.MouseEvent<HTMLElement>) => show(value.trim(), "text", e),
+      onMouseLeave: scheduleHide,
+    }),
+    [show, scheduleHide]
   );
 
   const fallbackCopy = useCallback((text: string) => {
@@ -112,7 +132,7 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
   }, []);
 
   const handleCopy = useCallback(() => {
-    const path = pop?.path;
+    const path = pop?.text;
     if (!path) return;
     const done = () => {
       setCopied(true);
@@ -138,7 +158,7 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
     }
   }, [pop, fallbackCopy]);
 
-  const value = useMemo(() => ({ bindPath }), [bindPath]);
+  const value = useMemo(() => ({ bindPath, bindText }), [bindPath, bindText]);
 
   const isAbove = pop?.placement === "above";
 
@@ -161,31 +181,39 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
             role="tooltip"
           >
             <div className="relative w-max rounded-lg bg-[#1C2434] px-3 py-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.32)]">
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-[#8899A8]">
-                Manifest path
-              </div>
-              <div className="flex items-start gap-2.5">
-                <code className="max-w-[340px] select-all break-all font-mono text-xs leading-relaxed text-[#E2E8F0]">
-                  {pop.path}
-                </code>
-                <button
-                  onClick={handleCopy}
-                  title="Copy to clipboard"
-                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-[#3A4656] bg-[#24303F] px-2 py-1 text-[11px] font-semibold text-[#DEE4EE] transition-colors hover:bg-[#2E3A47]"
-                >
-                  {copied ? (
-                    <>
-                      <Check size={13} className="text-[#4ADE80]" />
-                      <span className="text-[#4ADE80]">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={13} />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              {pop.kind === "path" ? (
+                <>
+                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-[#8899A8]">
+                    Manifest path
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <code className="max-w-[340px] select-all break-all font-mono text-xs leading-relaxed text-[#E2E8F0]">
+                      {pop.text}
+                    </code>
+                    <button
+                      onClick={handleCopy}
+                      title="Copy to clipboard"
+                      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-[#3A4656] bg-[#24303F] px-2 py-1 text-[11px] font-semibold text-[#DEE4EE] transition-colors hover:bg-[#2E3A47]"
+                    >
+                      {copied ? (
+                        <>
+                          <Check size={13} className="text-[#4ADE80]" />
+                          <span className="text-[#4ADE80]">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={13} />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="max-w-md break-all text-xs leading-relaxed text-[#E2E8F0]">
+                  {pop.text}
+                </div>
+              )}
               <div
                 className="absolute left-1/2 h-2.5 w-2.5 rotate-45 bg-[#1C2434]"
                 style={isAbove ? { bottom: -5, transform: "translateX(-50%) rotate(45deg)" } : { top: -5, transform: "translateX(-50%) rotate(45deg)" }}

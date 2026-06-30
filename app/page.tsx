@@ -259,6 +259,8 @@ export default function DashboardPage() {
   const originLiveUrl = vmsSettings?.origin.live ?? "";
   const vodOriginUrl = vmsSettings?.origin.vod ?? "";
 
+  const { bindText } = useManifestPathTooltip();
+
   // VOD manifest results for sorting
   const [vodManifestResults, setVodManifestResults] = useState<Record<string, boolean | null>>({});
   const handleVodManifestResult = useCallback((id: string, ok: boolean | null) => {
@@ -305,7 +307,7 @@ export default function DashboardPage() {
   type VodEntry = { _id: string; name?: string; status: string; finishedAt?: string };
   const vodColumns: ColumnDef<VodEntry>[] = [
     { key: "id", header: "ID", defaultWidth: 290, sortable: true, sortValue: (v) => v._id, render: (v) => <span className="font-mono text-[#8899A8]">{v._id}</span> },
-    { key: "name", header: "Name", defaultWidth: 240, sortable: true, sortValue: (v) => v.name ?? v._id, render: (v) => <span title={v.name ?? v._id} className="block truncate font-medium text-[#1C2434] dark:text-[#DEE4EE]">{v.name ?? v._id}</span> },
+    { key: "name", header: "Name", defaultWidth: 240, sortable: true, sortValue: (v) => v.name ?? v._id, render: (v) => <span {...bindText(v.name ?? v._id)} className="block truncate font-medium text-[#1C2434] dark:text-[#DEE4EE]">{v.name ?? v._id}</span> },
     { key: "status", header: "Status", defaultWidth: 110, sortable: true, sortValue: (v) => v.status, render: (v) => <Badge label={v.status} tone={vodStatusTone(v.status)} /> },
     { key: "manifest", header: "Manifest", defaultWidth: 100, sortable: true, sortValue: (v) => vodManifestResults[v._id] === true ? "0-ok" : vodManifestResults[v._id] === false ? "1-fail" : "2-pending", render: (v) => <VodManifestBadge id={v._id} encoder="bitmovin" originBase={vodOriginUrl} onResult={handleVodManifestResult} /> },
     { key: "finishedAt", header: "Finished At", defaultWidth: 140, sortable: true, sortValue: (v) => v.finishedAt ?? "", render: (v) => <span className="text-[#8899A8]">{v.finishedAt ? formatDate(v.finishedAt) : "—"}</span> },
