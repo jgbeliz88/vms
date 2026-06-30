@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vms
+  labels:
+    app: vms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vms
+  template:
+    metadata:
+      labels:
+        app: vms
+    spec:
+      serviceAccountName: vms
+      containers:
+      - name: vms
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        image: euwestmeswebacr.azurecr.io/vms:$TAG
+        ports:
+        - containerPort: 3000
+        livenessProbe:
+          httpGet:
+            path: /api/status-simple
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 2
+          failureThreshold: 12
+        startupProbe:
+          httpGet:
+            path: /api/status-complete
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 2
+          failureThreshold: 12
+        envFrom:
+        - configMapRef:
+            name: configuration
+        - secretRef:
+            name: admincreds
+        volumeMounts:
+          - name: 'vms-vault'
+            mountPath: '/mnt/secrets-store'
+            readOnly: true        
+      nodeSelector:
+        mds/role: APPS
+      volumes:
+      - name: vms-vault
+        csi:
+          driver: 'secrets-store.csi.k8s.io'
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: 'vms-vault'
+

@@ -5,8 +5,9 @@ namespace: vms
 resources:
 - 00-vault.yaml
 - 01-dep.yaml
-- 02-service.yaml
-- 03-gateway.yaml
+- 02-hpa.yaml
+- 03-service.yaml
+- 04-gateway.yaml
 
 configMapGenerator:
 - name: configuration
