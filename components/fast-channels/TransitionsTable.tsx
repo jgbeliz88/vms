@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { useDeleteFastChannelTransition } from "@/features/fast-channels/hooks";
 import type { FastChannelTransitions } from "@/features/fast-channels/types";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 
 function statusTone(status: string) {
   const s = status.toLowerCase();
@@ -44,7 +44,7 @@ export function TransitionsTable({
   channelName: string;
   transitions: FastChannelTransitions;
 }) {
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.FC_MANAGE_TRANSITIONS]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const deleteMutation = useDeleteFastChannelTransition();
 

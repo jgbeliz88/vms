@@ -13,8 +13,9 @@ import { ChannelCommands } from "./ChannelCommands";
 import { useUpdateChannelMetadata, useChannelDetailStatus } from "@/features/live/hooks";
 import type { ChannelDetailSection } from "@/features/live/hooks";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { useToast } from "@/components/ui/Toast";
+import { useManifestPathTooltip } from "@/components/ui/ManifestPathTooltip";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
 import type { ConfigLayout } from "@/features/live/hooks";
 import type { MediaexcelChannel } from "@/features/live/types";
@@ -34,6 +35,7 @@ function StatusCard({
   isError: boolean;
   expanded: boolean;
 }) {
+  const { bindPath } = useManifestPathTooltip();
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950">
       <div className="text-slate-500">{label}</div>
@@ -59,10 +61,11 @@ function StatusCard({
                 {pod.manifests.map((m) => (
                   <div
                     key={m.url}
-                    className={`rounded-lg border px-2 py-1.5 ${
+                    {...bindPath(m.url)}
+                    className={`cursor-pointer rounded-lg border px-2 py-1.5 transition-shadow hover:ring-2 ${
                       m.ok
-                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-700/40 dark:bg-emerald-900/20"
-                        : "border-red-200 bg-red-50 dark:border-red-700/40 dark:bg-red-900/20"
+                        ? "border-emerald-200 bg-emerald-50 hover:ring-emerald-500/45 dark:border-emerald-700/40 dark:bg-emerald-900/20"
+                        : "border-red-200 bg-red-50 hover:ring-red-500/45 dark:border-red-700/40 dark:bg-red-900/20"
                     }`}
                   >
                     <div className="font-medium text-slate-700 dark:text-slate-200">{m.label}</div>
@@ -102,7 +105,7 @@ export function ChannelDetail({
   onDeleteLinear?: (pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod?: (pod: ResolvedPod, linearName: string | null) => Promise<void>;
 }) {
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.LIVE_MANAGE_CHANNELS]);
   const updateMetadata = useUpdateChannelMetadata();
   const { notify } = useToast();
   const { data: settings } = useVmsSettingsQuery();
@@ -157,11 +160,15 @@ export function ChannelDetail({
     }
   };
 
+  // Non-DRM linears have no DRM manifests, so the "Origin (DRM)" card is hidden and
+  // ignored in the overall status when the channel has no DRM linears.
+  const hasDrm = channel.pods.some((p) => p.linear != null && p.linear.drm !== 0);
+
   const overallOk =
     !statusQuery.isError &&
     !statusQuery.isLoading &&
     statusQuery.data?.origin.ok === true &&
-    statusQuery.data?.originDrm.ok === true &&
+    (!hasDrm || statusQuery.data?.originDrm.ok === true) &&
     statusQuery.data?.cdn.ok === true;
 
   return (
@@ -239,7 +246,7 @@ export function ChannelDetail({
         {!originBaseUrl || !cdnBaseUrl ? (
           <p className="mt-3 text-xs text-slate-400">Configure origin and CDN URLs in Settings to enable status checks.</p>
         ) : (
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className={`mt-3 grid gap-3 ${hasDrm ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <StatusCard
               label="Origin"
               section={statusQuery.data?.origin}
@@ -247,13 +254,15 @@ export function ChannelDetail({
               isError={statusQuery.isError}
               expanded={statusExpanded}
             />
-            <StatusCard
-              label="Origin (DRM)"
-              section={statusQuery.data?.originDrm}
-              isLoading={statusQuery.isLoading}
-              isError={statusQuery.isError}
-              expanded={statusExpanded}
-            />
+            {hasDrm && (
+              <StatusCard
+                label="Origin (DRM)"
+                section={statusQuery.data?.originDrm}
+                isLoading={statusQuery.isLoading}
+                isError={statusQuery.isError}
+                expanded={statusExpanded}
+              />
+            )}
             <StatusCard
               label="CDN"
               section={statusQuery.data?.cdn}

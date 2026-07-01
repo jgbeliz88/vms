@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { FastChannelPlaybackPanel } from "./FastChannelPlaybackPanel";
 import { FastChannelActions } from "./FastChannelActions";
 import { TransitionsTable } from "./TransitionsTable";
@@ -39,7 +39,8 @@ export function FastChannelTable({
   channels: FastChannel[];
   onDelete?: (name: string) => void;
 }) {
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.FC_MANAGE_CHANNELS]);
+  const canManageTransitions = usePermission([PERMISSIONS.FC_MANAGE_TRANSITIONS]);
   const [filters, setFilters] = useState<Filters>({ name: "", uri: "" });
   const [expandedName, setExpandedName] = useState<string | null>(null);
 
@@ -148,7 +149,7 @@ export function FastChannelTable({
                           <td colSpan={3} className="bg-slate-50 px-4 py-4 dark:bg-slate-950">
                             <div className="space-y-4">
                               <FastChannelPlaybackPanel channelName={ch.name} />
-                              {canAdmin && (
+                              {canManageTransitions && (
                                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
                                   <div className="flex items-center justify-between border-b border-border-base px-5 py-3.5 dark:border-slate-800">
                                     <div className="flex items-center gap-2">

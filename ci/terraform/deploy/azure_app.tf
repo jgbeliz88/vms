@@ -141,17 +141,25 @@ locals {
 variable "roles_y_acciones" {
   type = map(list(string))
   default = {
-    viewer    = ["viewer"]
-    operator   = ["viewer", "operator"]
-    admin    = ["viewer", "operator", "admin"]
+    viewer    = ["vms_access_app","viewer"]
+    operator   = ["vms_access_app", "vms_linear_actions", "vms_vod_actions", "viewer", "operator"]
+    admin    = ["vms_access_app", "vms_linear_actions", "vms_vod_actions", "vms_live_manage_channels", "vms_live_manage_linears", "vms_fc_manage_channels", "vms_fc_manage_transitions", "vms_settings_page", "viewer", "operator", "admin"]
   }
 }
 
 locals {
   roles_uuids = {
-    "viewer"        = "b1d3c8a1-f2e4-4cbb-8a23-1f2d12345678"
-    "operator"      = "9c1744ec-5b45-4c56-9e6e-2f32456789ab"
-    "admin"         = "a72e4cbd-d8a3-46f8-b6ee-3d78456789ac"
+    "viewer"                    = "b1d3c8a1-f2e4-4cbb-8a23-1f2d12345678"
+    "operator"                  = "9c1744ec-5b45-4c56-9e6e-2f32456789ab"
+    "admin"                     = "a72e4cbd-d8a3-46f8-b6ee-3d78456789ac"
+    "vms_access_app"            = "c1e2f3d4-5a6b-7c8d-9e0f-1a2b3456789d"
+    "vms_linear_actions"        = "d1e2f3d4-5a6b-7c8d-9e0f-1a2b3456789e"
+    "vms_vod_actions"           = "e137f3d4-5a6b-7c8d-9e0f-1a2b34567891"
+    "vms_live_manage_channels"  = "f1e2f3d4-5a6b-7c8d-9e0f-1a2b34567892"
+    "vms_live_manage_linears"   = "a1e2f3d4-5a6b-7c8d-9e0f-1a2b34567893"
+    "vms_fc_manage_channels"    = "c1e2f3d4-5a6b-7c8d-9e0f-1a2b34567894"
+    "vms_fc_manage_transitions" = "d1e2f3d4-5a6b-7c8d-9e0f-1a2b34567895"
+    "vms_settings_page"         = "e1e2f3d4-5a6b-7c8d-9e0f-1a2b34567896"
   }
 
   app_roles = {
@@ -166,6 +174,42 @@ locals {
     admin = {
       description = "Permite realizar la acción admin"
       value       = "admin"
+    }
+    vms_access_app = {
+      description = "Permite realizar la acción vms_access_app"
+      value       = "vms_access_app"
+    }
+    vms_linear_actions = {
+      description = "Permite realizar la acción vms_linear_actions"
+      value       = "vms_linear_actions"
+    }
+    vms_vod_actions = {
+      description = "Permite realizar la acción vms_vod_actions"
+      value       = "vms_vod_actions"
+    }
+    vms_live_manage_channels = {
+      description = "Permite realizar la acción vms_live_manage_channels"
+      value       = "vms_live_manage_channels"
+    }
+    vms_live_manage_linears = {
+      description = "Permite realizar la acción vms_live_manage_linears"
+      value       = "vms_live_manage_linears"
+    }
+    vms_vod_actions = {
+      description = "Permite realizar la acción vms_vod_actions"
+      value       = "vms_vod_actions"
+    }
+    vms_fc_manage_channels = {
+      description = "Permite realizar la acción vms_fc_manage_channels"
+      value       = "vms_fc_manage_channels"
+    }
+    vms_fc_manage_transitions = {
+      description = "Permite realizar la acción vms_fc_manage_transitions"
+      value       = "vms_fc_manage_transitions"
+    }
+    vms_settings_page = {
+      description = "Permite realizar la acción vms_settings_page"
+      value       = "vms_settings_page"
     }
   }
 }
@@ -244,38 +288,38 @@ locals {
     pre = {
       "G_AZ_VMS_viewer" = {
         descripcion = "Acceso Viewer al entorno VMS."
-        roles       = ["viewer"]
+        roles       = var.roles_y_acciones.viewer
       },
-      G_AZ_VMS_operator = {
+      "G_AZ_VMS_operator" = {
         descripcion = "Acceso Operator al entorno VMS."
-        roles       = ["viewer", "operator"]
+        roles       = var.roles_y_acciones.operator
       },
-      G_AZ_VMS_admin = {
+      "G_AZ_VMS_admin" = {
         descripcion = "Acceso Admin al entorno VMS."
-        roles       = ["viewer", "operator", "admin"]
+        roles       = var.roles_y_acciones.admin
       },
       "T1-Operators_Multiplataforma" = {
         descripcion = "Acceso total a todas las categorías y funcionalidades."
-        roles       = ["admin", "operator", "viewer"]
+        roles       = var.roles_y_acciones.admin
       }
     }
 
     pro = {
-      "G_AZ_VMS_admin" = {
-        descripcion = "Acceso total a todas las categorías y funcionalidades productivas."
-        roles       = ["admin", "viewer", "operator"]
-      },
       "G_AZ_VMS_viewer" = {
         descripcion = "Permite únicamente la visualización de la actividad dentro del entorno VMS."
-        roles       = ["viewer"]
+        roles       = var.roles_y_acciones.viewer
       },
       "G_AZ_VMS_operator" = {
         descripcion = "Permite la visualización de la actividad y las métricas en el entorno VMS."
-        roles       = ["viewer", "operator"]
+        roles       = var.roles_y_acciones.operator
+      },
+      "G_AZ_VMS_admin" = {
+        descripcion = "Acceso total a todas las categorías y funcionalidades productivas."
+        roles       = var.roles_y_acciones.admin
       },
       "T1-Operators_Multiplataforma" = {
         descripcion = "Acceso total a todas las categorías y funcionalidades."
-        roles       = ["admin", "operator", "viewer"]
+        roles       = var.roles_y_acciones.admin
       }
     }
   }
@@ -336,9 +380,5 @@ resource "azuread_application_password" "client_secret" {
   }
 }
 
-# para saber el valor del client secret, ejecutar terraform apply y luego terraform output client_secret
-
-# output "client_secret" {
-#   value     = azuread_application_password.client_secret.value
-#   sensitive = true
-# }
+# para saber el valor del client secret, ejecutar terraform console y luego:
+# nonsensitive(azuread_application_password.client_secret.value)

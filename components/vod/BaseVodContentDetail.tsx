@@ -5,6 +5,7 @@ import { VodPlaybackPanel } from "@/components/vod/VodPlaybackPanel";
 
 type Props = {
   actionsPanel?: ReactNode;
+  configPanel?: ReactNode;
   infoChildren: ReactNode;
   editControls?: ReactNode;
   statusBadge: ReactNode;
@@ -16,6 +17,7 @@ type Props = {
 
 export function BaseVodContentDetail({
   actionsPanel,
+  configPanel,
   infoChildren,
   editControls,
   statusBadge,
@@ -27,6 +29,8 @@ export function BaseVodContentDetail({
   return (
     <div className="space-y-4">
       {actionsPanel}
+
+      {configPanel}
 
       {/* Content Information */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

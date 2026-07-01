@@ -7,9 +7,9 @@ import {
   Radio,
   Film,
   Tv2,
+  Boxes,
   Settings,
   LogOut,
-  Bell,
   Menu,
   Sun,
   Moon,
@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { EnvironmentSelector } from "@/components/EnvironmentSelector";
 import { useSession } from "@/lib/session/provider";
-import { hasRole, ROLES, type Role } from "@/lib/auth/permissions";
+import { hasPermission, PERMISSIONS, type Permission } from "@/lib/auth/permissions";
 import { useState, useEffect } from "react";
 import { getDarkMode } from "@/lib/storage/settings";
 import { toggleDarkMode } from "@/components/ThemeProvider";
@@ -26,7 +26,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: React.ElementType;
-  allowedRoles?: Role[];
+  allowedPermissions?: Permission[];
 };
 
 const navItems: NavItem[] = [
@@ -34,7 +34,8 @@ const navItems: NavItem[] = [
   { href: "/live", label: "Live", icon: Radio },
   { href: "/vod", label: "VOD", icon: Film },
   { href: "/fast-channels", label: "Fast Channels", icon: Tv2 },
-  { href: "/settings", label: "Settings", icon: Settings, allowedRoles: [ROLES.ADMIN] },
+  { href: "/cdn-tokens", label: "CDN", icon: Boxes },
+  { href: "/settings", label: "Settings", icon: Settings, allowedPermissions: [PERMISSIONS.SETTINGS_PAGE] },
 ];
 
 function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -78,7 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const visibleNavItems = navItems.filter(
-    (item) => !item.allowedRoles || hasRole(user, item.allowedRoles)
+    (item) => !item.allowedPermissions || hasPermission(user, item.allowedPermissions)
   );
 
   const currentPage = navItems.find((item) => item.href === pathname)?.label ?? "Overview";
@@ -172,12 +173,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="Toggle dark mode"
             >
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button
-              className="relative rounded-full p-2 text-[#637381] hover:bg-[#F1F5F9] dark:hover:bg-[#1A222C]"
-              aria-label="Notifications"
-            >
-              <Bell size={18} />
             </button>
             {user && (
               <span className="hidden text-sm font-medium text-[#1C2434] dark:text-white sm:block">

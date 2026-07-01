@@ -28,6 +28,7 @@ type AudioTrack = {
 type StreamPlayerProps = {
   url: string;
   format: "hls" | "dash" | "smooth";
+  cdnToken?: string;
   onAdEvent?: (event: AdEvent) => void;
   onBufferUpdate?: (stats: BufferStats) => void;
 };
@@ -71,7 +72,7 @@ function parseId3Txxx(bytes: Uint8Array): string | null {
   return results.length > 0 ? results.join(", ") : null;
 }
 
-export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamPlayerProps) {
+export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hlsRef = useRef<any>(null);
@@ -98,6 +99,10 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
     let hlsInstance: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let dashInstance: any;
+    // Guards the async dynamic imports below: if the effect is cleaned up
+    // (URL/CDN switch, unmount, StrictMode remount) before import() resolves,
+    // we must not create an orphaned player that keeps polling the old URL.
+    let cancelled = false;
     const seenDateRanges = new Set<string>();
     const seenCueTags = new Set<string>();
 
@@ -140,8 +145,14 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
 
     const setupHls = async () => {
       const { default: Hls } = await import("hls.js");
+      if (cancelled) return;
       if (Hls.isSupported()) {
-        hlsInstance = new Hls();
+        hlsInstance = new Hls(cdnToken ? {
+          xhrSetup: (xhr: XMLHttpRequest, reqUrl: string) => {
+            const sep = reqUrl.includes("?") ? "&" : "?";
+            xhr.open("GET", `${reqUrl}${sep}${cdnToken}`, true);
+          },
+        } : {});
         hlsRef.current = hlsInstance;
         hlsInstance.loadSource(url);
         hlsInstance.attachMedia(video);
@@ -256,7 +267,7 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
           }
         });
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = url;
+        video.src = cdnToken ? `${url}?${cdnToken}` : url;
       } else {
         setError("HLS is not supported in this browser.");
       }
@@ -264,8 +275,22 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
 
     const setupDash = async () => {
       const dashjs = await import("dashjs");
+      if (cancelled) return;
       dashInstance = dashjs.MediaPlayer().create();
       dashRef.current = dashInstance;
+      if (cdnToken) {
+        const token = cdnToken;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dashInstance.extend("RequestModifier", function () {
+          return {
+            modifyRequestURL: (reqUrl: string) => {
+              const sep = reqUrl.includes("?") ? "&" : "?";
+              return `${reqUrl}${sep}${token}`;
+            },
+            modifyRequestHeader: (xhr: XMLHttpRequest) => xhr,
+          };
+        }, true);
+      }
       dashInstance.initialize(video, url, true);
 
       const scteSchemes = [
@@ -350,6 +375,7 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
     }
 
     return () => {
+      cancelled = true;
       clearInterval(bufferInterval);
       if (hlsInstance) {
         hlsInstance.destroy();
@@ -360,7 +386,7 @@ export function StreamPlayer({ url, format, onAdEvent, onBufferUpdate }: StreamP
         dashRef.current = null;
       }
     };
-  }, [url, format, onAdEvent, onBufferUpdate]);
+  }, [url, format, cdnToken, onAdEvent, onBufferUpdate]);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-black/90 p-3 dark:border-slate-700">

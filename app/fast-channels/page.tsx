@@ -14,10 +14,10 @@ import {
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 
 export default function FastChannelsPage() {
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.FC_MANAGE_CHANNELS]);
   const { notify } = useToast();
   const { data: channels, isLoading, isError } = useFastChannelsQuery();
   const createChannel = useCreateFastChannel();

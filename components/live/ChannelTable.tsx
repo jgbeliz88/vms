@@ -8,7 +8,7 @@ import { StatusPill } from "./StatusPill";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { ChannelDetail } from "./ChannelDetail";
 import { ChannelConfigReadOnlyTable } from "./ChannelConfigReadOnlyTable";
 import { deriveOverallStatus, deriveStatusParts } from "@/features/live/status";
@@ -51,7 +51,7 @@ export function ChannelTable({
   onDeleteLinear?: (channelId: number, pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod?: (channelId: number, pod: ResolvedPod, linearName: string | null) => Promise<void>;
 }) {
-  const canAdmin = usePermission([ROLES.ADMIN]);
+  const canAdmin = usePermission([PERMISSIONS.LIVE_MANAGE_CHANNELS]);
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedConfigId, setExpandedConfigId] = useState<number | null>(null);

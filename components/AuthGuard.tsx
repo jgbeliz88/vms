@@ -3,16 +3,16 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { hasRole, ROLES, type Role } from "@/lib/auth/permissions";
+import { hasPermission, PERMISSIONS, type Permission } from "@/lib/auth/permissions";
 import { NoPermission } from "@/components/NoPermission";
 import type { EntraSession } from "@/lib/session/types";
 
 export function AuthGuard({
   children,
-  allowedRoles = [ROLES.VIEWER],
+  allowedPermissions = [PERMISSIONS.ACCESS_APP],
 }: {
   children: React.ReactNode;
-  allowedRoles?: Role[];
+  allowedPermissions?: Permission[];
 }) {
   const router = useRouter();
   const { data, status } = useSession();
@@ -27,9 +27,9 @@ export function AuthGuard({
 
   if (status === "loading" || status === "unauthenticated") return null;
 
-  if (allowedRoles && session && !hasRole(
+  if (allowedPermissions && session && !hasPermission(
     { oid: session.user.oid, name: session.user.name, email: session.user.email, roles: session.user.roles },
-    allowedRoles
+    allowedPermissions
   )) {
     return <NoPermission />;
   }

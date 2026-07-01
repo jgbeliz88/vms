@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ManifestPathTooltipProvider } from "@/components/ui/ManifestPathTooltip";
 import { SessionProvider } from "@/lib/session/provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
           <ThemeProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <ManifestPathTooltipProvider>{children}</ManifestPathTooltipProvider>
+            </ToastProvider>
           </ThemeProvider>
           {process.env.NODE_ENV === "development" ? <ReactQueryDevtools /> : null}
         </SessionProvider>

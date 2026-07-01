@@ -6,7 +6,7 @@ import { channelActions } from "@/features/live/config";
 import { useBatchLinearSync, useBatchLinearClean, useSendLinearAdEvent } from "@/features/live/hooks";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/lib/auth/usePermission";
-import { ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
@@ -632,7 +632,7 @@ function AdReplacementRow({
 // ── ChannelCommands ───────────────────────────────────────────────────────────
 
 export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
-  const canOperate = usePermission([ROLES.ADMIN]);
+  const canOperate = usePermission([PERMISSIONS.LINEAR_ACTIONS]);
   const batchSync = useBatchLinearSync();
   const batchClean = useBatchLinearClean();
   const { notify } = useToast();

@@ -46,3 +46,34 @@ export type VodContent = {
   }[];
   subtitles?: { lang: string; url?: string }[];
 };
+
+/**
+ * A row of the shared VOD configuration table. Unlike Live, this config is global —
+ * the same collection is read/written by every VOD's detail view.
+ *
+ * `platform` and `device` are always present (they identify the row). The remaining
+ * fields are UI strings: booleans coming from the backend (`drm`, `subt`, `multiaudio`,
+ * `drLecter`) are surfaced as "Yes" / "No" / "" so they can reuse the shared Yes/No
+ * dropdown options and the N/A rendering. Empty string means N/A.
+ */
+export type VodConfigRow = {
+  platform: string;
+  device: string;
+  format?: string;
+  drm?: string;
+  token?: string;
+  subt?: string;
+  multiaudio?: string;
+  drLecter?: string;
+};
+
+export const VOD_CONFIG_COLUMNS: { key: keyof VodConfigRow; label: string }[] = [
+  { key: "platform",   label: "Platform"  },
+  { key: "device",     label: "Device"    },
+  { key: "format",     label: "Format"    },
+  { key: "drm",        label: "DRM"       },
+  { key: "token",      label: "Token"     },
+  { key: "subt",       label: "Subt"      },
+  { key: "multiaudio", label: "Multiaudio"},
+  { key: "drLecter",   label: "Dr Lecter" },
+];

@@ -2,13 +2,13 @@
 
 import { useSession } from "@/lib/session/provider";
 
-export function NoPermission() {
+export function NoPermission({ message = "You don't have permission to view this page." }: { message?: string }) {
   const { logout } = useSession();
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 dark:bg-slate-950">
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        You don&apos;t have permission to view this page.
+        {message}
       </p>
       <button
         onClick={logout}
