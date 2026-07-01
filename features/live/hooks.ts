@@ -252,7 +252,7 @@ export type ChannelDetailStatusResult = {
 
 export function useChannelDetailStatus(
   channelId: number,
-  pods: { name: string; linear: { linearName: string | null } | null }[],
+  pods: { name: string; linear: { linearName: string | null; drm: number | null } | null }[],
   originBaseUrl: string,
   cdnBaseUrl: string
 ) {
@@ -260,10 +260,10 @@ export function useChannelDetailStatus(
     queryKey: queryKeys.channelDetailStatus(String(channelId)),
     queryFn: async (): Promise<ChannelDetailStatusResult> => {
       const podsWithLinear = pods
-        .filter((p): p is typeof p & { linear: { linearName: string } } =>
+        .filter((p): p is typeof p & { linear: { linearName: string; drm: number | null } } =>
           p.linear !== null && p.linear.linearName !== null
         )
-        .map((p) => ({ podName: p.name, linearName: p.linear.linearName }));
+        .map((p) => ({ podName: p.name, linearName: p.linear.linearName, drm: p.linear.drm }));
       const res = await fetch("/api/live/channel-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -278,15 +278,15 @@ export function useChannelDetailStatus(
 
 export function useChannelManifestStatus(
   channelId: number,
-  pods: { name: string; linear: { linearName: string | null } | null }[],
+  pods: { name: string; linear: { linearName: string | null; drm: number | null } | null }[],
   originBaseUrl: string
 ) {
   return useQuery({
     queryKey: queryKeys.manifestStatus(String(channelId), originBaseUrl),
     queryFn: async (): Promise<ManifestStatusResult> => {
       const podsWithLinear = pods
-        .filter((p): p is typeof p & { linear: { linearName: string } } => p.linear !== null && p.linear.linearName !== null)
-        .map((p) => ({ podName: p.name, linearName: p.linear.linearName }));
+        .filter((p): p is typeof p & { linear: { linearName: string; drm: number | null } } => p.linear !== null && p.linear.linearName !== null)
+        .map((p) => ({ podName: p.name, linearName: p.linear.linearName, drm: p.linear.drm }));
       const uniquePods = Array.from(new Map(podsWithLinear.map((p) => [p.podName, p])).values());
       const response = await fetch("/api/live/manifest-status", {
         method: "POST",

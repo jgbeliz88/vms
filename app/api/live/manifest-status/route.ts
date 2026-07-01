@@ -6,14 +6,19 @@ import { logInfo, logError } from "@/app/api/_lib/logger";
 const LOG_NAME = "app.api.live.manifest-status.route";
 
 const requestSchema = z.object({
-  pods: z.array(z.object({ podName: z.string().min(1), linearName: z.string().min(1) })),
+  pods: z.array(
+    z.object({ podName: z.string().min(1), linearName: z.string().min(1), drm: z.number().nullable() })
+  ),
   originBaseUrl: z.string().url()
 });
 
-const MANIFEST_TYPES = [
+const MAIN_MANIFEST_TYPES = [
   { label: "HLS", path: () => `main/main.isml/.m3u8` },
+  { label: "DASH", path: () => `main/main.isml/.mpd` }
+] as const;
+
+const DRM_MANIFEST_TYPES = [
   { label: "HLS DRM", path: () => `hls-fairplay/hls-fairplay.isml/.m3u8` },
-  { label: "DASH", path: () => `main/main.isml/.mpd` },
   { label: "DASH DRM", path: () => `mpd-cenc/mpd-cenc.isml/.mpd` }
 ] as const;
 
@@ -31,10 +36,12 @@ export async function POST(request: Request) {
   const uniquePods = Array.from(new Map(pods.map((p) => [p.podName, p])).values());
 
   const podResults = await Promise.all(
-    uniquePods.map(async ({ podName, linearName }) => {
+    uniquePods.map(async ({ podName, linearName, drm }) => {
       const base = `${originBaseUrl}/${podName}/live/${linearName}`;
+      // Non-DRM linears have no DRM manifests — checking them always fails, so skip.
+      const manifestTypes = drm === 0 ? MAIN_MANIFEST_TYPES : [...MAIN_MANIFEST_TYPES, ...DRM_MANIFEST_TYPES];
       const manifests = await Promise.all(
-        MANIFEST_TYPES.map(({ label, path }) => {
+        manifestTypes.map(({ label, path }) => {
           const url = `${base}/${path()}`;
           return fetchCheck(url).then((r) => ({ label, ...r }));
         })
