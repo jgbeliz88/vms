@@ -160,11 +160,15 @@ export function ChannelDetail({
     }
   };
 
+  // Non-DRM linears have no DRM manifests, so the "Origin (DRM)" card is hidden and
+  // ignored in the overall status when the channel has no DRM linears.
+  const hasDrm = channel.pods.some((p) => p.linear != null && p.linear.drm !== 0);
+
   const overallOk =
     !statusQuery.isError &&
     !statusQuery.isLoading &&
     statusQuery.data?.origin.ok === true &&
-    statusQuery.data?.originDrm.ok === true &&
+    (!hasDrm || statusQuery.data?.originDrm.ok === true) &&
     statusQuery.data?.cdn.ok === true;
 
   return (
@@ -242,7 +246,7 @@ export function ChannelDetail({
         {!originBaseUrl || !cdnBaseUrl ? (
           <p className="mt-3 text-xs text-slate-400">Configure origin and CDN URLs in Settings to enable status checks.</p>
         ) : (
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className={`mt-3 grid gap-3 ${hasDrm ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <StatusCard
               label="Origin"
               section={statusQuery.data?.origin}
@@ -250,13 +254,15 @@ export function ChannelDetail({
               isError={statusQuery.isError}
               expanded={statusExpanded}
             />
-            <StatusCard
-              label="Origin (DRM)"
-              section={statusQuery.data?.originDrm}
-              isLoading={statusQuery.isLoading}
-              isError={statusQuery.isError}
-              expanded={statusExpanded}
-            />
+            {hasDrm && (
+              <StatusCard
+                label="Origin (DRM)"
+                section={statusQuery.data?.originDrm}
+                isLoading={statusQuery.isLoading}
+                isError={statusQuery.isError}
+                expanded={statusExpanded}
+              />
+            )}
             <StatusCard
               label="CDN"
               section={statusQuery.data?.cdn}
