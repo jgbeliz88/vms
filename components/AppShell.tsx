@@ -10,7 +10,6 @@ import {
   Boxes,
   Settings,
   LogOut,
-  Bell,
   Menu,
   Sun,
   Moon,
@@ -174,12 +173,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="Toggle dark mode"
             >
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button
-              className="relative rounded-full p-2 text-[#637381] hover:bg-[#F1F5F9] dark:hover:bg-[#1A222C]"
-              aria-label="Notifications"
-            >
-              <Bell size={18} />
             </button>
             {user && (
               <span className="hidden text-sm font-medium text-[#1C2434] dark:text-white sm:block">
