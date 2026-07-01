@@ -305,21 +305,21 @@ locals {
     }
 
     pro = {
-      "G_AZ_VMS_admin" = {
-        descripcion = "Acceso total a todas las categorías y funcionalidades productivas."
-        roles       = ["admin", "viewer", "operator"]
-      },
       "G_AZ_VMS_viewer" = {
         descripcion = "Permite únicamente la visualización de la actividad dentro del entorno VMS."
-        roles       = ["viewer"]
+        roles       = var.roles_y_acciones.viewer
       },
       "G_AZ_VMS_operator" = {
         descripcion = "Permite la visualización de la actividad y las métricas en el entorno VMS."
-        roles       = ["viewer", "operator"]
+        roles       = var.roles_y_acciones.operator
+      },
+      "G_AZ_VMS_admin" = {
+        descripcion = "Acceso total a todas las categorías y funcionalidades productivas."
+        roles       = var.roles_y_acciones.admin
       },
       "T1-Operators_Multiplataforma" = {
         descripcion = "Acceso total a todas las categorías y funcionalidades."
-        roles       = ["admin", "operator", "viewer"]
+        roles       = var.roles_y_acciones.admin
       }
     }
   }
