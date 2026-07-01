@@ -380,9 +380,5 @@ resource "azuread_application_password" "client_secret" {
   }
 }
 
-# para saber el valor del client secret, ejecutar terraform apply y luego terraform output client_secret
-
-# output "client_secret" {
-#   value     = azuread_application_password.client_secret.value
-#   sensitive = true
-# }
+# para saber el valor del client secret, ejecutar terraform console y luego:
+# nonsensitive(azuread_application_password.client_secret.value)
