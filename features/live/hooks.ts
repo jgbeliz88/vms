@@ -222,16 +222,41 @@ export function useBatchPodDelete() {
 
 export function usePlaybackDiagnostics() {
   return useMutation({
-    mutationFn: async ({ url }: { url: string }) => {
-      const response = await fetch("/api/live/diagnostics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
-      });
-      if (!response.ok) {
-        throw new Error("Diagnostics failed");
+    mutationFn: async ({ url }: { url: string }): Promise<PlaybackDiagnostics> => {
+      // Fetch the manifest directly from the browser so the probe carries the
+      // same Origin/Referer and client IP as the player, which already loads it
+      // successfully. A server-side fetch from the pod is rejected by the CDN
+      // (no browser Referer, different egress IP) even when playback works.
+      // Matches the player's `crossOrigin="anonymous"` — CORS, no credentials.
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        const httpStatus = response.status;
+        if (httpStatus >= 400) {
+          return { url, status: "error", httpStatus, error: `HTTP ${httpStatus}` };
+        }
+        const manifest = await response.text();
+        return { url, status: "ready", httpStatus, manifest };
+      } catch (clientError) {
+        // Browser fetch failed (likely CORS or a network error). Fall back to
+        // the server-side diagnostics route so we still surface a status.
+        try {
+          const response = await fetch("/api/live/diagnostics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url })
+          });
+          if (response.ok) {
+            return (await response.json()) as PlaybackDiagnostics;
+          }
+        } catch {
+          // Ignore — surface the original client-side error below.
+        }
+        return {
+          url,
+          status: "error",
+          error: clientError instanceof Error ? clientError.message : "Diagnostics failed"
+        };
       }
-      return (await response.json()) as PlaybackDiagnostics;
     }
   });
 }
