@@ -14,13 +14,6 @@ export const channelActions: ChannelAction[] = [
     description: "Clear derived artifacts and rebuild cache.",
     tone: "warning",
     requiresConfirm: true
-  },
-  {
-    id: "descache",
-    label: "Descache",
-    description: "Purge cache entries and reload origin data.",
-    tone: "warning",
-    requiresConfirm: true
   }
 ];
 

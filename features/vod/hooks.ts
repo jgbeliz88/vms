@@ -52,7 +52,6 @@ export function useCreateServerManifest() {
       uuid: string;
       trackLanguage: string;
       isKms: boolean;
-      copyInputs: boolean;
     }) => {
       const token = getToken();
       const res = await fetch("/api/vod/manifest", {

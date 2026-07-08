@@ -179,16 +179,6 @@ function IconTrash() {
   );
 }
 
-function IconDatabase() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <ellipse cx="12" cy="5" rx="9" ry="3" />
-      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-    </svg>
-  );
-}
-
 function IconWaveform() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -283,7 +273,6 @@ function countLinearEncoders(linears: EnigmaLinear[]): number {
 const ACTION_META = {
   sync:     { iconBg: "bg-blue-100 dark:bg-blue-900/30",   iconColor: "text-blue-600 dark:text-blue-400",   icon: <IconSync /> },
   clean:    { iconBg: "bg-orange-100 dark:bg-orange-900/30",iconColor: "text-orange-600 dark:text-orange-400",icon: <IconTrash /> },
-  descache: { iconBg: "bg-purple-100 dark:bg-purple-900/30",iconColor: "text-purple-600 dark:text-purple-400",icon: <IconDatabase /> },
 } as const;
 
 const CMD_ICONS = {
@@ -680,12 +669,6 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
 
   const executeAction = async () => {
     if (!confirmingAction) return;
-
-    if (confirmingAction.id === "descache") {
-      notify({ title: "Descache confirmed", variant: "success" });
-      setConfirmingAction(null);
-      return;
-    }
 
     const batchInput = selectedLinears.map((l) => ({
       linearId: l.id,

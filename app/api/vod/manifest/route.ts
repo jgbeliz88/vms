@@ -11,7 +11,6 @@ const requestSchema = z.object({
   uuid: z.string().min(1),
   trackLanguage: z.string().min(1),
   isKms: z.boolean(),
-  copyInputs: z.boolean(),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
-  const { mam, uuid, trackLanguage, isKms, copyInputs } = parsed.data;
+  const { mam, uuid, trackLanguage, isKms } = parsed.data;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const authHeader = request.headers.get("Authorization");
@@ -34,7 +33,7 @@ export async function POST(request: Request) {
     response = await fetchVMS(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ params: { mam, uuid, trackLanguage, isKms, copyInputs } }),
+      body: JSON.stringify({ params: { mam, uuid, trackLanguage, isKms } }),
     });
   } catch (error: unknown) {
     logError({ name: LOG_NAME, fn: "POST", msg: `Fetch failed url=${url}`, error });
