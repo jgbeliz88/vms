@@ -32,18 +32,13 @@ type LinearConfig = {
   contentId: string;
 };
 
-type ActionType = "sync" | "descache" | "clean";
+type ActionType = "sync" | "clean";
 
 const ACTION_META: Record<ActionType, { label: string; destructive: boolean; blurb: string }> = {
   sync: {
     label: "Synchronize",
     destructive: false,
     blurb: "Force a metadata + cache sync on every linear of the selected channels.",
-  },
-  descache: {
-    label: "Descache",
-    destructive: false,
-    blurb: "Purge cache entries for every linear of the selected channels and reload origin data.",
   },
   clean: {
     label: "Clean Channels",
@@ -401,7 +396,7 @@ function ResultLinearRow({ result }: { result: LinearBatchResult }) {
   );
 }
 
-// ── Impact modal (Sync / Descache / Clean) ───────────────────────────────────
+// ── Impact modal (Sync / Clean) ──────────────────────────────────────────────
 
 function ImpactModal({
   open,
@@ -453,19 +448,13 @@ function ImpactModal({
       }))
     );
 
-    if (action === "descache") {
-      // No HTTP call yet — immediately show success
-      setResults(inputs.map((l) => ({ ...l, status: "success" as const })));
-      return;
-    }
-
     const mutation = action === "sync" ? syncMutation : cleanMutation;
     const res = await mutation.mutateAsync(inputs);
     setResults(res);
   }
 
   async function handleRetry() {
-    if (!results || !action || action === "descache") return;
+    if (!results || !action) return;
     const failed = results.filter((r) => r.status === "error");
     if (failed.length === 0) return;
     setIsRetrying(true);
@@ -1086,12 +1075,6 @@ export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
               Synchronize
             </button>
             <button
-              onClick={() => openModal("descache")}
-              className="inline-flex items-center whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100 dark:border-brand-700/40 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
-            >
-              Descache
-            </button>
-            <button
               onClick={() => openModal("clean")}
               className="inline-flex items-center whitespace-nowrap rounded-md border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-700/40 dark:bg-slate-900 dark:text-amber-400 dark:hover:bg-amber-500/10"
             >
@@ -1124,9 +1107,9 @@ export function BatchActionBar({ selected }: { selected: ResolvedChannel[] }) {
 
       {/* Modals */}
       <ImpactModal
-        open={activeModal === "sync" || activeModal === "descache" || activeModal === "clean"}
+        open={activeModal === "sync" || activeModal === "clean"}
         onClose={closeModal}
-        action={activeModal === "sync" || activeModal === "descache" || activeModal === "clean" ? activeModal : null}
+        action={activeModal === "sync" || activeModal === "clean" ? activeModal : null}
         selected={selected}
       />
       <CreateLinearModal
