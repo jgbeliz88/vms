@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import type { StreamingFormatMapping, DrmPathMapping } from "@/lib/storage/settings";
 import { useToast } from "@/components/ui/Toast";
-import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
-import type { EntraSession } from "@/lib/session/types";
+import { PERMISSIONS } from "@/lib/auth/permissions";
+import { useRequirePermission } from "@/lib/auth/useRequirePermission";
 import { useVmsSettingsQuery, useUpdateVmsSettings } from "@/features/settings/hooks";
 
 type CdnPair = { akamai: string; fastly: string };
@@ -30,20 +28,7 @@ function SettingsCard({ title, description, children }: { title: string; descrip
 
 export default function SettingsPage() {
   const { notify } = useToast();
-  const router = useRouter();
-  const { data: sessionData, status } = useSession();
-  const session = sessionData as EntraSession | null;
-  const isAdmin = status !== "loading" && hasPermission(session?.user ?? null, [PERMISSIONS.SETTINGS_PAGE]);
-
-  useEffect(() => {
-    if (status === "loading") return;
-    if (status === "unauthenticated") { router.replace("/login"); return; }
-    if (!isAdmin) {
-      notify({ title: "You are not allowed to access this page.", variant: "error" });
-      router.replace("/");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, isAdmin]);
+  const isAdmin = useRequirePermission(PERMISSIONS.SETTINGS_PAGE);
 
   const { data: vmsSettings } = useVmsSettingsQuery();
   const { mutateAsync: updateSettings, isPending: isSaving } = useUpdateVmsSettings();
@@ -69,7 +54,7 @@ export default function SettingsPage() {
     setCdnFast({ akamai: vmsSettings.akamai.fast, fastly: vmsSettings.fastly.fast });
   }, [vmsSettings]);
 
-  if (status === "loading" || !isAdmin) return null;
+  if (!isAdmin) return null;
 
   const saveSettings = async () => {
     try {

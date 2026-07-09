@@ -3,6 +3,7 @@ import type { EntraSession } from "@/lib/session/types";
 export const PERMISSIONS = {
   ACCESS_APP:            "vms_access_app",
   SETTINGS_PAGE:         "vms_settings_page",
+  CDN_PAGE:              "vms_cdn_page",
   VOD_ACTIONS:           "vms_vod_actions",
   FC_MANAGE_CHANNELS:    "vms_fc_manage_channels",
   FC_MANAGE_TRANSITIONS: "vms_fc_manage_transitions",
