@@ -16,7 +16,6 @@ export type ManifestTarget = {
 export type ManifestParams = {
   trackLanguage: string;
   isKms: boolean;
-  copyInputs: boolean;
 };
 
 type Props = {
@@ -79,7 +78,6 @@ export function CreateManifestModal({ open, onClose, targets, onConfirm, isSubmi
   const [useCustom, setUseCustom] = useState(false);
   const [customLang, setCustomLang] = useState("");
   const [isKms, setIsKms] = useState(true);
-  const [copyInputs, setCopyInputs] = useState(true);
 
   useEffect(() => {
     if (open) {
@@ -87,7 +85,6 @@ export function CreateManifestModal({ open, onClose, targets, onConfirm, isSubmi
       setUseCustom(false);
       setCustomLang("");
       setIsKms(true);
-      setCopyInputs(true);
     }
   }, [open]);
 
@@ -97,7 +94,7 @@ export function CreateManifestModal({ open, onClose, targets, onConfirm, isSubmi
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    onConfirm({ trackLanguage: effectiveLang, isKms, copyInputs });
+    onConfirm({ trackLanguage: effectiveLang, isKms });
   };
 
   const title = isBulk ? `Create Server Manifest · ${targets.length} VODs` : "Create Server Manifest";
@@ -194,13 +191,6 @@ export function CreateManifestModal({ open, onClose, targets, onConfirm, isSubmi
             label="isKms"
             description="Use the Key Management Service for content key delivery."
           />
-          <div className="border-t border-slate-100 dark:border-slate-800" />
-          <Toggle
-            checked={copyInputs}
-            onChange={setCopyInputs}
-            label="copyInputs"
-            description="Copy original input files into the manifest output bucket."
-          />
         </div>
 
         {/* Payload preview */}
@@ -208,8 +198,7 @@ export function CreateManifestModal({ open, onClose, targets, onConfirm, isSubmi
           <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Request payload</div>
           <pre className="font-mono text-xs text-slate-700 dark:text-slate-300">{`{
   "trackLanguage": "${effectiveLang}",
-  "isKms": ${isKms},
-  "copyInputs": ${copyInputs}
+  "isKms": ${isKms}
 }`}</pre>
         </div>
 

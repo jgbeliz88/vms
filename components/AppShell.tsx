@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
   { href: "/live", label: "Live", icon: Radio },
   { href: "/vod", label: "VOD", icon: Film },
   { href: "/fast-channels", label: "Fast Channels", icon: Tv2 },
-  { href: "/cdn-tokens", label: "CDN", icon: Boxes },
+  { href: "/cdn-tokens", label: "CDN", icon: Boxes, allowedPermissions: [PERMISSIONS.CDN_PAGE] },
   { href: "/settings", label: "Settings", icon: Settings, allowedPermissions: [PERMISSIONS.SETTINGS_PAGE] },
 ];
 
