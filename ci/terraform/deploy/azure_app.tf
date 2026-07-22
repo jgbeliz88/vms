@@ -141,8 +141,9 @@ locals {
 variable "roles_y_acciones" {
   type = map(list(string))
   default = {
+    integration = ["operator", "viewer", "vms_cdn_page"]
     viewer    = ["vms_access_app","viewer"]
-    operator   = ["vms_access_app", "vms_linear_actions", "vms_vod_actions", "viewer", "operator"]
+    operator   = ["vms_access_app", "vms_linear_actions", "viewer", "operator"]
     admin    = ["vms_access_app", "vms_linear_actions", "vms_vod_actions", "vms_live_manage_channels", "vms_live_manage_linears", "vms_fc_manage_channels", "vms_fc_manage_transitions", "vms_settings_page", "viewer", "operator", "admin"]
   }
 }
@@ -160,6 +161,7 @@ locals {
     "vms_fc_manage_channels"    = "c1e2f3d4-5a6b-7c8d-9e0f-1a2b34567894"
     "vms_fc_manage_transitions" = "d1e2f3d4-5a6b-7c8d-9e0f-1a2b34567895"
     "vms_settings_page"         = "e1e2f3d4-5a6b-7c8d-9e0f-1a2b34567896"
+    "vms_cdn_page"              = "f1e2f3d4-5a6b-7c8d-9e0f-1a2b34567897"
   }
 
   app_roles = {
@@ -182,10 +184,6 @@ locals {
     vms_linear_actions = {
       description = "Permite realizar la acción vms_linear_actions"
       value       = "vms_linear_actions"
-    }
-    vms_vod_actions = {
-      description = "Permite realizar la acción vms_vod_actions"
-      value       = "vms_vod_actions"
     }
     vms_live_manage_channels = {
       description = "Permite realizar la acción vms_live_manage_channels"
@@ -210,6 +208,10 @@ locals {
     vms_settings_page = {
       description = "Permite realizar la acción vms_settings_page"
       value       = "vms_settings_page"
+    }
+    vms_cdn_page = {
+      description = "Permite realizar la acción vms_cdn_page"
+      value       = "vms_cdn_page"
     }
   }
 }
@@ -302,24 +304,32 @@ locals {
         descripcion = "Acceso total a todas las categorías y funcionalidades."
         roles       = var.roles_y_acciones.admin
       }
+      "G_AZ_VMS_integration" = {
+        descripcion = "Acceso Integration al entorno VMS."
+        roles       = var.roles_y_acciones.integration
+      }
     }
 
     pro = {
       "G_AZ_VMS_admin" = {
         descripcion = "Acceso total a todas las categorías y funcionalidades productivas."
-        roles       = ["admin", "viewer", "operator"]
+        roles       = var.roles_y_acciones.admin
       },
       "G_AZ_VMS_viewer" = {
         descripcion = "Permite únicamente la visualización de la actividad dentro del entorno VMS."
-        roles       = ["viewer"]
+        roles       = var.roles_y_acciones.viewer
       },
       "G_AZ_VMS_operator" = {
         descripcion = "Permite la visualización de la actividad y las métricas en el entorno VMS."
-        roles       = ["viewer", "operator"]
+        roles       = var.roles_y_acciones.operator
       },
       "T1-Operators_Multiplataforma" = {
         descripcion = "Acceso total a todas las categorías y funcionalidades."
-        roles       = ["admin", "operator", "viewer"]
+        roles       = var.roles_y_acciones.admin
+      }
+      "G_AZ_VMS_integration" = {
+        descripcion = "Acceso Integration al entorno VMS."
+        roles       = var.roles_y_acciones.integration
       }
     }
   }
@@ -329,12 +339,14 @@ locals {
       "G_AZ_VMS_admin" = "14c55b61-67c4-4228-9eef-5e7cb4297951"
       "G_AZ_VMS_viewer" = "168d3ef6-1647-4211-a67c-fb77fe9c8b50"
       "G_AZ_VMS_operator" = "0c396c04-f2b2-42a0-9eab-43588ce8622c"
+      "G_AZ_VMS_integration" = "398dc02c-eb50-484d-b4a3-39d375ac7672"
     }
     pro = {
       "G_AZ_VMS_admin" = "14c55b61-67c4-4228-9eef-5e7cb4297951"
       "G_AZ_VMS_viewer" = "168d3ef6-1647-4211-a67c-fb77fe9c8b50"
       "G_AZ_VMS_operator" = "0c396c04-f2b2-42a0-9eab-43588ce8622c"
       "T1-Operators_Multiplataforma" = "2d7f54ce-9fba-44a4-9eac-5d479ba99126"
+      "G_AZ_VMS_integration" = "398dc02c-eb50-484d-b4a3-39d375ac7672"
     }
   }
 
