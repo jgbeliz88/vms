@@ -81,7 +81,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }: { session: any; token: any }) {
       session.user ??= {};
       session.user.oid = token.oid;
-      session.user.roles = token.roles;
+      session.user.roles = token.roles ?? [];
+      // Local testing escape hatch: grant extra app roles the Azure account does not
+      // have, e.g. DEV_EXTRA_ROLES=vms_cdn_page. Hard-gated on NODE_ENV so a
+      // production build ignores the variable entirely even if it is set.
+      if (process.env.NODE_ENV === "development" && process.env.DEV_EXTRA_ROLES) {
+        const extra = process.env.DEV_EXTRA_ROLES.split(",")
+          .map((role) => role.trim())
+          .filter(Boolean);
+        session.user.roles = [...new Set([...session.user.roles, ...extra])];
+      }
       session.accessToken = token.accessToken;
       session.error = token.error;
       return session;
