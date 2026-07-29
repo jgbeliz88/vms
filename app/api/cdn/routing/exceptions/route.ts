@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAteneaBaseUrl } from "@/app/api/_lib/env-urls";
+import { getAteneaBaseUrl, getAteneaToken } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { zodError, extractUpstreamMessage } from "@/app/api/_lib/responses";
 import { logInfo, logError } from "@/app/api/_lib/logger";
@@ -24,11 +24,17 @@ export async function PUT(request: Request) {
 
   const { documentId, values } = parsed.data;
   const url = `${getAteneaBaseUrl()}/api/features/${documentId}`;
+  // Atenea authenticates writes with a service token. Skip the header when it is
+  // not configured so the call behaves as before instead of sending an empty bearer.
+  const token = getAteneaToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   let response: Response;
   try {
     response = await fetchVMS(url, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ data: { values } }),
     });
   } catch (err) {
