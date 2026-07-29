@@ -13,6 +13,8 @@ spec:
           key: AUTH_SECRET
         - objectName: AUTH_AZURE_AD_CLIENT_SECRET
           key: AUTH_AZURE_AD_CLIENT_SECRET
+        - objectName: ATENEA_TOKEN
+          key: ATENEA_TOKEN
   parameters:
     roleName: vms
     vaultKubernetesMountPath: aks-unifiedstreaming-pre
@@ -23,3 +25,6 @@ spec:
       - objectName: "AUTH_AZURE_AD_CLIENT_SECRET"
         secretPath: "apps_multi/data/vms/staging/pre"
         secretKey: "AUTH_AZURE_AD_CLIENT_SECRET"
+      - objectName: "ATENEA_TOKEN"
+        secretPath: "apps_multi/data/vms/staging/pre"
+        secretKey: "ATENEA_TOKEN"
