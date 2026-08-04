@@ -7,6 +7,7 @@ import { PlaybackPanel } from "./PlaybackPanel";
 import { LinearsSection } from "./LinearsSection";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { CollapsibleCard } from "@/components/ui/CollapsibleCard";
 import { ChannelConfigEditor } from "./ChannelConfigEditor";
 import { ChannelConfigReadOnlyTable } from "./ChannelConfigReadOnlyTable";
 import { ChannelCommands } from "./ChannelCommands";
@@ -275,10 +276,7 @@ export function ChannelDetail({
       </div>
 
       {configLayout && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Channel Configuration
-          </div>
+        <CollapsibleCard title="Channel Configuration">
           {canAdmin && onSaveConfig ? (
             <ChannelConfigEditor
               channel={channel}
@@ -289,7 +287,7 @@ export function ChannelDetail({
           ) : (
             <ChannelConfigReadOnlyTable channel={channel} layout={configLayout} />
           )}
-        </div>
+        </CollapsibleCard>
       )}
 
       <PlaybackPanel channel={channel} />
