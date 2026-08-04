@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { ChannelDetail } from "./ChannelDetail";
-import { ChannelConfigReadOnlyTable } from "./ChannelConfigReadOnlyTable";
 import { deriveOverallStatus, deriveStatusParts } from "@/features/live/status";
 import type { ConfigLayout } from "@/features/live/hooks";
 
@@ -54,17 +53,10 @@ export function ChannelTable({
   const canAdmin = usePermission([PERMISSIONS.LIVE_MANAGE_CHANNELS]);
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [expandedConfigId, setExpandedConfigId] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const toggleDetails = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id));
-    setExpandedConfigId(null);
-  };
-
-  const toggleConfig = (id: number) => {
-    setExpandedConfigId((prev) => (prev === id ? null : id));
-    setExpandedId(null);
   };
 
   const allSelected = channels.length > 0 && selectedIds.length === channels.length;
@@ -94,9 +86,7 @@ export function ChannelTable({
           {/* ── Rows ── */}
           {channels.map((channel) => {
             const isExpanded = expandedId === channel.id;
-            const isConfigExpanded = expandedConfigId === channel.id;
             const isSelected = selectedIds.includes(channel.id);
-            const showConfigBtn = Boolean(configLayout);
             const podTooltip = channel.pods.map((pod) => pod.name).join("\n");
             const parts = deriveStatusParts((channel.metadata as Record<string, unknown>)?.statusParts, channel.status);
             const overall = deriveOverallStatus(parts);
@@ -154,11 +144,6 @@ export function ChannelTable({
                 </div>
                 <div className={cn(CELL, ROW_BORDER, hoverClass)} {...rowEvents}>
                   <div className="flex items-center justify-end gap-2">
-                    {showConfigBtn && (
-                      <Button variant={isConfigExpanded ? "primary" : "secondary"} onClick={() => toggleConfig(channel.id)}>
-                        Config
-                      </Button>
-                    )}
                     <Button variant={isExpanded ? "primary" : "secondary"} onClick={() => toggleDetails(channel.id)}>
                       Details
                     </Button>
@@ -190,13 +175,6 @@ export function ChannelTable({
                       onDeleteLinear={onDeleteLinear ? (pod, linearName) => onDeleteLinear(channel.id, pod, linearName) : undefined}
                       onDeletePod={onDeletePod ? (pod, linearName) => onDeletePod(channel.id, pod, linearName) : undefined}
                     />
-                  </div>
-                )}
-
-                {/* Config panel */}
-                {isConfigExpanded && configLayout && (
-                  <div className={cn("col-span-7 min-w-0 overflow-x-auto", ROW_BORDER, "bg-slate-50 px-4 py-4 dark:bg-slate-950")}>
-                    <ChannelConfigReadOnlyTable channel={channel} layout={configLayout} />
                   </div>
                 )}
               </Fragment>
