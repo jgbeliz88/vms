@@ -8,11 +8,12 @@ import { useVodConfigQuery, useUpdateVodConfig } from "@/features/vod/hooks";
 import type { VodConfigRow } from "@/features/vod/vod-types";
 import { VodConfigEditor } from "@/components/vod/VodConfigEditor";
 import { VodConfigReadOnlyTable } from "@/components/vod/VodConfigReadOnlyTable";
+import { CollapsibleCard } from "@/components/ui/CollapsibleCard";
 
 /**
  * The shared VOD configuration table, shown in every VOD's detail view. The config
- * is global — editing it here changes it for all VODs. Always visible; editable only
- * with the vms_vod_actions permission, otherwise read-only.
+ * is global — editing it here changes it for all VODs. Collapsed by default; editable
+ * only with the vms_vod_actions permission, otherwise read-only.
  */
 export function VodConfigPanel() {
   const canAdmin = usePermission([PERMISSIONS.VOD_ACTIONS]);
@@ -40,28 +41,24 @@ export function VodConfigPanel() {
   const error = layoutQuery.isError || configQuery.isError;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">VOD Configuration</div>
-      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-        Shared across all VODs — changes apply to every VOD.
-      </p>
-
-      <div className="mt-3">
-        {loading ? (
-          <div className="text-xs text-slate-400">Loading configuration…</div>
-        ) : error || !layout ? (
-          <div className="text-xs text-rose-500">Failed to load VOD configuration.</div>
-        ) : canAdmin ? (
-          <VodConfigEditor
-            layout={layout}
-            config={config}
-            onSave={handleSave}
-            saving={updateConfig.isPending}
-          />
-        ) : (
-          <VodConfigReadOnlyTable layout={layout} config={config} />
-        )}
-      </div>
-    </div>
+    <CollapsibleCard
+      title="VOD Configuration"
+      subtitle="Shared across all VODs — changes apply to every VOD."
+    >
+      {loading ? (
+        <div className="text-xs text-slate-400">Loading configuration…</div>
+      ) : error || !layout ? (
+        <div className="text-xs text-rose-500">Failed to load VOD configuration.</div>
+      ) : canAdmin ? (
+        <VodConfigEditor
+          layout={layout}
+          config={config}
+          onSave={handleSave}
+          saving={updateConfig.isPending}
+        />
+      ) : (
+        <VodConfigReadOnlyTable layout={layout} config={config} />
+      )}
+    </CollapsibleCard>
   );
 }
