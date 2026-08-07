@@ -7,6 +7,7 @@ import { selectedProvider } from "@/features/cdn-routing/mapping";
 import { CDN_CONFIG_NAMES, ORIGIN_AKAMAI_FEATURE } from "@/features/cdn-routing/types";
 import type {
   CdnConfigEntry,
+  CdnExceptionEntry,
   CdnExceptions,
   CdnRouting,
   CdnStreamRouting,
@@ -19,12 +20,21 @@ type AteneaServices = {
   "cdn-config"?: { configurations?: CdnConfigEntry[] };
 };
 
+// The nested per-stream rows of a feature document. `name` is the stream type,
+// matching CDN_CONFIG_NAMES. The document also has a root `values` array, which
+// the VMS deliberately neither reads nor writes.
+type AteneaNestedFeature = {
+  id?: number;
+  name?: string;
+  values?: string[];
+};
+
 type AteneaFeature = {
   documentId?: string;
   name?: string;
   filterType?: string;
   matchType?: string;
-  values?: string[];
+  features?: AteneaNestedFeature[];
 };
 
 async function getJson(url: string, fn: string): Promise<unknown> {
@@ -55,6 +65,18 @@ function toStreamRouting(
   };
 }
 
+// A stream is only editable when Atenea gives us its numeric id — that id is the
+// discriminator the PUT needs, so without it we return null and the UI degrades
+// instead of writing to the wrong row.
+function toExceptionEntry(
+  nested: AteneaNestedFeature[],
+  name: string
+): CdnExceptionEntry | null {
+  const entry = nested.find((item) => item.name === name);
+  if (typeof entry?.id !== "number") return null;
+  return { id: entry.id, values: entry.values ?? [] };
+}
+
 function toExceptions(features: AteneaFeature[]): CdnExceptions | null {
   const feature = features.find(
     (item) =>
@@ -63,7 +85,13 @@ function toExceptions(features: AteneaFeature[]): CdnExceptions | null {
       item.matchType === ORIGIN_AKAMAI_FEATURE.matchType
   );
   if (!feature?.documentId) return null;
-  return { documentId: feature.documentId, values: feature.values ?? [] };
+
+  const nested = Array.isArray(feature.features) ? feature.features : [];
+  return {
+    documentId: feature.documentId,
+    live: toExceptionEntry(nested, CDN_CONFIG_NAMES.live),
+    vod: toExceptionEntry(nested, CDN_CONFIG_NAMES.vod),
+  };
 }
 
 export async function GET() {
