@@ -20,12 +20,20 @@ export type CdnStreamRouting = {
   active: boolean;
 };
 
-// Per-origin overrides live on the "Origin Akamai" feature. Its `values` array
-// holds the origin tokens that stay on Akamai even when the project default is
-// Fastly — features override the project.
+// Per-origin overrides live on the "Origin Akamai" feature, in one nested entry
+// per stream type. `id` identifies the row when writing; `values` holds the origin
+// tokens that stay on Akamai even when the project default is Fastly — features
+// override the project. Live and VOD have separate arrays so a multisite can be
+// reverted for one without touching the other.
+export type CdnExceptionEntry = {
+  id: number;
+  values: string[];
+};
+
 export type CdnExceptions = {
   documentId: string;
-  values: string[];
+  live: CdnExceptionEntry | null;
+  vod: CdnExceptionEntry | null;
 };
 
 // Shape returned by GET /api/cdn/routing — one read across both Atenea layers.
@@ -36,6 +44,8 @@ export type CdnRouting = {
   exceptions: CdnExceptions | null;
 };
 
+// Stream type names. Atenea uses the same strings for the project's `cdn-config`
+// configurations and for the nested entries of the "Origin Akamai" feature.
 export const CDN_CONFIG_NAMES = { live: "channel", vod: "vod" } as const;
 
 export const ORIGIN_AKAMAI_FEATURE = {
