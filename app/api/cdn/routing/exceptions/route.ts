@@ -9,9 +9,19 @@ const LOG_NAME = "app.api.cdn.routing.exceptions.route";
 
 const bodySchema = z.object({
   documentId: z.string().min(1),
-  // Full replacement array: the client merges its channel toggles into the values
-  // it read, so entries the VMS does not own survive the round trip.
-  values: z.array(z.string()),
+  // One entry per stream the user changed — `id` is the nested feature row of the
+  // "Origin Akamai" document (vod / channel). Each `values` is a full replacement
+  // array: the client merges its channel toggles into the values it read, so
+  // entries the VMS does not own survive the round trip. The document's root
+  // `values` array is left untouched.
+  features: z
+    .array(
+      z.object({
+        id: z.number().int(),
+        values: z.array(z.string()),
+      })
+    )
+    .min(1),
 });
 
 export async function PUT(request: Request) {
@@ -22,7 +32,7 @@ export async function PUT(request: Request) {
     return zodError(parsed.error.issues);
   }
 
-  const { documentId, values } = parsed.data;
+  const { documentId, features } = parsed.data;
   const url = `${getAteneaBaseUrl()}/api/features/${documentId}`;
   // Atenea authenticates writes with a service token. Skip the header when it is
   // not configured so the call behaves as before instead of sending an empty bearer.
@@ -35,7 +45,7 @@ export async function PUT(request: Request) {
     response = await fetchVMS(url, {
       method: "PUT",
       headers,
-      body: JSON.stringify({ data: { values } }),
+      body: JSON.stringify({ data: { features } }),
     });
   } catch (err) {
     logError({ name: LOG_NAME, fn: "PUT", msg: `Fetch failed url=${url}`, error: err });

@@ -26,9 +26,22 @@ const PLATFORM = "Multisite";
 
 type ExceptionChannel = { id: number; name: string; slug: string };
 
-type Draft = { live: CdnKey; vod: CdnKey; enabled: Set<string> };
+type Stream = "live" | "vod";
+
+// Live and VOD keep independent exception sets: a multisite can be reverted to
+// Akamai for its VOD while its linear feed stays on Fastly, and vice versa.
+type Draft = { live: CdnKey; vod: CdnKey; enabled: Record<Stream, Set<string>> };
 
 type Change = { title: string; from: string; to: string };
+
+const STREAMS: Stream[] = ["live", "vod"];
+
+const STREAM_LABELS: Record<Stream, string> = { live: "Live", vod: "VOD" };
+
+const cloneDraft = (draft: Draft): Draft => ({
+  ...draft,
+  enabled: { live: new Set(draft.enabled.live), vod: new Set(draft.enabled.vod) },
+});
 
 // ── presentational helpers (same vocabulary as CdnTokenGenerator) ─────────────
 const cardCls =
@@ -120,6 +133,88 @@ function ProviderSegment({
   );
 }
 
+/**
+ * Per-channel overrides for one stream. Rendered by both cards — the exceptions
+ * only apply while that stream's default is Fastly, since an exception can only
+ * pull a channel back to Akamai.
+ */
+function ExceptionGrid({
+  channels,
+  enabled,
+  onToggle,
+  emptyNote,
+}: {
+  channels: ExceptionChannel[];
+  enabled: Set<string>;
+  onToggle: (slug: string) => void;
+  emptyNote: string;
+}) {
+  return (
+    <div className="mt-[18px]">
+      <div className="mb-2.5 flex items-baseline justify-between gap-2">
+        <div className={labelCls}>Channel exceptions · revert to Akamai</div>
+        <span className="whitespace-nowrap text-[11.5px] font-semibold text-[#9A3412] dark:text-[#FDBA74]">
+          {enabled.size} on Akamai
+        </span>
+      </div>
+      {channels.length === 0 ? (
+        <InfoNote>{emptyNote}</InfoNote>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {channels.map((channel) => {
+            const reverted = enabled.has(channel.slug);
+            return (
+              <button
+                key={channel.id}
+                type="button"
+                role="switch"
+                aria-checked={reverted}
+                aria-label={`${channel.name} on Akamai`}
+                onClick={() => onToggle(channel.slug)}
+                className={cn(
+                  "flex items-center justify-between gap-2.5 rounded-[10px] border px-3 py-2.5 text-left transition-colors",
+                  reverted
+                    ? "border-[#FED7AA] bg-[#FFF7ED] dark:border-[#7C2D12] dark:bg-[#3B1F0B]"
+                    : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1] dark:border-[#2E3A47] dark:bg-[#1A222C]"
+                )}
+              >
+                <span className="flex min-w-0 flex-col items-start gap-px">
+                  <span className="max-w-[130px] truncate text-[13px] font-bold text-[#1C2434] dark:text-[#DEE4EE]">
+                    {channel.name}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold",
+                      reverted
+                        ? "text-[#9A3412] dark:text-[#FDBA74]"
+                        : "text-brand-600 dark:text-[#818CF8]"
+                    )}
+                  >
+                    {reverted ? "Akamai" : "Fastly"}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                    reverted ? "bg-[#CBD5E1] dark:bg-[#2E3A47]" : "bg-brand-500"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                      !reverted && "translate-x-4"
+                    )}
+                  />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CdnTrafficRouting() {
   const { notify } = useToast();
   const routingQuery = useCdnRoutingQuery();
@@ -144,19 +239,23 @@ export function CdnTrafficRouting() {
   // Server truth, normalised into the same shape the UI edits.
   const committed = useMemo<Draft | null>(() => {
     if (!routing) return null;
-    const values = new Set(
-      (routing.exceptions?.values ?? []).map((value) => value.trim().toLowerCase())
-    );
+    const enabledFor = (values: string[] | undefined) => {
+      const present = new Set((values ?? []).map((value) => value.trim().toLowerCase()));
+      return new Set(slugs.filter((slug) => present.has(slug)));
+    };
     return {
       live: routing.live?.provider ?? "akamai",
       vod: routing.vod?.provider ?? "akamai",
-      enabled: new Set(slugs.filter((slug) => values.has(slug))),
+      enabled: {
+        live: enabledFor(routing.exceptions?.live?.values),
+        vod: enabledFor(routing.exceptions?.vod?.values),
+      },
     };
   }, [routing, slugs]);
 
   // Re-seeds after every successful apply, since the mutations invalidate the query.
   useEffect(() => {
-    setDraft(committed ? { ...committed, enabled: new Set(committed.enabled) } : null);
+    setDraft(committed ? cloneDraft(committed) : null);
   }, [committed]);
 
   const changes = useMemo<Change[]>(() => {
@@ -176,14 +275,16 @@ export function CdnTrafficRouting() {
         to: providerLabel(draft.vod),
       });
     }
-    // Exceptions only exist — and are only written — while the Live default is Fastly.
-    if (draft.live === "fastly") {
+    // Exceptions only exist — and are only written — while that stream's default is
+    // Fastly. Both cards can list the same channel, so the title carries the stream.
+    for (const stream of STREAMS) {
+      if (draft[stream] !== "fastly") continue;
       for (const channel of channels) {
-        const was = committed.enabled.has(channel.slug);
-        const now = draft.enabled.has(channel.slug);
+        const was = committed.enabled[stream].has(channel.slug);
+        const now = draft.enabled[stream].has(channel.slug);
         if (was !== now) {
           out.push({
-            title: channel.name,
+            title: `${STREAM_LABELS[stream]} · ${channel.name}`,
             from: was ? "Akamai" : "Fastly",
             to: now ? "Akamai" : "Fastly",
           });
@@ -196,20 +297,19 @@ export function CdnTrafficRouting() {
   const dirty = changes.length > 0;
   const saving = updateProviders.isPending || updateExceptions.isPending;
 
-  const setProvider = (stream: "live" | "vod", provider: CdnKey) =>
+  const setProvider = (stream: Stream, provider: CdnKey) =>
     setDraft((current) => (current ? { ...current, [stream]: provider } : current));
 
-  const toggleChannel = (slug: string) =>
+  const toggleChannel = (stream: Stream, slug: string) =>
     setDraft((current) => {
       if (!current) return current;
-      const enabled = new Set(current.enabled);
+      const enabled = new Set(current.enabled[stream]);
       if (enabled.has(slug)) enabled.delete(slug);
       else enabled.add(slug);
-      return { ...current, enabled };
+      return { ...current, enabled: { ...current.enabled, [stream]: enabled } };
     });
 
-  const discard = () =>
-    setDraft(committed ? { ...committed, enabled: new Set(committed.enabled) } : null);
+  const discard = () => setDraft(committed ? cloneDraft(committed) : null);
 
   const apply = async () => {
     if (!routing || !committed || !draft) return;
@@ -230,25 +330,40 @@ export function CdnTrafficRouting() {
       });
     }
 
-    const exceptionsChanged =
-      draft.live === "fastly" &&
-      channels.some(
-        (channel) => committed.enabled.has(channel.slug) !== draft.enabled.has(channel.slug)
-      );
+    // One entry per stream whose exceptions actually moved. Both go in a single PUT.
+    const changedStreams = STREAMS.filter(
+      (stream) =>
+        draft[stream] === "fastly" &&
+        channels.some(
+          (channel) =>
+            committed.enabled[stream].has(channel.slug) !==
+            draft.enabled[stream].has(channel.slug)
+        )
+    );
 
     try {
       // Project layer first, then the feature overrides that take precedence over it.
       if (configurations.length > 0) {
         await updateProviders.mutateAsync(configurations);
       }
-      if (exceptionsChanged) {
+      if (changedStreams.length > 0) {
         if (!routing.exceptions) {
           throw new Error(`The "Origin Akamai" feature is missing in Atenea`);
         }
-        await updateExceptions.mutateAsync({
-          documentId: routing.exceptions.documentId,
-          values: applyExceptions(routing.exceptions.values, slugs, draft.enabled),
+        const exceptions = routing.exceptions;
+        const features = changedStreams.map((stream) => {
+          const entry = exceptions[stream];
+          if (!entry) {
+            throw new Error(
+              `The "${CDN_CONFIG_NAMES[stream]}" entry is missing from the "Origin Akamai" feature in Atenea`
+            );
+          }
+          return {
+            id: entry.id,
+            values: applyExceptions(entry.values, slugs, draft.enabled[stream]),
+          };
         });
+        await updateExceptions.mutateAsync({ documentId: exceptions.documentId, features });
       }
       setConfirmOpen(false);
       notify({
@@ -271,7 +386,7 @@ export function CdnTrafficRouting() {
         <div className="h-[104px] animate-pulse rounded-xl bg-[#E2E8F0] dark:bg-[#24303F]" />
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="h-[320px] animate-pulse rounded-xl bg-[#E2E8F0] dark:bg-[#24303F]" />
-          <div className="h-[240px] animate-pulse rounded-xl bg-[#E2E8F0] dark:bg-[#24303F]" />
+          <div className="h-[320px] animate-pulse rounded-xl bg-[#E2E8F0] dark:bg-[#24303F]" />
         </div>
       </div>
     );
@@ -286,8 +401,6 @@ export function CdnTrafficRouting() {
       </div>
     );
   }
-
-  const revertedCount = draft.live === "fastly" ? draft.enabled.size : 0;
 
   return (
     <>
@@ -327,68 +440,12 @@ export function CdnTrafficRouting() {
             />
 
             {draft.live === "fastly" ? (
-              <div className="mt-[18px]">
-                <div className="mb-2.5 flex items-baseline justify-between gap-2">
-                  <div className={labelCls}>Channel exceptions · revert to Akamai</div>
-                  <span className="whitespace-nowrap text-[11.5px] font-semibold text-[#9A3412] dark:text-[#FDBA74]">
-                    {revertedCount} on Akamai
-                  </span>
-                </div>
-                {channels.length === 0 ? (
-                  <InfoNote>No live channels available to configure exceptions for.</InfoNote>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {channels.map((channel) => {
-                      const reverted = draft.enabled.has(channel.slug);
-                      return (
-                        <button
-                          key={channel.id}
-                          type="button"
-                          role="switch"
-                          aria-checked={reverted}
-                          aria-label={`${channel.name} on Akamai`}
-                          onClick={() => toggleChannel(channel.slug)}
-                          className={cn(
-                            "flex items-center justify-between gap-2.5 rounded-[10px] border px-3 py-2.5 text-left transition-colors",
-                            reverted
-                              ? "border-[#FED7AA] bg-[#FFF7ED] dark:border-[#7C2D12] dark:bg-[#3B1F0B]"
-                              : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1] dark:border-[#2E3A47] dark:bg-[#1A222C]"
-                          )}
-                        >
-                          <span className="flex min-w-0 flex-col items-start gap-px">
-                            <span className="max-w-[130px] truncate text-[13px] font-bold text-[#1C2434] dark:text-[#DEE4EE]">
-                              {channel.name}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-[11px] font-bold",
-                                reverted
-                                  ? "text-[#9A3412] dark:text-[#FDBA74]"
-                                  : "text-brand-600 dark:text-[#818CF8]"
-                              )}
-                            >
-                              {reverted ? "Akamai" : "Fastly"}
-                            </span>
-                          </span>
-                          <span
-                            className={cn(
-                              "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-                              reverted ? "bg-[#CBD5E1] dark:bg-[#2E3A47]" : "bg-brand-500"
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                                !reverted && "translate-x-4"
-                              )}
-                            />
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <ExceptionGrid
+                channels={channels}
+                enabled={draft.enabled.live}
+                onToggle={(slug) => toggleChannel("live", slug)}
+                emptyNote="No live channels available to configure exceptions for."
+              />
             ) : (
               <InfoNote>
                 All live channels are served from Akamai. Switch the default to{" "}
@@ -412,9 +469,21 @@ export function CdnTrafficRouting() {
               value={draft.vod}
               onChange={(provider) => setProvider("vod", provider)}
             />
-            <InfoNote>
-              VOD routes all on-demand assets at once — there are no per-channel exceptions.
-            </InfoNote>
+
+            {draft.vod === "fastly" ? (
+              <ExceptionGrid
+                channels={channels}
+                enabled={draft.enabled.vod}
+                onToggle={(slug) => toggleChannel("vod", slug)}
+                emptyNote="No channels available to configure exceptions for."
+              />
+            ) : (
+              <InfoNote>
+                All on-demand assets are served from Akamai. Switch the default to{" "}
+                <b className="text-[#1C2434] dark:text-[#DEE4EE]">Fastly</b> to enable per-channel
+                exceptions.
+              </InfoNote>
+            )}
           </section>
         </div>
       </div>
