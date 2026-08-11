@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useDeleteFastChannelTransition } from "@/features/fast-channels/hooks";
+import { formatUtc } from "@/features/fast-channels/format";
 import type { FastChannelTransitions } from "@/features/fast-channels/types";
 import { usePermission } from "@/lib/auth/usePermission";
 import { PERMISSIONS } from "@/lib/auth/permissions";
@@ -18,17 +19,7 @@ function statusTone(status: string) {
 
 function formatKey(key: string): string {
   if (key === "creation") return "Creation";
-  const date = new Date(key);
-  if (!isNaN(date.getTime())) {
-    const y = date.getUTCFullYear();
-    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(date.getUTCDate()).padStart(2, "0");
-    const h = String(date.getUTCHours()).padStart(2, "0");
-    const min = String(date.getUTCMinutes()).padStart(2, "0");
-    const s = String(date.getUTCSeconds()).padStart(2, "0");
-    return `${y}-${m}-${d} ${h}:${min}:${s} UTC`;
-  }
-  return key;
+  return formatUtc(key);
 }
 
 function sortKey(key: string): number {
