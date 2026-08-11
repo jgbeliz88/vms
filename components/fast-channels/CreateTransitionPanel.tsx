@@ -136,23 +136,15 @@ export function CreateTransitionForm({
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {/* Header — the panel title lives in the Actions breadcrumb */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-text-primary">Create Transition</h3>
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-700 dark:bg-brand-900/20 dark:text-brand-300">
-              Wizard
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-text-secondary">
-            Schedule the next program swap on{" "}
-            <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-text-primary dark:bg-slate-800 dark:text-slate-100">
-              {channelName}
-            </code>
-            .
-          </p>
-        </div>
+        <p className="text-xs text-text-secondary">
+          Schedule the next program swap on{" "}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-text-primary dark:bg-slate-800 dark:text-slate-100">
+            {channelName}
+          </code>
+          .
+        </p>
         <ModeToggle mode={mode} onChange={handleModeChange} disabled={isSubmitting} />
       </div>
 
