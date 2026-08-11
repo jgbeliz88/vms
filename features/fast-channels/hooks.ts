@@ -4,6 +4,7 @@ import type { ChannelCronJob, CronJob, FastChannel, FastChannelTransitions } fro
 import { queryKeys } from "@/lib/query-keys";
 
 const TRANSITION_CRON_TYPE = "VC_TRANSITION_PUT";
+const SCHEDULE_SMIL_PATH = "/fast-channel/schedule/smil";
 
 /** Enigma names transition cron jobs `schedule-{channelName}-{transitionName}`. */
 function cronJobPrefix(channelName: string): string {
@@ -151,7 +152,12 @@ export function useChannelCronJobsQuery(channelName: string) {
     (jobs: CronJob[]): ChannelCronJob[] => {
       const prefix = cronJobPrefix(channelName);
       return jobs
-        .filter((job) => job.type === TRANSITION_CRON_TYPE && job.id.startsWith(prefix))
+        .filter(
+          (job) =>
+            job.type === TRANSITION_CRON_TYPE &&
+            job.path === SCHEDULE_SMIL_PATH &&
+            job.id.startsWith(prefix)
+        )
         .map((job) => ({ ...job, transitionName: job.id.slice(prefix.length) }))
         .sort((a, b) => a.executionTime.localeCompare(b.executionTime));
     },
