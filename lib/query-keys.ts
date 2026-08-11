@@ -9,6 +9,7 @@ export const queryKeys = {
   fastChannels: () => ["fast-channels"],
   fastChannelTransitions: (name: string) => ["fast-channel-transitions", name],
   fastChannelStreamStatus: (uri: string) => ["fast-channel-stream-status", uri],
+  cronJobs: () => ["cron-jobs"],
   bitmovinVod: (filters: VodFilters) => ["bitmovin-vod", filters] as const,
   lightflowVod: (filters: VodFilters) => ["lightflow-vod", filters] as const,
   vodManifest: (id: string, originBase: string) => ["vod-manifest", id, originBase],

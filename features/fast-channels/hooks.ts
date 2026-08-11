@@ -1,6 +1,15 @@
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FastChannel, FastChannelTransitions } from "./types";
+import type { ChannelCronJob, CronJob, FastChannel, FastChannelTransitions } from "./types";
 import { queryKeys } from "@/lib/query-keys";
+
+const TRANSITION_CRON_TYPE = "VC_TRANSITION_PUT";
+const SCHEDULE_SMIL_PATH = "/fast-channel/schedule/smil";
+
+/** Enigma names transition cron jobs `schedule-{channelName}-{transitionName}`. */
+function cronJobPrefix(channelName: string): string {
+  return `schedule-${channelName}-`;
+}
 
 export function useFastChannelsQuery() {
   return useQuery({
@@ -131,5 +140,104 @@ export function useFastChannelTransitionsQuery(channelName: string) {
       if (!response.ok) throw new Error("Failed to load transitions");
       return (await response.json()) as FastChannelTransitions;
     },
+  });
+}
+
+/**
+ * Cron jobs are listed globally, then narrowed to the ones Enigma queued for this channel.
+ * Bodies are left out of the list request so unrelated channels' SMIL never reaches the browser.
+ */
+export function useChannelCronJobsQuery(channelName: string) {
+  const select = useCallback(
+    (jobs: CronJob[]): ChannelCronJob[] => {
+      const prefix = cronJobPrefix(channelName);
+      return jobs
+        .filter(
+          (job) =>
+            job.type === TRANSITION_CRON_TYPE &&
+            job.path === SCHEDULE_SMIL_PATH &&
+            job.id.startsWith(prefix)
+        )
+        .map((job) => ({ ...job, transitionName: job.id.slice(prefix.length) }))
+        .sort((a, b) => a.executionTime.localeCompare(b.executionTime));
+    },
+    [channelName]
+  );
+
+  return useQuery({
+    queryKey: queryKeys.cronJobs(),
+    queryFn: async () => {
+      const response = await fetch("/api/cron-jobs", { cache: "no-store" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to load cron jobs");
+      }
+      return (await response.json()) as CronJob[];
+    },
+    enabled: !!channelName,
+    select,
+  });
+}
+
+export function useRunCronJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; channelName: string }) => {
+      const response = await fetch(`/api/cron-jobs/${encodeURIComponent(id)}/run`, {
+        method: "POST"
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to run cron job");
+      }
+      return response.json();
+    },
+    // Enigma keeps the cron job after a manual run, so the list is deliberately not
+    // invalidated — the row stays put and reports that it already ran.
+    onSuccess: (_data, { channelName }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.fastChannelTransitions(channelName) });
+      // Backend takes about two seconds to reflect the new transition.
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.fastChannelTransitions(channelName) });
+      }, 3000);
+    }
+  });
+}
+
+export function useDeleteCronJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/cron-jobs/${encodeURIComponent(id)}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to delete cron job");
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cronJobs() })
+  });
+}
+
+export function useRecreateFastChannel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (channelName: string) => {
+      const response = await fetch(
+        `/api/fast-channels/${encodeURIComponent(channelName)}/recreate`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to recreate fast channel");
+      }
+      return response.json();
+    },
+    onSuccess: (_data, channelName) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.cronJobs() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.fastChannelTransitions(channelName) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.fastChannels() });
+    }
   });
 }
