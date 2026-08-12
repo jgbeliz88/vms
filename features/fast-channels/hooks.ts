@@ -6,9 +6,9 @@ import { queryKeys } from "@/lib/query-keys";
 const TRANSITION_CRON_TYPE = "VC_TRANSITION_PUT";
 const SCHEDULE_SMIL_PATH = "/fast-channel/schedule/smil";
 
-/** Enigma names transition cron jobs `schedule-{channelName}-{transitionName}`. */
+/** Enigma names recreate-queued transition cron jobs `recreate-{channelName}-{transitionName}`. */
 function cronJobPrefix(channelName: string): string {
-  return `schedule-${channelName}-`;
+  return `recreate-${channelName}-`;
 }
 
 export function useFastChannelsQuery() {
