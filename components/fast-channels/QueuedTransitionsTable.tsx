@@ -70,7 +70,7 @@ export function QueuedTransitionsTable({ channelName }: { channelName: string })
         <span className="text-[11px] text-text-muted">
           Cron jobs matching{" "}
           <span className="font-mono text-text-primary dark:text-slate-200">
-            schedule-{channelName}-*
+            recreate-{channelName}-*
           </span>
         </span>
       </div>
