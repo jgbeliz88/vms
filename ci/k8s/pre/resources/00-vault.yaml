@@ -21,6 +21,8 @@ spec:
           key: FASTLY_CDN_LIVE_KEY
         - objectName: FASTLY_CDN_VOD_KEY
           key: FASTLY_CDN_VOD_KEY
+        - objectName: ATENEA_TOKEN
+          key: ATENEA_TOKEN
   parameters:
     roleName: vms
     vaultKubernetesMountPath: aks-unifiedstreaming-pre
@@ -43,3 +45,6 @@ spec:
       - objectName: "FASTLY_CDN_VOD_KEY"
         secretPath: "apps_multi/data/vms/staging/pre"
         secretKey: "FASTLY_CDN_VOD_KEY"
+      - objectName: "ATENEA_TOKEN"
+        secretPath: "apps_multi/data/vms/staging/pre"
+        secretKey: "ATENEA_TOKEN"
