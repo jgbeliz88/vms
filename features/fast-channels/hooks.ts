@@ -1,6 +1,13 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ChannelCronJob, CronJob, FastChannel, FastChannelTransitions } from "./types";
+import type {
+  ChannelCronJob,
+  CronJob,
+  FastChannel,
+  FastChannelBatch,
+  FastChannelConfigRow,
+  FastChannelTransitions,
+} from "./types";
 import { queryKeys } from "@/lib/query-keys";
 
 const TRANSITION_CRON_TYPE = "VC_TRANSITION_PUT";
@@ -239,5 +246,74 @@ export function useRecreateFastChannel() {
       queryClient.invalidateQueries({ queryKey: queryKeys.fastChannelTransitions(channelName) });
       queryClient.invalidateQueries({ queryKey: queryKeys.fastChannels() });
     }
+  });
+}
+
+export function useFastChannelConfigQuery(channelName: string) {
+  return useQuery({
+    queryKey: queryKeys.fastChannelConfig(channelName),
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/fast-channels/${encodeURIComponent(channelName)}/config`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to load fast channel config");
+      }
+      return (await response.json()) as FastChannelConfigRow[];
+    },
+    enabled: !!channelName,
+  });
+}
+
+/**
+ * The full batch list, used only to resolve the batchId a config save needs — the batch
+ * whose name equals the channel name. Fetched only when the user can actually save.
+ */
+export function useFastChannelBatchesQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.fastChannelBatches(),
+    queryFn: async () => {
+      const response = await fetch("/api/fast-channels/batches", { cache: "no-store" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message ?? "Failed to load batches");
+      }
+      return (await response.json()) as FastChannelBatch[];
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  });
+}
+
+export function useUpdateFastChannelConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ channelName, batchId, configs }: {
+      channelName: string;
+      batchId: number;
+      configs: FastChannelConfigRow[];
+    }) => {
+      const response = await fetch(
+        `/api/fast-channels/${encodeURIComponent(channelName)}/config`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ batchId, configs }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          (data as Record<string, unknown>).message as string ||
+          `Request failed with status ${response.status}`
+        );
+      }
+      return data;
+    },
+    // The PUT echoes back only the rows it wrote, so refetch the full collection.
+    onSuccess: (_data, { channelName }) =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.fastChannelConfig(channelName) }),
   });
 }

@@ -6,6 +6,7 @@ import { usePermission } from "@/lib/auth/usePermission";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { FastChannelPlaybackPanel } from "./FastChannelPlaybackPanel";
 import { FastChannelActions } from "./FastChannelActions";
+import { FastChannelConfigPanel } from "./FastChannelConfigPanel";
 import { QueuedTransitionsTable } from "./QueuedTransitionsTable";
 import { TransitionsTable } from "./TransitionsTable";
 import { useFastChannelTransitionsQuery } from "@/features/fast-channels/hooks";
@@ -150,6 +151,7 @@ export function FastChannelTable({
                           <td colSpan={3} className="bg-slate-50 px-4 py-4 dark:bg-slate-950">
                             <div className="space-y-4">
                               <FastChannelPlaybackPanel channelName={ch.name} />
+                              <FastChannelConfigPanel channelName={ch.name} />
                               {canManageTransitions && (
                                 <>
                                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
