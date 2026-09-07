@@ -49,6 +49,32 @@ const cardCls =
 
 const labelCls = "text-[11px] font-semibold uppercase tracking-[0.05em] text-[#8899A8]";
 
+// Smaller-scale sibling of segBtn for the "Set all channels to" row. A side lights
+// up only when every channel is already on it, so it doubles as a status indicator.
+const bulkSegBtn = (provider: CdnKey, lit: boolean) =>
+  cn(
+    "flex items-center gap-[7px] rounded-md border px-3 py-1.5 text-xs font-bold transition-colors",
+    lit
+      ? cn(
+          "cursor-default bg-white shadow-sm dark:bg-[#24303F]",
+          provider === "akamai"
+            ? "border-[#EA580C] text-[#9A3412] dark:border-[#FB923C] dark:text-[#FDBA74]"
+            : "border-brand-500 text-brand-600 dark:text-[#818CF8]"
+        )
+      : cn(
+          "border-transparent text-[#64748B] hover:bg-white/70 dark:text-[#8899A8] dark:hover:bg-white/5",
+          provider === "akamai"
+            ? "hover:text-[#9A3412] dark:hover:text-[#FDBA74]"
+            : "hover:text-brand-600 dark:hover:text-[#818CF8]"
+        )
+  );
+
+const bulkDot = (provider: CdnKey) =>
+  cn(
+    "h-[7px] w-[7px] rounded-full",
+    provider === "akamai" ? "bg-[#EA580C] dark:bg-[#FB923C]" : "bg-brand-500 dark:bg-[#818CF8]"
+  );
+
 const segBtn = (active: boolean) =>
   cn(
     "flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-bold transition-colors",
@@ -142,13 +168,18 @@ function ExceptionGrid({
   channels,
   enabled,
   onToggle,
+  onSetAll,
   emptyNote,
 }: {
   channels: ExceptionChannel[];
   enabled: Set<string>;
   onToggle: (slug: string) => void;
+  onSetAll: (provider: CdnKey) => void;
   emptyNote: string;
 }) {
+  const allAkamai = channels.length > 0 && channels.every((channel) => enabled.has(channel.slug));
+  const allFastly = channels.every((channel) => !enabled.has(channel.slug));
+
   return (
     <div className="mt-[18px]">
       <div className="mb-2.5 flex items-baseline justify-between gap-2">
@@ -157,6 +188,41 @@ function ExceptionGrid({
           {enabled.size} on Akamai
         </span>
       </div>
+      {channels.length > 0 && (
+        <div className="mb-2.5 flex items-center justify-between gap-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] py-2 pl-3.5 pr-2 dark:border-[#2E3A47] dark:bg-[#1A222C]">
+          <span className="text-[12.5px] font-medium text-[#64748B] dark:text-[#8899A8]">
+            Set all {channels.length} channel{channels.length === 1 ? "" : "s"} to
+          </span>
+          <div
+            role="radiogroup"
+            aria-label="Set all channels to"
+            className="flex gap-1 rounded-[9px] border border-[#E2E8F0] bg-[#F1F5F9] p-1 dark:border-[#2E3A47] dark:bg-[#24303F]"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={allAkamai}
+              disabled={allAkamai}
+              onClick={() => onSetAll("akamai")}
+              className={bulkSegBtn("akamai", allAkamai)}
+            >
+              <span className={bulkDot("akamai")} />
+              Akamai
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={allFastly}
+              disabled={allFastly}
+              onClick={() => onSetAll("fastly")}
+              className={bulkSegBtn("fastly", allFastly)}
+            >
+              <span className={bulkDot("fastly")} />
+              Fastly
+            </button>
+          </div>
+        </div>
+      )}
       {channels.length === 0 ? (
         <InfoNote>{emptyNote}</InfoNote>
       ) : (
@@ -309,6 +375,15 @@ export function CdnTrafficRouting() {
       return { ...current, enabled: { ...current.enabled, [stream]: enabled } };
     });
 
+  // Bulk override for one stream: "akamai" reverts every channel, "fastly"
+  // clears every exception. Always builds a fresh Set so `changes` recomputes.
+  const setAllChannels = (stream: Stream, provider: CdnKey) =>
+    setDraft((current) => {
+      if (!current) return current;
+      const enabled = provider === "akamai" ? new Set(slugs) : new Set<string>();
+      return { ...current, enabled: { ...current.enabled, [stream]: enabled } };
+    });
+
   const discard = () => setDraft(committed ? cloneDraft(committed) : null);
 
   const apply = async () => {
@@ -444,6 +519,7 @@ export function CdnTrafficRouting() {
                 channels={channels}
                 enabled={draft.enabled.live}
                 onToggle={(slug) => toggleChannel("live", slug)}
+                onSetAll={(provider) => setAllChannels("live", provider)}
                 emptyNote="No live channels available to configure exceptions for."
               />
             ) : (
@@ -475,6 +551,7 @@ export function CdnTrafficRouting() {
                 channels={channels}
                 enabled={draft.enabled.vod}
                 onToggle={(slug) => toggleChannel("vod", slug)}
+                onSetAll={(provider) => setAllChannels("vod", provider)}
                 emptyNote="No channels available to configure exceptions for."
               />
             ) : (
