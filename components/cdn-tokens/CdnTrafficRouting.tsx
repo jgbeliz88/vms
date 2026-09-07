@@ -207,7 +207,7 @@ function ExceptionGrid({
               className={bulkSegBtn("akamai", allAkamai)}
             >
               <span className={bulkDot("akamai")} />
-              Akamai
+              Deselect All
             </button>
             <button
               type="button"
@@ -218,7 +218,7 @@ function ExceptionGrid({
               className={bulkSegBtn("fastly", allFastly)}
             >
               <span className={bulkDot("fastly")} />
-              Fastly
+              Select All
             </button>
           </div>
         </div>
