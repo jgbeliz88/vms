@@ -6,11 +6,22 @@ import { channelActions } from "@/features/live/config";
 import { useBatchLinearSync, useBatchLinearClean, useSendLinearAdEvent } from "@/features/live/hooks";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/lib/auth/usePermission";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { PERMISSIONS, hasPermission } from "@/lib/auth/permissions";
+import { useSession } from "@/lib/session/provider";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import { TagChip } from "@/components/ui/TagChip";
+import {
+  IconLinear,
+  IconPod,
+  IconEncoder,
+  IconArrowsSwap,
+  linearEncoderNames,
+  countLinearPods,
+  countLinearEncoders,
+} from "./linear-ui";
+import { MoveLinearsModal, type MoveSource } from "./MoveLinearsModal";
 
 // ── Payload templates ─────────────────────────────────────────────────────────
 
@@ -206,48 +217,9 @@ function IconHelpCircle() {
   );
 }
 
-function IconLinear({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <circle cx="12" cy="12" r="2" />
-      <path d="M8 8a5 5 0 0 0 0 8M16 8a5 5 0 0 1 0 8" />
-      <path d="M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" />
-    </svg>
-  );
-}
-
-function IconPod({ className = "h-3 w-3" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
-      <path d="M4 7.5l8 4.5 8-4.5" />
-      <path d="M12 12v9" />
-    </svg>
-  );
-}
-
-function IconEncoder({ className = "h-2.5 w-2.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <rect x="3" y="4" width="18" height="7" rx="2" />
-      <rect x="3" y="13" width="18" height="7" rx="2" />
-      <circle cx="7" cy="7.5" r=".9" fill="currentColor" stroke="none" />
-      <circle cx="7" cy="16.5" r=".9" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 // ── Linear helpers ────────────────────────────────────────────────────────────
 
 const AVAILABLE_TAGS = ["Web", "Apps", "SmartTV"] as const;
-
-function linearEncoderNames(linear: EnigmaLinear): string[] {
-  const seen: string[] = [];
-  for (const pod of linear.pods)
-    for (const e of pod.encoders)
-      if (!seen.includes(e.name)) seen.push(e.name);
-  return seen;
-}
 
 function deriveLinearStatus(linear: EnigmaLinear): EnigmaLinearPod["status"] {
   const statuses = linear.pods.map((p) => p.status);
@@ -256,23 +228,12 @@ function deriveLinearStatus(linear: EnigmaLinear): EnigmaLinearPod["status"] {
   return "running";
 }
 
-function countLinearPods(linears: EnigmaLinear[]): number {
-  return linears.reduce((n, l) => n + l.pods.length, 0);
-}
-
-function countLinearEncoders(linears: EnigmaLinear[]): number {
-  const set = new Set<number>();
-  for (const l of linears)
-    for (const p of l.pods)
-      for (const e of p.encoders) set.add(e.id);
-  return set.size;
-}
-
 // ── Action metadata ───────────────────────────────────────────────────────────
 
 const ACTION_META = {
   sync:     { iconBg: "bg-blue-100 dark:bg-blue-900/30",   iconColor: "text-blue-600 dark:text-blue-400",   icon: <IconSync /> },
   clean:    { iconBg: "bg-orange-100 dark:bg-orange-900/30",iconColor: "text-orange-600 dark:text-orange-400",icon: <IconTrash /> },
+  move:     { iconBg: "bg-teal-100 dark:bg-teal-900/30",     iconColor: "text-teal-600 dark:text-teal-400",     icon: <IconArrowsSwap /> },
 } as const;
 
 const CMD_ICONS = {
@@ -354,11 +315,15 @@ function ActionsRow({
   selectedLinearIds: number[];
   onRequestConfirm: (action: ChannelAction) => void;
 }) {
+  const { user } = useSession();
   const noTarget = selectedLinearIds.length === 0;
+  const visibleActions = channelActions.filter(
+    (a) => !a.allowedPermissions || hasPermission(user, a.allowedPermissions)
+  );
 
   return (
     <div className="grid grid-cols-1 gap-2.5 p-4">
-      {channelActions.map((action) => {
+      {visibleActions.map((action) => {
         const meta = ACTION_META[action.id as keyof typeof ACTION_META];
         return (
           <button
@@ -634,6 +599,8 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [confirmingAction, setConfirmingAction] = useState<ChannelAction | null>(null);
+  // Frozen at open time: the post-move refetch drops the moved linears from `channel`.
+  const [moveSnapshot, setMoveSnapshot] = useState<{ source: MoveSource; linears: EnigmaLinear[] } | null>(null);
 
   const visibleLinears =
     activeTags.length === 0
@@ -666,6 +633,20 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
     });
 
   const isPending = batchSync.isPending || batchClean.isPending;
+
+  const requestAction = (action: ChannelAction) => {
+    if (action.id === "move") {
+      setMoveSnapshot({
+        source: { id: channel.id, name: channel.name, activeCount: activeLinears.length },
+        linears: selectedLinears,
+      });
+      return;
+    }
+    setConfirmingAction(action);
+  };
+
+  const handleLinearsMoved = (ids: number[]) =>
+    setSelectedLinearIds((prev) => prev.filter((id) => !ids.includes(id)));
 
   const executeAction = async () => {
     if (!confirmingAction) return;
@@ -857,7 +838,7 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
           </div>
           <ActionsRow
             selectedLinearIds={selectedLinearIds}
-            onRequestConfirm={setConfirmingAction}
+            onRequestConfirm={requestAction}
           />
 
           {/* Divider */}
@@ -955,6 +936,15 @@ export function ChannelCommands({ channel }: { channel: ResolvedChannel }) {
           </div>
         )}
       </Modal>
+
+      {moveSnapshot && (
+        <MoveLinearsModal
+          onClose={() => setMoveSnapshot(null)}
+          source={moveSnapshot.source}
+          linears={moveSnapshot.linears}
+          onMoved={handleLinearsMoved}
+        />
+      )}
     </div>
   );
 }

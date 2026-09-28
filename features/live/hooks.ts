@@ -647,6 +647,50 @@ export function useBatchLinearClear() {
   });
 }
 
+export function useBatchLinearMove() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      linears,
+      targetChannelId,
+    }: {
+      linears: BatchLinearInput[];
+      targetChannelId: number;
+    }): Promise<LinearBatchResult[]> => {
+      const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      return Promise.all(
+        linears.map(async (l) => {
+          try {
+            const res = await fetch(`/api/live/linear/${l.linearId}`, {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ channelId: targetChannelId }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+              const msg = (data as Record<string, unknown>)?.message ?? `HTTP ${res.status}`;
+              return { ...l, status: "error" as const, data, error: String(msg) };
+            }
+            return { ...l, status: "success" as const, data };
+          } catch (err) {
+            return {
+              ...l,
+              status: "error" as const,
+              data: null,
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
 type BatchLinearCreateInput = BatchLinearInput & {
   name: string;
 };
