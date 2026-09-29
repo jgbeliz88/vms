@@ -13,6 +13,7 @@ import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/
 import type { AddLinearData } from "./ActionConfirmModal";
 import { AVAILABLE_TAGS, TagChip } from "@/components/ui/TagChip";
 import { useToast } from "@/components/ui/Toast";
+import { byEncoder, CheckBox } from "./linear-ui";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,16 +40,6 @@ const DEFAULT_FORM: FormFields = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function byEncoder(channels: MediaexcelChannel[]) {
-  const order: string[] = [];
-  const map = new Map<string, MediaexcelChannel[]>();
-  for (const c of channels) {
-    if (!map.has(c.encoderName)) { map.set(c.encoderName, []); order.push(c.encoderName); }
-    map.get(c.encoderName)!.push(c);
-  }
-  return order.map((enc) => ({ encoderName: enc, channels: map.get(enc)! }));
-}
 
 function channelForPod(podName: string, channels: MediaexcelChannel[]) {
   return channels.find((c) => c.pods.includes(podName)) ?? null;
@@ -175,28 +166,6 @@ function GhostBtn({
     >
       {children}
     </button>
-  );
-}
-
-function CheckBox({ state }: { state: "checked" | "indeterminate" | "off" }) {
-  return (
-    <span className={cn(
-      "grid h-3.5 w-3.5 shrink-0 place-items-center rounded border",
-      state === "checked"
-        ? "border-brand-500 bg-brand-500 dark:border-brand-400 dark:bg-brand-400"
-        : state === "indeterminate"
-        ? "border-brand-500 bg-white dark:border-brand-400 dark:bg-slate-800"
-        : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
-    )}>
-      {state === "checked" && (
-        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-          <path d="M1.5 4.5l2 2 4-4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
-      {state === "indeterminate" && (
-        <span className="block h-1.5 w-1.5 rounded-[1px] bg-brand-500 dark:bg-brand-400" />
-      )}
-    </span>
   );
 }
 
