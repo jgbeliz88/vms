@@ -1,4 +1,5 @@
-import type { EnigmaLinear } from "@/features/live/types";
+import type { EnigmaLinear, MediaexcelChannel } from "@/features/live/types";
+import { cn } from "@/lib/utils/cn";
 
 // Icons and helpers shared by the Channel Commands panel and its modals.
 
@@ -81,4 +82,63 @@ export function IconWarning({ className = "h-3.5 w-3.5" }: { className?: string 
       <circle cx="8" cy="12" r="0.5" fill="currentColor" />
     </svg>
   );
+}
+
+function IconSync() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+    </svg>
+  );
+}
+
+// ── Action metadata ───────────────────────────────────────────────────────────
+
+export const ACTION_META = {
+  sync:     { iconBg: "bg-blue-100 dark:bg-blue-900/30",   iconColor: "text-blue-600 dark:text-blue-400",   icon: <IconSync /> },
+  clean:    { iconBg: "bg-orange-100 dark:bg-orange-900/30",iconColor: "text-orange-600 dark:text-orange-400",icon: <IconTrash /> },
+  move:     { iconBg: "bg-teal-100 dark:bg-teal-900/30",     iconColor: "text-teal-600 dark:text-teal-400",     icon: <IconArrowsSwap /> },
+} as const;
+
+export function CheckBox({ state }: { state: "checked" | "indeterminate" | "off" }) {
+  return (
+    <span className={cn(
+      "grid h-3.5 w-3.5 shrink-0 place-items-center rounded border",
+      state === "checked"
+        ? "border-brand-500 bg-brand-500 dark:border-brand-400 dark:bg-brand-400"
+        : state === "indeterminate"
+        ? "border-brand-500 bg-white dark:border-brand-400 dark:bg-slate-800"
+        : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
+    )}>
+      {state === "checked" && (
+        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+          <path d="M1.5 4.5l2 2 4-4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+      {state === "indeterminate" && (
+        <span className="block h-1.5 w-1.5 rounded-[1px] bg-brand-500 dark:bg-brand-400" />
+      )}
+    </span>
+  );
+}
+
+export function byEncoder(channels: MediaexcelChannel[]) {
+  const order: string[] = [];
+  const map = new Map<string, MediaexcelChannel[]>();
+  for (const c of channels) {
+    if (!map.has(c.encoderName)) { map.set(c.encoderName, []); order.push(c.encoderName); }
+    map.get(c.encoderName)!.push(c);
+  }
+  return order.map((enc) => ({ encoderName: enc, channels: map.get(enc)! }));
 }

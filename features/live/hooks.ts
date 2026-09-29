@@ -133,6 +133,18 @@ async function runPodAction(
     return { podName, podNode: podName, linearName, status: 200, data: { ok: true } };
   }
 
+  return postPodLinearAction(podName, linearName, actionId, token);
+}
+
+export async function postPodLinearAction(
+  podName: string,
+  linearName: string,
+  actionId: string,
+  token: string | null
+): Promise<PodActionResult> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   try {
     const response = await fetch("/api/live/action", {
       method: "POST",
@@ -162,6 +174,19 @@ export function useChannelAction() {
         channel.pods.map((pod) => runPodAction(pod, actionId, token))
       );
       return { channelId: channel.id, actionId, podResults };
+    }
+  });
+}
+
+export type PodLinearTarget = { podName: string; linearName: string };
+
+export function usePodLinearActions() {
+  return useMutation({
+    mutationFn: async ({ actionId, targets }: { actionId: "sync" | "clean"; targets: PodLinearTarget[] }) => {
+      const token = getToken();
+      return Promise.all(
+        targets.map((t) => postPodLinearAction(t.podName, t.linearName, actionId, token))
+      );
     }
   });
 }

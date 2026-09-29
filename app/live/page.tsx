@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Radio } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
 import {
@@ -21,16 +22,23 @@ import { ChannelTable } from "@/components/live/ChannelTable";
 import { ActionConfirmModal, AddLinearData, DeleteFlowDeletion } from "@/components/live/ActionConfirmModal";
 import { BatchActionBar } from "@/components/live/BatchActionBar";
 import { CreateChannelPanel } from "@/components/live/CreateChannelPanel";
+import { PodCommands } from "@/components/live/PodCommands";
+import { IconPod } from "@/components/live/linear-ui";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
 import { usePermission } from "@/lib/auth/usePermission";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { cn } from "@/lib/utils/cn";
 
+type LiveTab = "channels" | "pods";
 
 export default function LivePage() {
   const { notify } = useToast();
   const canAdmin = usePermission([PERMISSIONS.LIVE_MANAGE_CHANNELS]);
+  const canPodActions = usePermission([PERMISSIONS.LINEAR_ACTIONS]);
+  const [tab, setTab] = useState<LiveTab>("channels");
+  const activeTab: LiveTab = canPodActions ? tab : "channels";
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [confirmAction, setConfirmAction] = useState<ChannelAction | null>(null);
   const [confirmChannel, setConfirmChannel] = useState<ResolvedChannel | null>(null);
@@ -59,6 +67,13 @@ export default function LivePage() {
       return channel.name.toLowerCase().includes(channelFilter.toLowerCase());
     });
   }, [channels, channelFilter]);
+  const linkedByPod = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const pod of channels.flatMap((c) => c.pods)) {
+      if (pod.linear?.linearName) map.set(pod.name, pod.linear.linearName);
+    }
+    return map;
+  }, [channels]);
   const selectedChannels = useMemo(
     () => channels.filter((channel) => selectedIds.includes(channel.id)),
     [channels, selectedIds]
@@ -307,50 +322,83 @@ export default function LivePage() {
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Live Channels</h1>
+              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Live</h1>
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 Real-time operational view for live broadcast workflows.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={channelFilter}
-                onChange={(e) => setChannelFilter(e.target.value)}
-                placeholder="Filter channels..."
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-              />
-              {canAdmin && <Button onClick={() => setCreateOpen(true)}>Create Channel</Button>}
-            </div>
+            {canPodActions && (
+              <div className="flex items-center gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 text-[13px] font-semibold dark:border-slate-300 dark:bg-[#24303F]">
+                {(["channels", "pods"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTab(t)}
+                    aria-pressed={activeTab === t}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition-colors",
+                      activeTab === t
+                        ? "bg-brand-500 text-white"
+                        : "text-[#64748B] hover:bg-[#F1F5F9] dark:text-[#8899A8] dark:hover:bg-[#333A48]"
+                    )}
+                  >
+                    {t === "pods" ? <IconPod className="h-[13px] w-[13px]" /> : <Radio size={13} aria-hidden />}
+                    {t === "channels" ? "Channels" : "Pods"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {channelsQuery.isLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-              Loading channels...
-            </div>
+          {activeTab === "pods" ? (
+            mediaexcelChannelsQuery.isLoading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                Loading pods...
+              </div>
+            ) : (
+              <PodCommands mediaexcelChannels={mediaexcelChannels} linkedByPod={linkedByPod} />
+            )
           ) : (
-            <ChannelTable
-              channels={filteredChannels}
-              actions={channelActions}
-              selectedIds={selectedIds}
-              onToggle={toggleOne}
-              onToggleAll={toggleAll}
-              onAction={handleAction}
-              onAdAction={handleAdAction}
-              onDelete={setDeleteConfirmChannel}
-              configLayout={configLayoutQuery.data}
-              onSaveConfig={handleSaveConfig}
-              savingConfigId={savingConfigId}
-              mediaexcelChannels={mediaexcelChannels}
-              onCreateLinear={handleCreateLinearForChannel}
-              onDeleteLinear={handleDeleteLinearForChannel}
-              onDeletePod={handleDeletePodForChannel}
-            />
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <input
+                  type="text"
+                  value={channelFilter}
+                  onChange={(e) => setChannelFilter(e.target.value)}
+                  placeholder="Filter channels..."
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                />
+                {canAdmin && <Button onClick={() => setCreateOpen(true)}>Create Channel</Button>}
+              </div>
+              {channelsQuery.isLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                  Loading channels...
+                </div>
+              ) : (
+                <ChannelTable
+                  channels={filteredChannels}
+                  actions={channelActions}
+                  selectedIds={selectedIds}
+                  onToggle={toggleOne}
+                  onToggleAll={toggleAll}
+                  onAction={handleAction}
+                  onAdAction={handleAdAction}
+                  onDelete={setDeleteConfirmChannel}
+                  configLayout={configLayoutQuery.data}
+                  onSaveConfig={handleSaveConfig}
+                  savingConfigId={savingConfigId}
+                  mediaexcelChannels={mediaexcelChannels}
+                  onCreateLinear={handleCreateLinearForChannel}
+                  onDeleteLinear={handleDeleteLinearForChannel}
+                  onDeletePod={handleDeletePodForChannel}
+                />
+              )}
+            </>
           )}
 
         </div>
 
-        <BatchActionBar selected={selectedChannels} />
+        {activeTab === "channels" && <BatchActionBar selected={selectedChannels} />}
 
         <ActionConfirmModal
           open={Boolean(confirmAction)}

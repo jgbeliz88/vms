@@ -16,7 +16,7 @@ import {
   IconLinear,
   IconPod,
   IconEncoder,
-  IconArrowsSwap,
+  ACTION_META,
   linearEncoderNames,
   countLinearPods,
   countLinearEncoders,
@@ -171,25 +171,6 @@ const COMMAND_CONFIG: Record<
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-function IconSync() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-    </svg>
-  );
-}
-
 function IconWaveform() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -227,14 +208,6 @@ function deriveLinearStatus(linear: EnigmaLinear): EnigmaLinearPod["status"] {
   if (statuses.some((s) => s === "stopped")) return "stopped";
   return "running";
 }
-
-// ── Action metadata ───────────────────────────────────────────────────────────
-
-const ACTION_META = {
-  sync:     { iconBg: "bg-blue-100 dark:bg-blue-900/30",   iconColor: "text-blue-600 dark:text-blue-400",   icon: <IconSync /> },
-  clean:    { iconBg: "bg-orange-100 dark:bg-orange-900/30",iconColor: "text-orange-600 dark:text-orange-400",icon: <IconTrash /> },
-  move:     { iconBg: "bg-teal-100 dark:bg-teal-900/30",     iconColor: "text-teal-600 dark:text-teal-400",     icon: <IconArrowsSwap /> },
-} as const;
 
 const CMD_ICONS = {
   scte:     <IconWaveform />,

@@ -22,13 +22,15 @@ function buildTarget(
   action: "clear" | "delete"
 ): { url: string; method: string } {
   const enigmaBase = getEnigmaBaseUrl();
+  const pod = encodeURIComponent(podName);
+  const linear = encodeURIComponent(linearName);
   if (actionId === "sync") {
-    return { url: `${enigmaBase}/live/synchronize/${podName}/${linearName}`, method: "GET" };
+    return { url: `${enigmaBase}/live/synchronize/${pod}/${linear}`, method: "GET" };
   }
   if (actionId === "clean") {
-    return { url: `${enigmaBase}/live/clean/${podName}/${linearName}`, method: "GET" };
+    return { url: `${enigmaBase}/live/clean/${pod}/${linear}`, method: "GET" };
   }
-  return { url: `${enigmaBase}/live/${podName}/${linearName}?action=${action}`, method: "DELETE" };
+  return { url: `${enigmaBase}/live/${pod}/${linear}?action=${action}`, method: "DELETE" };
 }
 
 export async function POST(request: Request) {
