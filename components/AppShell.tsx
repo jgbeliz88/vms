@@ -113,10 +113,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </div>
       </nav>
-
-      <div className="border-t border-[#E2E8F0] px-4 py-3 text-xs text-[#9FA6B2]">
-        v0.1.0
-      </div>
     </div>
   );
 
