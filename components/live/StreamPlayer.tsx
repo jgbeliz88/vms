@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cn } from "@/lib/utils/cn";
 
 export type AdEvent = {
   id: string;
@@ -38,6 +39,10 @@ type StreamPlayerProps = {
   cdnToken?: string;
   onAdEvent?: (event: AdEvent) => void;
   onBufferUpdate?: (stats: BufferStats) => void;
+  /** Display-only summary of the current settings, e.g. "Format: HLS · DRM: Clear · CDN: Akamai". */
+  infoLabel?: string;
+  /** Extra content for the strip under the video (e.g. buffering stats). */
+  stripExtra?: ReactNode;
 };
 
 /** Parse ID3v2 TXXX frames from raw bytes and return "key=value" pairs */
@@ -87,7 +92,7 @@ function formatRendition(r: Rendition): string {
   return r.height ? `${r.height}p · ${rate}` : rate;
 }
 
-export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate }: StreamPlayerProps) {
+export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate, infoLabel, stripExtra }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hlsRef = useRef<any>(null);
@@ -481,59 +486,57 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
     ? `Auto · ${activeRenditionInfo.height ? `${activeRenditionInfo.height}p` : formatRendition(activeRenditionInfo)}`
     : "Auto";
 
+  const chipClass = (selected: boolean) =>
+    cn(
+      "rounded px-2 py-0.5 text-[10px] font-semibold transition-colors",
+      selected ? "bg-white text-black" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+    );
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-black/90 p-3 dark:border-slate-700">
-      <div className="text-xs text-slate-300">Preview</div>
-      {error ? <div className="mt-2 text-xs text-rose-300">{error}</div> : null}
+    <div className="flex flex-col overflow-hidden rounded-xl bg-black">
       <video
         ref={videoRef}
         controls
         playsInline
         crossOrigin="anonymous"
-        className="mt-2 h-40 w-full rounded-lg bg-black"
+        className="aspect-video w-full bg-black"
       />
-      {audioTracks.length >= 2 && (
-        <div className="mt-2">
-          <div className="mb-1 text-[10px] text-slate-400">Language</div>
-          <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2 bg-slate-900 px-3 py-2.5">
+        <span className="text-xs text-slate-300">Preview</span>
+        {infoLabel ? <span className="text-[11px] text-slate-400">{infoLabel}</span> : null}
+        {error ? <span className="text-[11px] text-rose-300">{error}</span> : null}
+        {audioTracks.length >= 2 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-slate-400">Language</span>
             {audioTracks.map((t, i) => (
               <button
                 key={t.id}
                 onClick={() => handleAudioTrackChange(i)}
-                className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors ${
-                  audioTrackIndex === i
-                    ? "bg-white text-black"
-                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                }`}
+                className={chipClass(audioTrackIndex === i)}
               >
                 {t.lang ? t.lang.toUpperCase() : t.name || `Track ${i + 1}`}
               </button>
             ))}
           </div>
-        </div>
-      )}
-      {renditions.length >= 2 && (
-        <div className="mt-2">
-          <div className="mb-1 text-[10px] text-slate-400">Quality</div>
-          <div className="flex flex-wrap gap-1">
+        )}
+        {renditions.length >= 2 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-slate-400">Quality</span>
             {[{ index: -1, label: autoLabel }, ...sortedRenditions.map((r) => ({ index: r.index, label: formatRendition(r) }))].map(
               (opt) => (
                 <button
                   key={opt.index}
                   onClick={() => handleRenditionChange(opt.index)}
-                  className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors ${
-                    selectedRendition === opt.index
-                      ? "bg-white text-black"
-                      : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                  }`}
+                  className={chipClass(selectedRendition === opt.index)}
                 >
                   {opt.label}
                 </button>
               )
             )}
           </div>
-        </div>
-      )}
+        )}
+        {stripExtra ? <div className="ml-auto">{stripExtra}</div> : null}
+      </div>
     </div>
   );
 }
