@@ -25,6 +25,13 @@ type AudioTrack = {
   lang: string;
 };
 
+type Rendition = {
+  index: number;
+  width: number;
+  height: number;
+  bitrate: number;
+};
+
 type StreamPlayerProps = {
   url: string;
   format: "hls" | "dash" | "smooth";
@@ -72,6 +79,14 @@ function parseId3Txxx(bytes: Uint8Array): string | null {
   return results.length > 0 ? results.join(", ") : null;
 }
 
+/** "1080p · 5.2 Mbps", or just the bitrate when the rendition has no height */
+function formatRendition(r: Rendition): string {
+  const rate = r.bitrate >= 1_000_000
+    ? `${(r.bitrate / 1_000_000).toFixed(1)} Mbps`
+    : `${Math.round(r.bitrate / 1000)} kbps`;
+  return r.height ? `${r.height}p · ${rate}` : rate;
+}
+
 export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,6 +97,24 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
   const [error, setError] = useState<string | null>(null);
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [audioTrackIndex, setAudioTrackIndex] = useState(0);
+  const [renditions, setRenditions] = useState<Rendition[]>([]);
+  // -1 = Auto (ABR)
+  const [selectedRendition, setSelectedRendition] = useState(-1);
+  const [activeRendition, setActiveRendition] = useState<number | null>(null);
+  const selectedRenditionRef = useRef(-1);
+
+  // Force a video rendition (or back to ABR with -1). Switches immediately, flushing the buffer.
+  const handleRenditionChange = (index: number) => {
+    setSelectedRendition(index);
+    selectedRenditionRef.current = index;
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = index;
+    } else if (dashRef.current) {
+      const auto = index === -1;
+      dashRef.current.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: auto } } } });
+      if (!auto) dashRef.current.setQualityFor("video", index, true);
+    }
+  };
 
   // Switch audio track via HLS.js / DASH when the user picks a different language
   const handleAudioTrackChange = (index: number) => {
@@ -112,6 +145,10 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
     setError(null);
     setAudioTracks([]);
     setAudioTrackIndex(0);
+    setRenditions([]);
+    setSelectedRendition(-1);
+    setActiveRendition(null);
+    selectedRenditionRef.current = -1;
 
     // Buffering tracking via polling (more reliable than events with HLS.js)
     let bufferCount = 0;
@@ -168,6 +205,30 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
           }));
           setAudioTracks(tracks);
           setAudioTrackIndex(0);
+        });
+
+        const updateLevels = () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const levels: any[] = hlsInstance.levels ?? [];
+          setRenditions(levels.map((l, i) => ({
+            index: i,
+            width: l.width ?? 0,
+            height: l.height ?? 0,
+            bitrate: l.bitrate ?? 0,
+          })));
+          // A level was dropped (e.g. failed variant) and the manual pick no longer exists
+          if (selectedRenditionRef.current >= levels.length) {
+            selectedRenditionRef.current = -1;
+            setSelectedRendition(-1);
+            hlsInstance.currentLevel = -1;
+          }
+        };
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, updateLevels);
+        hlsInstance.on(Hls.Events.LEVELS_UPDATED, updateLevels);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (_event: string, data: any) => {
+          setActiveRendition(data.level);
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,6 +372,32 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
         });
       }
 
+      // Video renditions — STREAM_INITIALIZED re-fires on each new period of multi-period streams
+      dashInstance.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const infos: any[] = dashInstance.getBitrateInfoListFor?.("video") ?? [];
+        setRenditions(infos.map((b) => ({
+          index: b.qualityIndex,
+          width: b.width ?? 0,
+          height: b.height ?? 0,
+          bitrate: b.bitrate ?? 0,
+        })));
+        const selected = selectedRenditionRef.current;
+        if (selected === -1) return;
+        if (infos.some((b) => b.qualityIndex === selected)) {
+          dashInstance.setQualityFor("video", selected, true);
+        } else {
+          selectedRenditionRef.current = -1;
+          setSelectedRendition(-1);
+          dashInstance.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: true } } } });
+        }
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dashInstance.on(dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, (e: any) => {
+        if (e.mediaType === "video") setActiveRendition(e.newQuality);
+      });
+
       dashInstance.on(dashjs.MediaPlayer.events.PLAYBACK_METADATA_LOADED, () => {
         const manifest = dashInstance.getManifest?.();
         if (!manifest) return;
@@ -388,6 +475,12 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
     };
   }, [url, format, cdnToken, onAdEvent, onBufferUpdate]);
 
+  const sortedRenditions = [...renditions].sort((a, b) => b.bitrate - a.bitrate);
+  const activeRenditionInfo = renditions.find((r) => r.index === activeRendition);
+  const autoLabel = selectedRendition === -1 && activeRenditionInfo
+    ? `Auto · ${activeRenditionInfo.height ? `${activeRenditionInfo.height}p` : formatRendition(activeRenditionInfo)}`
+    : "Auto";
+
   return (
     <div className="rounded-xl border border-slate-200 bg-black/90 p-3 dark:border-slate-700">
       <div className="text-xs text-slate-300">Preview</div>
@@ -416,6 +509,28 @@ export function StreamPlayer({ url, format, cdnToken, onAdEvent, onBufferUpdate 
                 {t.lang ? t.lang.toUpperCase() : t.name || `Track ${i + 1}`}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+      {renditions.length >= 2 && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] text-slate-400">Quality</div>
+          <div className="flex flex-wrap gap-1">
+            {[{ index: -1, label: autoLabel }, ...sortedRenditions.map((r) => ({ index: r.index, label: formatRendition(r) }))].map(
+              (opt) => (
+                <button
+                  key={opt.index}
+                  onClick={() => handleRenditionChange(opt.index)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                    selectedRendition === opt.index
+                      ? "bg-white text-black"
+                      : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              )
+            )}
           </div>
         </div>
       )}
