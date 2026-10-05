@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { usePlaybackDiagnostics } from "@/features/live/hooks";
 import { Badge } from "@/components/ui/Badge";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
-import { cn } from "@/lib/utils/cn";
 import { DiagnosticsBlock } from "@/components/ui/DiagnosticsBlock";
 import { Select } from "@/components/ui/Select";
 import { StreamPlayer, AdEvent } from "@/components/live/StreamPlayer";
+import { AdEventsList } from "@/components/playback/AdEventsList";
+import { DiagnosticsRail } from "@/components/playback/DiagnosticsRail";
+import { EndpointCard } from "@/components/playback/EndpointCard";
 import {
   usePlaybackSettings,
   useCdnToken,
@@ -189,47 +191,45 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     [cdnKey]
   );
 
+  const diagnosticsStatus = diagnostics.data?.httpStatus;
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Playback Diagnostics</div>
           <div className="text-xs text-slate-500">Compare origin vs CDN playback.</div>
         </div>
-        <Badge label={mode === "direct" ? "Origin" : "CDN"} tone="default" />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button
-          variant={playerActive && mode === "direct" ? "primary" : "secondary"}
-          onClick={() => runDiagnostics("direct")}
-        >
-          {playerActive && mode === "direct" ? "Origin Active" : "Origin"}
-        </Button>
-        <Button
-          variant={playerActive && mode === "cdn" ? "primary" : "secondary"}
-          onClick={() => runDiagnostics("cdn")}
-        >
-          {playerActive && mode === "cdn" ? "CDN Active" : "CDN"}
-        </Button>
-        {showNoLinearWarning ? (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
-            No linears found. Create a linear for this channel first.
-          </span>
-        ) : !playerActive ? (
-          <span className="text-xs text-slate-500">Press Origin or CDN to start playback.</span>
-        ) : null}
-      </div>
-
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div className="justify-self-end text-xs text-slate-500">
-          Format: {resolvedFormatLabel} · DRM: {resolvedDrmLabel} · CDN: {resolvedCdnLabel}
+        <div className="flex flex-wrap items-center gap-2">
+          {showNoLinearWarning ? (
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              No linears found. Create a linear for this channel first.
+            </span>
+          ) : !playerActive ? (
+            <span className="text-xs text-slate-500">Press Origin or CDN to start playback.</span>
+          ) : null}
+          <Button
+            size="sm"
+            variant={playerActive && mode === "direct" ? "primary" : "secondary"}
+            onClick={() => runDiagnostics("direct")}
+          >
+            {playerActive && mode === "direct" ? "Origin Active" : "Origin"}
+          </Button>
+          <Button
+            size="sm"
+            variant={playerActive && mode === "cdn" ? "primary" : "secondary"}
+            onClick={() => runDiagnostics("cdn")}
+          >
+            {playerActive && mode === "cdn" ? "CDN Active" : "CDN"}
+          </Button>
+          <Badge label={mode === "direct" ? "Origin" : "CDN"} tone="default" />
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-4">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {mode === "direct" ? (
           <Select
+            size="sm"
             label="Linear"
             options={linearOptions.length > 0 ? linearOptions : [{ label: "No linears", value: "" }]}
             value={linearOptions.length > 0 ? String(selectedLinearIdx) : ""}
@@ -238,6 +238,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
           />
         ) : (
           <Select
+            size="sm"
             label="Linear"
             options={cdnLinearOptions.length > 0 ? cdnLinearOptions : [{ label: "No linears", value: "" }]}
             value={effectiveCdnLinear}
@@ -246,18 +247,21 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
           />
         )}
         <Select
+          size="sm"
           label="Streaming Format"
           options={formatOptions}
           value={formatKey}
           onChange={(event) => setFormatKey(event.target.value as FormatKey)}
         />
         <Select
+          size="sm"
           label="DRM"
           options={drmOptions}
           value={drmKey}
           onChange={(event) => setDrmKey(event.target.value as DrmKey)}
         />
         <Select
+          size="sm"
           label="CDN Provider"
           options={cdnOptions}
           value={cdnKey}
@@ -265,151 +269,60 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
         />
       </div>
 
-      <div className="mt-4 flex gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-        <div className="w-1/3 shrink-0 space-y-3">
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)]">
+        <div>
           {playerActive ? (
             <StreamPlayer
               url={mode === "cdn" ? cdnUrl : originUrl}
               format={formatKey}
               cdnToken={mode === "cdn" ? cdnToken ?? undefined : undefined}
               onAdEvent={handleAdEvent}
+              infoLabel={`Format: ${resolvedFormatLabel} · DRM: ${resolvedDrmLabel} · CDN: ${resolvedCdnLabel}`}
             />
           ) : (
-            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-950">
               Select Origin or CDN to start playback.
             </div>
           )}
+        </div>
 
-          {playerActive && (
-            <div className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-                  Ad Events ({filteredAdEvents.length}/{adEvents.length})
-                </span>
-                {adEvents.length > 0 && (
-                  <button
-                    onClick={() => setAdEvents([])}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              {adEvents.length > 0 && (
-                <div className="mt-1 space-y-1">
-                  <div className="flex flex-wrap gap-1">
-                    {(["scte35", "cue", "daterange", "stream", "emsg", "id3"] as const)
-                      .filter((t) => adEventTypes.has(t))
-                      .map((type) => (
-                        <button
-                          key={type}
-                          onClick={() => toggleAdEventFilter(type)}
-                          className={cn(
-                            "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none transition-opacity",
-                            adEventFilter.size === 0 || adEventFilter.has(type)
-                              ? "opacity-100"
-                              : "opacity-30",
-                            type === "scte35"
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                              : type === "cue"
-                                ? "bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300"
-                                : type === "daterange"
-                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                  : type === "stream"
-                                    ? "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300"
-                                    : type === "emsg"
-                                      ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-                                      : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                          )}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                  </div>
-                  <input
-                    type="text"
-                    value={adEventSearch}
-                    onChange={(e) => setAdEventSearch(e.target.value)}
-                    placeholder="Search events..."
-                    className="w-full rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-600 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  />
-                </div>
-              )}
-              <div className="mt-1 max-h-40 overflow-y-auto">
-                {filteredAdEvents.length === 0 ? (
-                  <div className="py-2 text-center text-[11px] text-slate-400">
-                    {adEvents.length === 0 ? "No ad events detected yet." : "No events match the current filter."}
-                  </div>
-                ) : (
-                  <ul className="space-y-1">
-                    {filteredAdEvents.map((event) => (
-                      <li
-                        key={event.id}
-                        className="rounded border border-slate-100 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-800"
-                      >
-                        <div className="flex items-center gap-1">
-                          <span
-                            className={cn(
-                              "inline-block rounded px-1 py-0.5 text-[9px] font-bold uppercase leading-none",
-                              event.type === "scte35"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                                : event.type === "cue"
-                                  ? "bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300"
-                                  : event.type === "daterange"
-                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                    : event.type === "stream"
-                                      ? "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300"
-                                      : event.type === "emsg"
-                                        ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-                                        : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                            )}
-                          >
-                            {event.type}
-                          </span>
-                          <span className="truncate text-[10px] text-slate-600 dark:text-slate-300">
-                            {event.detail}
-                          </span>
-                        </div>
-                        {event.plannedDuration != null && (
-                          <div className="mt-0.5 pl-1 text-[10px] text-slate-500 dark:text-slate-400">
-                            Planned duration: {event.plannedDuration.toFixed(1)}s
-                          </div>
-                        )}
-                        {event.messageData != null && (
-                          <div className="mt-0.5 pl-1 text-[10px] text-slate-500 dark:text-slate-400">
-                            <div className="font-medium">X-MESSAGE-DATA (parsed):</div>
-                            <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded bg-slate-100 p-1 text-[9px] dark:bg-slate-800">
-                              ID3: {event.messageData || "(empty)"}
-                            </pre>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="space-y-2">
-            <div>
-              <span className="font-semibold">Origin:</span> {originBase || "Not set"}
-            </div>
-            <div>
-              <span className="font-semibold">CDN:</span> {cdnBase || "Not set (using fallback)"}
-            </div>
-            <div className="break-all">
-              <span className="font-semibold">Playback URL:</span> {cdnPlaybackUrl}
-            </div>
-          </div>
-          <div className="mt-3 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
-            <DiagnosticsBlock
-              diagnostics={diagnostics}
-              idleText="Run a playback build to see the diagnostics."
-            />
-          </div>
-        </div>
+        <DiagnosticsRail
+          adCountLabel={`${filteredAdEvents.length}/${adEvents.length}`}
+          statuses={diagnosticsStatus != null && !diagnostics.isPending ? [diagnosticsStatus] : []}
+          adEvents={
+            playerActive ? (
+              <AdEventsList
+                events={filteredAdEvents}
+                totalCount={adEvents.length}
+                onClear={() => setAdEvents([])}
+                filter={{
+                  types: adEventTypes,
+                  selected: adEventFilter,
+                  onToggle: toggleAdEventFilter,
+                  search: adEventSearch,
+                  onSearch: setAdEventSearch,
+                }}
+              />
+            ) : (
+              <div className="py-4 text-center text-xs text-slate-400">Start playback to capture ad events.</div>
+            )
+          }
+          diagnostics={
+            <EndpointCard
+              title="Origin vs CDN"
+              rows={[
+                { label: "Origin:", value: originBase || "Not set" },
+                { label: "CDN:", value: cdnBase || "Not set (using fallback)" },
+                { label: "Playback URL:", value: cdnPlaybackUrl },
+              ]}
+            >
+              <DiagnosticsBlock
+                diagnostics={diagnostics}
+                idleText="Run a playback build to see the diagnostics."
+              />
+            </EndpointCard>
+          }
+        />
       </div>
     </div>
   );
