@@ -9,7 +9,7 @@ import {
   useFastChannelBatchesQuery,
   useUpdateFastChannelConfig,
 } from "@/features/fast-channels/hooks";
-import type { FastChannelConfigRow } from "@/features/fast-channels/types";
+import { hasAnyConfigValue, type FastChannelConfigRow } from "@/features/fast-channels/types";
 import { FastChannelConfigEditor } from "./FastChannelConfigEditor";
 import { FastChannelConfigReadOnlyTable } from "./FastChannelConfigReadOnlyTable";
 import { CollapsibleCard } from "@/components/ui/CollapsibleCard";
@@ -33,8 +33,15 @@ export function FastChannelConfigPanel({ channelName }: { channelName: string })
 
   const handleSave = async (rows: FastChannelConfigRow[]) => {
     if (batchId === null) return;
+    // All-N/A rows are dropped so they never create empty records upstream — unless the row
+    // is already persisted, in which case it must be sent so its cleared fields get nulled.
+    const configs = rows.filter(
+      (row) =>
+        hasAnyConfigValue(row) ||
+        config.some((r) => r.platform === row.platform && r.device === row.device)
+    );
     try {
-      await updateConfig.mutateAsync({ channelName, batchId, configs: rows });
+      await updateConfig.mutateAsync({ channelName, batchId, configs });
       notify({ title: "Configuration saved", description: `${channelName} updated.`, variant: "success" });
     } catch (error) {
       notify({

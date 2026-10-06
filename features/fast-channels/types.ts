@@ -56,6 +56,17 @@ export const FAST_CHANNEL_CONFIG_COLUMNS: { key: keyof FastChannelConfigRow; lab
   { key: "drLecter",   label: "Dr Lecter"  },
 ];
 
+/** The value fields of a config row — everything except the platform/device key. */
+export const FAST_CHANNEL_CONFIG_FIELDS = [
+  "source", "cvpId", "format", "midroll", "drm",
+  "token", "scteId3", "subtitle", "multiaudio", "drLecter",
+] as const;
+
+/** A row carries data once at least one field beyond its platform/device key is set. */
+export function hasAnyConfigValue(row: FastChannelConfigRow): boolean {
+  return FAST_CHANNEL_CONFIG_FIELDS.some((field) => Boolean(row[field]));
+}
+
 /** A fast-channel batch. The batch whose name equals the channel name supplies its batchId. */
 export type FastChannelBatch = {
   id: number;
