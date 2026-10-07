@@ -105,20 +105,31 @@ function ManifestDetail({ data }: { data: ManifestStatusResult }) {
                 key={m.label}
                 {...bindPath(m.url)}
                 className={`cursor-pointer rounded-lg border px-3 py-2 text-xs transition-shadow hover:ring-2 ${
-                  m.ok
+                  m.blocked
+                    ? "border-[#FFA70B]/45 bg-[#FEF9C3] hover:ring-[#FFA70B]/55 dark:border-amber-700/45 dark:bg-amber-900/[0.22] dark:hover:ring-[#FFA70B]/50"
+                    : m.ok
                     ? "border-[#219653]/30 bg-[#DCFCE7] hover:ring-[#219653]/45 dark:border-emerald-700/40 dark:bg-emerald-900/20"
                     : "border-[#D34053]/30 bg-[#FEE2E2] hover:ring-[#D34053]/45 dark:border-rose-700/40 dark:bg-rose-900/20"
                 }`}
               >
-                <div className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</div>
+                {m.blocked ? (
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</span>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#FFA70B]" />
+                  </div>
+                ) : (
+                  <div className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</div>
+                )}
                 <div
                   className={`mt-0.5 ${
-                    m.ok
+                    m.blocked
+                      ? "text-[#854D0E] dark:text-amber-400"
+                      : m.ok
                       ? "text-[#166534] dark:text-emerald-400"
                       : "text-[#991B1B] dark:text-rose-400"
                   }`}
                 >
-                  {m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}
+                  {m.blocked ? `Blocked · HTTP ${m.httpStatus}` : m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}
                 </div>
               </div>
             ))}

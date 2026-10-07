@@ -287,7 +287,8 @@ export function usePlaybackDiagnostics() {
 }
 
 
-export type ManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number };
+// `blocked`: main manifest intentionally 403'd at the origin while DRM manifests serve — excluded from `ok`.
+export type ManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number; blocked: boolean };
 export type PodManifestResult = { podName: string; manifests: ManifestCheck[] };
 export type ManifestStatusResult = { ok: boolean; pods: PodManifestResult[] };
 
