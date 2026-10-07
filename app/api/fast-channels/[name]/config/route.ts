@@ -4,7 +4,10 @@ import { getEnigmaBaseUrl } from "@/app/api/_lib/env-urls";
 import { fetchVMS } from "@/app/api/_lib/fetch";
 import { logInfo, logError } from "@/app/api/_lib/logger";
 import { extractUpstreamMessage } from "@/app/api/_lib/responses";
-import type { FastChannelConfigRow } from "@/features/fast-channels/types";
+import {
+  FAST_CHANNEL_CONFIG_FIELDS,
+  type FastChannelConfigRow,
+} from "@/features/fast-channels/types";
 
 const LOG_NAME = "app.api.fast-channels.[name].config.route";
 
@@ -51,19 +54,10 @@ function toUiRow(row: EnigmaFastChannelConfigRow): FastChannelConfigRow {
   };
 }
 
-const CONFIG_FIELDS = [
-  "source", "cvpId", "format", "midroll", "drm",
-  "token", "scteId3", "subtitle", "multiaudio", "drLecter",
-] as const;
-
-/** A row is worth sending only once it carries at least one value beyond its composite key. */
-function hasAnyValue(row: FastChannelConfigRow): boolean {
-  return CONFIG_FIELDS.some((field) => Boolean(row[field]));
-}
-
 /**
  * Build the backend payload for a UI row. `batchId`, `channelName`, `platform` and `device`
- * form the composite key and are always sent; every other field is omitted when empty/N/A.
+ * form the composite key. Every field is sent, with N/A as an explicit null: Enigma leaves
+ * omitted fields untouched, so leaving out a cleared field would keep its old value.
  */
 function toEnigmaRow(
   row: FastChannelConfigRow,
@@ -76,8 +70,8 @@ function toEnigmaRow(
     platform: row.platform,
     device: row.device,
   };
-  for (const field of CONFIG_FIELDS) {
-    if (row[field]) out[field] = row[field];
+  for (const field of FAST_CHANNEL_CONFIG_FIELDS) {
+    out[field] = row[field] || null;
   }
   return out;
 }
@@ -144,9 +138,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ name
   }
 
   const { batchId } = parsed.data;
-  // Rows left entirely at N/A are dropped so they never create empty config records upstream.
+  // Which rows to send is decided by the caller: it drops all-N/A rows that were never
+  // persisted, but must keep persisted ones the user cleared so their values get nulled.
   const configs = (parsed.data.configs as FastChannelConfigRow[])
-    .filter(hasAnyValue)
     .map((row) => toEnigmaRow(row, batchId, name));
 
   const url = configUrl(name);

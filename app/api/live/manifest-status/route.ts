@@ -38,20 +38,35 @@ export async function POST(request: Request) {
   const podResults = await Promise.all(
     uniquePods.map(async ({ podName, linearName, drm }) => {
       const base = `${originBaseUrl}/${podName}/live/${linearName}`;
+      const check = (types: readonly { label: string; path: () => string }[]) =>
+        Promise.all(types.map(({ label, path }) => fetchCheck(`${base}/${path()}`).then((r) => ({ label, ...r }))));
+
       // Non-DRM linears have no DRM manifests — checking them always fails, so skip.
-      const manifestTypes = drm === 0 ? MAIN_MANIFEST_TYPES : [...MAIN_MANIFEST_TYPES, ...DRM_MANIFEST_TYPES];
-      const manifests = await Promise.all(
-        manifestTypes.map(({ label, path }) => {
-          const url = `${base}/${path()}`;
-          return fetchCheck(url).then((r) => ({ label, ...r }));
-        })
-      );
-      return { podName, manifests };
+      const [mainManifests, drmManifests] = await Promise.all([
+        check(MAIN_MANIFEST_TYPES),
+        drm === 0 ? Promise.resolve([]) : check(DRM_MANIFEST_TYPES),
+      ]);
+
+      // Main manifests are sometimes blocked by hand at the origin (403) so the linear
+      // only plays through DRM. Treat that as intentional only when every main manifest
+      // is exactly 403 and every DRM manifest is exactly 200; anything else is a failure.
+      const mainBlocked =
+        drm !== 0 &&
+        drmManifests.length > 0 &&
+        mainManifests.every((m) => m.httpStatus === 403) &&
+        drmManifests.every((m) => m.httpStatus === 200);
+
+      const manifests = [
+        ...mainManifests.map((m) => ({ ...m, blocked: mainBlocked })),
+        ...drmManifests.map((m) => ({ ...m, blocked: false })),
+      ];
+      return { podName, manifests, mainBlocked };
     })
   );
 
-  const allOk = podResults.every((p) => p.manifests.every((m) => m.ok));
-  logInfo({ name: LOG_NAME, fn: "POST", msg: "End of request", data: { ok: allOk, pods: podResults } });
+  const allOk = podResults.every((p) => p.manifests.every((m) => m.ok || m.blocked));
+  const blockedPods = podResults.filter((p) => p.mainBlocked).length;
+  logInfo({ name: LOG_NAME, fn: "POST", msg: "End of request", data: { ok: allOk, blockedPods, pods: podResults } });
 
   return NextResponse.json({ ok: allOk, pods: podResults });
 }
