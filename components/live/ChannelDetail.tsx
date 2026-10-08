@@ -64,14 +64,31 @@ function StatusCard({
                     key={m.url}
                     {...bindPath(m.url)}
                     className={`cursor-pointer rounded-lg border px-2 py-1.5 transition-shadow hover:ring-2 ${
-                      m.ok
+                      m.blocked
+                        ? "border-[#FFA70B]/45 bg-[#FEF9C3] hover:ring-[#FFA70B]/55 dark:border-amber-700/45 dark:bg-amber-900/[0.22] dark:hover:ring-[#FFA70B]/50"
+                        : m.ok
                         ? "border-emerald-200 bg-emerald-50 hover:ring-emerald-500/45 dark:border-emerald-700/40 dark:bg-emerald-900/20"
                         : "border-red-200 bg-red-50 hover:ring-red-500/45 dark:border-red-700/40 dark:bg-red-900/20"
                     }`}
                   >
-                    <div className="font-medium text-slate-700 dark:text-slate-200">{m.label}</div>
-                    <div className={`mt-0.5 font-mono break-all ${m.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
-                      {m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}
+                    {m.blocked ? (
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{m.label}</span>
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#FFA70B]" />
+                      </div>
+                    ) : (
+                      <div className="font-medium text-slate-700 dark:text-slate-200">{m.label}</div>
+                    )}
+                    <div
+                      className={`mt-0.5 font-mono break-all ${
+                        m.blocked
+                          ? "text-[#854D0E] dark:text-amber-400"
+                          : m.ok
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      {m.blocked ? `Blocked · HTTP ${m.httpStatus}` : m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}
                     </div>
                   </div>
                 ))}

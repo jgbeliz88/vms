@@ -45,29 +45,19 @@ export async function POST(request: Request) {
 
   const { pods, originBaseUrl, cdnBaseUrl } = parsed.data;
 
-  // Group pods by orilinear (usp prefix + trailing m/b stripped). Origin manifests
-  // are served per-pod under the main pod (name ending in "m"; "b" is backup), while
-  // CDN paths use the stripped orilinear.
-  const groups = new Map<string, { orilinear: string; linearName: string; drm: number | null; podNames: string[] }>();
+  // Group pods by orilinear (usp prefix + trailing m/b stripped). Both Origin and CDN
+  // paths use the stripped orilinear: on Origin it hits an nginx that serves the main
+  // pod ("m") and falls back to the backup ("b").
+  const groups = new Map<string, { orilinear: string; linearName: string; drm: number | null }>();
   for (const { podName, linearName, drm } of pods) {
     const orilinear = toOrilinear(podName);
-    const group = groups.get(orilinear);
-    if (group) {
-      group.podNames.push(podName);
-    } else {
-      groups.set(orilinear, { orilinear, linearName, drm, podNames: [podName] });
-    }
+    if (!groups.has(orilinear)) groups.set(orilinear, { orilinear, linearName, drm });
   }
-  const uniquePods = [...groups.values()].map(({ orilinear, linearName, drm, podNames }) => ({
-    orilinear,
-    linearName,
-    drm,
-    originPodName: podNames.find((n) => n.endsWith("m")) ?? podNames[0],
-  }));
+  const uniquePods = [...groups.values()];
 
   const podResults = await Promise.all(
-    uniquePods.map(async ({ orilinear, linearName, drm, originPodName }) => {
-      const base = `${originBaseUrl}/${originPodName}/live/${linearName}`;
+    uniquePods.map(async ({ orilinear, linearName, drm }) => {
+      const base = `${originBaseUrl}/${orilinear}/live/${linearName}`;
       const cdnBase = `${cdnBaseUrl}/${orilinear}/live/${linearName}`;
       const noDrm = drm === 0;
 
@@ -108,13 +98,30 @@ export async function POST(request: Request) {
         cdnPromise,
       ]);
 
-      return { orilinear, originManifests, originDrmManifests, cdnManifests };
+      // Main manifests are sometimes blocked by hand at the origin (403) so the linear
+      // only plays through DRM. Treat that as intentional only when every main manifest
+      // is exactly 403 and every Origin (DRM) and CDN manifest is exactly 200; anything
+      // else is a failure.
+      const originBlocked =
+        !noDrm &&
+        originDrmManifests.length > 0 &&
+        originManifests.every((m) => m.httpStatus === 403) &&
+        originDrmManifests.every((m) => m.httpStatus === 200) &&
+        cdnManifests.every((m) => m.httpStatus === 200);
+
+      return {
+        orilinear,
+        originBlocked,
+        originManifests: originManifests.map((m) => ({ ...m, blocked: originBlocked })),
+        originDrmManifests: originDrmManifests.map((m) => ({ ...m, blocked: false })),
+        cdnManifests: cdnManifests.map((m) => ({ ...m, blocked: false })),
+      };
     })
   );
 
   const result = {
     origin: {
-      ok: podResults.every((p) => p.originManifests.every((m) => m.ok)),
+      ok: podResults.every((p) => p.originManifests.every((m) => m.ok || m.blocked)),
       pods: podResults.map(({ orilinear, originManifests }) => ({ orilinear, manifests: originManifests })),
     },
     originDrm: {
@@ -134,7 +141,7 @@ export async function POST(request: Request) {
     name: LOG_NAME,
     fn: "POST",
     msg: "End of request",
-    data: { origin: result.origin.ok, originDrm: result.originDrm.ok, cdn: result.cdn.ok, uniquePods: uniquePods.length },
+    data: { origin: result.origin.ok, originDrm: result.originDrm.ok, cdn: result.cdn.ok, uniquePods: uniquePods.length, blockedPods: podResults.filter((p) => p.originBlocked).length },
   });
 
   return NextResponse.json(result);
