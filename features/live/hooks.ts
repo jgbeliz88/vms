@@ -292,7 +292,8 @@ export type ManifestCheck = { label: string; url: string; ok: boolean; httpStatu
 export type PodManifestResult = { podName: string; manifests: ManifestCheck[] };
 export type ManifestStatusResult = { ok: boolean; pods: PodManifestResult[] };
 
-export type ChannelDetailManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number };
+// `blocked`: Origin main manifest intentionally 403'd while Origin (DRM) and CDN serve — excluded from `ok`.
+export type ChannelDetailManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number; blocked: boolean };
 export type ChannelDetailPodResult = { orilinear: string; manifests: ChannelDetailManifestCheck[] };
 export type ChannelDetailSection = { ok: boolean; pods: ChannelDetailPodResult[] };
 export type ChannelDetailStatusResult = {
