@@ -36,7 +36,9 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const [adEventFilter, setAdEventFilter] = useState<Set<AdEvent["type"]>>(new Set());
   const [adEventSearch, setAdEventSearch] = useState("");
   const [showNoLinearWarning, setShowNoLinearWarning] = useState(false);
-  const [cdnToken, setCdnToken] = useState<string | null>(null);
+  // Remember which provider minted the token so a provider switch never pairs
+  // the new CDN base with the previous provider's token.
+  const [cdnTokenState, setCdnTokenState] = useState<{ provider: CdnKey; value: string } | null>(null);
   const [selectedCdnLinearName, setSelectedCdnLinearName] = useState<string>("");
   const cdnTokenMutation = useCdnToken();
   const diagnostics = usePlaybackDiagnostics();
@@ -79,7 +81,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     setPlayerActive(false);
     setSelectedLinearIdx(0);
     setShowNoLinearWarning(false);
-    setCdnToken(null);
+    setCdnTokenState(null);
     setSelectedCdnLinearName("");
   }, [channel.id, setFormatKey]);
 
@@ -103,7 +105,9 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
   const cdnUrl = effectiveCdnLinear
     ? `${cdnBase}/ori${effectiveCdnLinear}/live/${effectiveCdnLinear}/main/main.isml/${extension}`
     : "";
+  const cdnToken = cdnTokenState?.provider === cdnKey ? cdnTokenState.value : null;
   const cdnPlaybackUrl = cdnToken ? `${cdnUrl}?${cdnToken}` : cdnUrl;
+  const activePlaybackUrl = mode === "cdn" ? cdnPlaybackUrl : originUrl;
 
   const runDiagnostics = async (nextMode: PlaybackMode) => {
     if (nextMode === "direct" && podsWithLinears.length === 0) {
@@ -119,7 +123,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     setMode(nextMode);
     setPlayerActive(false);
     setAdEvents([]);
-    setCdnToken(null);
+    setCdnTokenState(null);
 
     let diagnosticsUrl = nextMode === "direct" ? originUrl : cdnUrl;
 
@@ -133,7 +137,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
         token = null;
       }
       if (cdnRunVersionRef.current !== version) return;
-      setCdnToken(token);
+      setCdnTokenState(token ? { provider: cdnKey, value: token } : null);
     }
 
     if (cdnRunVersionRef.current !== version) return;
@@ -142,12 +146,15 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     await diagnostics.mutateAsync({ url: diagnosticsUrl });
   };
 
+  // Re-probe whatever the player is actually loading when an option changes.
+  // In CDN + Clear mode, wait for the token instead of probing the bare URL.
   useEffect(() => {
-    if (!playerActive || !cdnPlaybackUrl || cdnPlaybackUrl === lastFetchedUrlRef.current) return;
-    lastFetchedUrlRef.current = cdnPlaybackUrl;
-    void diagnostics.mutateAsync({ url: cdnPlaybackUrl });
+    if (!playerActive || !activePlaybackUrl || activePlaybackUrl === lastFetchedUrlRef.current) return;
+    if (mode === "cdn" && drmKey === "clear" && !cdnToken) return;
+    lastFetchedUrlRef.current = activePlaybackUrl;
+    void diagnostics.mutateAsync({ url: activePlaybackUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cdnPlaybackUrl]);
+  }, [activePlaybackUrl, playerActive]);
 
   useEffect(() => {
     if (mode !== "cdn" || drmKey !== "clear" || !cdnBase || !effectiveCdnLinear) return;
@@ -155,17 +162,17 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
     if (!playerActive) return;
     const version = cdnRunVersionRef.current;
     setPlayerActive(false);
-    setCdnToken(null);
+    setCdnTokenState(null);
     const acl = buildCdnAcl(cdnBase, liveAclPath(effectiveCdnLinear));
     void cdnTokenMutation.mutateAsync({ provider: cdnKey, acl, contentType: "live" })
       .then(token => {
         if (cdnRunVersionRef.current !== version) return;
-        setCdnToken(token);
+        setCdnTokenState({ provider: cdnKey, value: token });
         setPlayerActive(true);
       })
       .catch(() => {
         if (cdnRunVersionRef.current !== version) return;
-        setCdnToken(null);
+        setCdnTokenState(null);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cdnKey]);
@@ -313,7 +320,7 @@ export function PlaybackPanel({ channel }: { channel: ResolvedChannel }) {
               rows={[
                 { label: "Origin:", value: originBase || "Not set" },
                 { label: "CDN:", value: cdnBase || "Not set (using fallback)" },
-                { label: "Playback URL:", value: cdnPlaybackUrl },
+                { label: "Playback URL:", value: activePlaybackUrl },
               ]}
             >
               <DiagnosticsBlock
