@@ -572,6 +572,36 @@ export function useConfigureLinear() {
   });
 }
 
+type UpdateLinearTagsPayload = {
+  linearId: number;
+  name: string;
+  tags: string[];
+};
+
+export function useUpdateLinearTags() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ linearId, name, tags }: UpdateLinearTagsPayload) => {
+      const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const response = await fetch(`/api/live/linear/${linearId}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name, tags }),
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.message ?? `HTTP ${response.status}`);
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveChannels() });
+    },
+  });
+}
+
 type UpdateChannelConfigPayload = {
   id: number;
   config: ChannelConfigRow[];
