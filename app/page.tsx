@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
-import { useChannelsQuery, useChannelManifestStatus, useVodManifestQuery } from "@/features/live/hooks";
-import type { ManifestStatusResult } from "@/features/live/hooks";
+import { useChannelsQuery, useChannelDetailStatus, useVodManifestQuery } from "@/features/live/hooks";
 import type { ResolvedChannel } from "@/features/live/types";
+import { buildLinearStatusRows } from "@/features/live/tag-groups";
+import { LinearStatusGroups } from "@/components/live/LinearStatusGroups";
 import { useFastChannelsQuery, useFastChannelStreamStatusQuery } from "@/features/fast-channels/hooks";
 import { Badge } from "@/components/ui/Badge";
 import { useVmsSettingsQuery } from "@/features/settings/hooks";
@@ -90,78 +91,31 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function ManifestDetail({ data }: { data: ManifestStatusResult }) {
-  const { bindPath } = useManifestPathTooltip();
-  return (
-    <div className="space-y-3 px-6 pb-4 pt-3">
-      {data.pods.map((pod) => (
-        <div key={pod.podName}>
-          <div className="mb-1.5 text-xs font-semibold text-[#64748B] dark:text-[#8899A8] uppercase tracking-wide">
-            {pod.podName}
-          </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-            {pod.manifests.map((m) => (
-              <div
-                key={m.label}
-                {...bindPath(m.url)}
-                className={`cursor-pointer rounded-lg border px-3 py-2 text-xs transition-shadow hover:ring-2 ${
-                  m.blocked
-                    ? "border-[#FFA70B]/45 bg-[#FEF9C3] hover:ring-[#FFA70B]/55 dark:border-amber-700/45 dark:bg-amber-900/[0.22] dark:hover:ring-[#FFA70B]/50"
-                    : m.ok
-                    ? "border-[#219653]/30 bg-[#DCFCE7] hover:ring-[#219653]/45 dark:border-emerald-700/40 dark:bg-emerald-900/20"
-                    : "border-[#D34053]/30 bg-[#FEE2E2] hover:ring-[#D34053]/45 dark:border-rose-700/40 dark:bg-rose-900/20"
-                }`}
-              >
-                {m.blocked ? (
-                  <div className="flex items-center justify-between gap-1.5">
-                    <span className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</span>
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#FFA70B]" />
-                  </div>
-                ) : (
-                  <div className="font-medium text-[#1C2434] dark:text-slate-200">{m.label}</div>
-                )}
-                <div
-                  className={`mt-0.5 ${
-                    m.blocked
-                      ? "text-[#854D0E] dark:text-amber-400"
-                      : m.ok
-                      ? "text-[#166534] dark:text-emerald-400"
-                      : "text-[#991B1B] dark:text-rose-400"
-                  }`}
-                >
-                  {m.blocked ? `Blocked · HTTP ${m.httpStatus}` : m.httpStatus ? `HTTP ${m.httpStatus}` : "Error"}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function ChannelManifestRow({
   channel,
-  originBaseUrl
+  originBaseUrl,
+  cdnBaseUrl
 }: {
   channel: ResolvedChannel;
   originBaseUrl: string;
+  cdnBaseUrl: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const manifestQuery = useChannelManifestStatus(channel.id, channel.pods, originBaseUrl);
+  const manifestQuery = useChannelDetailStatus(channel.id, channel.pods, originBaseUrl, cdnBaseUrl);
+  const allOk = manifestQuery.data?.linears.every((l) => l.ok) ?? false;
 
   return (
     <>
       <tr className="hover:bg-[#F7F9FC] dark:hover:bg-[#333A48]/40">
         <td className="px-4 py-3 font-medium text-[#1C2434] dark:text-[#DEE4EE]">{channel.name}</td>
         <td className="px-4 py-3">
-          {!originBaseUrl ? (
+          {!originBaseUrl || !cdnBaseUrl ? (
             <span className="text-xs text-[#8899A8]">—</span>
           ) : manifestQuery.isLoading ? (
             <span className="text-xs text-[#8899A8] animate-pulse">checking…</span>
           ) : manifestQuery.isError ? (
             <Badge label="error" tone="error" />
-          ) : manifestQuery.data?.ok ? (
+          ) : allOk ? (
             <Badge label="OK" tone="success" />
           ) : (
             <Badge label="Failed" tone="error" />
@@ -185,7 +139,9 @@ function ChannelManifestRow({
       {expanded && manifestQuery.data && (
         <tr className="bg-[#F7F9FC]/80 dark:bg-[#333A48]/20">
           <td colSpan={6} className="border-b border-[#E2E8F0] dark:border-[#2E3A47]">
-            <ManifestDetail data={manifestQuery.data} />
+            <div className="px-6 pb-4 pt-3">
+              <LinearStatusGroups variant="dashboard" rows={buildLinearStatusRows(channel, manifestQuery.data)} />
+            </div>
           </td>
         </tr>
       )}
@@ -268,6 +224,7 @@ export default function DashboardPage() {
 
   const { data: vmsSettings } = useVmsSettingsQuery();
   const originLiveUrl = vmsSettings?.origin.live ?? "";
+  const cdnLiveUrl = vmsSettings?.akamai.live ?? "";
   const vodOriginUrl = vmsSettings?.origin.vod ?? "";
 
   const { bindText } = useManifestPathTooltip();
@@ -375,16 +332,16 @@ export default function DashboardPage() {
                     {liveFiltered.length === 0 ? (
                       <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-[#8899A8]">No channels</td></tr>
                     ) : liveFiltered.map((ch) => (
-                      <ChannelManifestRow key={ch.id} channel={ch} originBaseUrl={originLiveUrl} />
+                      <ChannelManifestRow key={ch.id} channel={ch} originBaseUrl={originLiveUrl} cdnBaseUrl={cdnLiveUrl} />
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
           </div>
-          {!originLiveUrl && (
+          {(!originLiveUrl || !cdnLiveUrl) && (
             <p className="text-xs text-[#8899A8]">
-              Configura <span className="font-medium">Origin Live</span> en Settings para activar la comprobación de manifests.
+              Configura <span className="font-medium">Origin Live</span> y <span className="font-medium">Akamai Live</span> en Settings para activar la comprobación de manifests.
             </p>
           )}
         </section>
