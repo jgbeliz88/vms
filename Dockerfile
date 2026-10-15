@@ -1,4 +1,4 @@
-FROM euwestmeswebacr.azurecr.io/node:22.21.0-trixie-slim_mdsv20260128170413 AS base
+FROM euwestmeswebacr.azurecr.io/node:22.21.0-trixie-slim_mdsv20260128170413-20261015-0907 AS base
 ARG NPM_REGISTRY=https://nexus.awsinternal.mediaset.es/repository/npm-group/
 ARG APP_LOCATION=/app
 ARG NEXT_PUBLIC_VMS_PRE_SELECTOR_URL
