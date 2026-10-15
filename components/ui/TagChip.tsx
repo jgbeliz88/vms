@@ -38,10 +38,13 @@ export function TagChip({
   tag,
   active,
   onClick,
+  surface = "default",
 }: {
   tag: string;
   active?: boolean;
   onClick?: () => void;
+  /** "dashboard" uses the dashboard's dark surfaces for the static chip; light mode is unchanged. */
+  surface?: "default" | "dashboard";
 }) {
   const interactive = typeof onClick === "function";
   const base =
@@ -50,6 +53,8 @@ export function TagChip({
     ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/15 dark:text-brand-300"
     : interactive
     ? "border-slate-200 bg-white text-slate-500 hover:border-brand-300 hover:text-brand-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-brand-500/50"
+    : surface === "dashboard"
+    ? "border-slate-200 bg-slate-50 text-slate-600 dark:border-[#3A4656] dark:bg-[#24303F] dark:text-slate-400"
     : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400";
   const iconColor = active ? "text-brand-500 dark:text-brand-400" : "text-slate-400";
 

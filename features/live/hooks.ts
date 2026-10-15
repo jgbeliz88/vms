@@ -287,20 +287,21 @@ export function usePlaybackDiagnostics() {
 }
 
 
-// `blocked`: main manifest intentionally 403'd at the origin while DRM manifests serve — excluded from `ok`.
-export type ManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number; blocked: boolean };
-export type PodManifestResult = { podName: string; manifests: ManifestCheck[] };
-export type ManifestStatusResult = { ok: boolean; pods: PodManifestResult[] };
-
 // `blocked`: Origin main manifest intentionally 403'd while Origin (DRM) and CDN serve — excluded from `ok`.
 export type ChannelDetailManifestCheck = { label: string; url: string; ok: boolean; httpStatus: number; blocked: boolean };
-export type ChannelDetailPodResult = { orilinear: string; manifests: ChannelDetailManifestCheck[] };
-export type ChannelDetailSection = { ok: boolean; pods: ChannelDetailPodResult[] };
-export type ChannelDetailStatusResult = {
+export type ChannelDetailSection = { ok: boolean; manifests: ChannelDetailManifestCheck[] };
+// One entry per orilinear. `originDrm.manifests` is empty for non-DRM linears.
+export type LinearStatusResult = {
+  orilinear: string;
+  linearName: string;
+  drm: number | null;
+  originBlocked: boolean;
   origin: ChannelDetailSection;
   originDrm: ChannelDetailSection;
   cdn: ChannelDetailSection;
+  ok: boolean;
 };
+export type ChannelDetailStatusResult = { linears: LinearStatusResult[] };
 
 export function useChannelDetailStatus(
   channelId: number,
@@ -325,30 +326,6 @@ export function useChannelDetailStatus(
       return res.json();
     },
     enabled: Boolean(originBaseUrl && cdnBaseUrl),
-  });
-}
-
-export function useChannelManifestStatus(
-  channelId: number,
-  pods: { name: string; linear: { linearName: string | null; drm: number | null } | null }[],
-  originBaseUrl: string
-) {
-  return useQuery({
-    queryKey: queryKeys.manifestStatus(String(channelId), originBaseUrl),
-    queryFn: async (): Promise<ManifestStatusResult> => {
-      const podsWithLinear = pods
-        .filter((p): p is typeof p & { linear: { linearName: string; drm: number | null } } => p.linear !== null && p.linear.linearName !== null)
-        .map((p) => ({ podName: p.name, linearName: p.linear.linearName, drm: p.linear.drm }));
-      const uniquePods = Array.from(new Map(podsWithLinear.map((p) => [p.podName, p])).values());
-      const response = await fetch("/api/live/manifest-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pods: uniquePods, originBaseUrl })
-      });
-      if (!response.ok) throw new Error("Manifest check failed");
-      return response.json();
-    },
-    enabled: Boolean(originBaseUrl),
   });
 }
 

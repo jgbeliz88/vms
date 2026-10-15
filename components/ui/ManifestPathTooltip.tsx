@@ -14,10 +14,22 @@ import { Copy, Check } from "lucide-react";
 
 type Placement = "above" | "below";
 
+export type ManifestListItem = {
+  label: string;
+  url: string;
+  statusText: string;
+  tone: "ok" | "fail" | "blocked";
+};
+
 type PopoverState = {
   text: string;
-  /** "path" shows the "Manifest path" heading + copy button; "text" is a plain tooltip. */
-  kind: "path" | "text";
+  /**
+   * "path" shows the "Manifest path" heading + copy button; "text" is a plain tooltip;
+   * "list" shows `text` as a heading over every manifest in `items`, each with its own copy button.
+   */
+  kind: "path" | "text" | "list";
+  items?: (ManifestListItem & { path: string })[];
+  emptyText?: string;
   left: number;
   anchorTop: number;
   anchorBottom: number;
@@ -29,11 +41,25 @@ type Binder = (value: string) => {
   onMouseLeave: () => void;
 };
 
+type ListBinder = (
+  title: string,
+  items: ManifestListItem[],
+  emptyText?: string
+) => ReturnType<Binder>;
+
 type ContextValue = {
   /** Bind a manifest URL — shown as a copyable path. */
   bindPath: Binder;
   /** Bind arbitrary text — shown as a plain tooltip (e.g. a full, truncated name). */
   bindText: Binder;
+  /** Bind a group of manifests — each shown with its status and a copyable path. */
+  bindManifests: ListBinder;
+};
+
+const TONE_TEXT: Record<ManifestListItem["tone"], string> = {
+  ok: "text-[#4ADE80]",
+  fail: "text-[#F87171]",
+  blocked: "text-[#FBBF24]",
 };
 
 const ManifestPathTooltipContext = createContext<ContextValue | null>(null);
@@ -51,7 +77,8 @@ function toPath(url: string): string {
 export function ManifestPathTooltipProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [pop, setPop] = useState<PopoverState | null>(null);
-  const [copied, setCopied] = useState(false);
+  // Key of the path that was just copied: "path" for the single-path popover, the row index for "list".
+  const [copied, setCopied] = useState<string | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,20 +103,26 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
     clearHide();
     hideTimer.current = setTimeout(() => {
       setPop(null);
-      setCopied(false);
+      setCopied(null);
       hideTimer.current = null;
     }, 130);
   }, [clearHide]);
 
   const show = useCallback(
-    (text: string, kind: PopoverState["kind"], e: React.MouseEvent<HTMLElement>) => {
+    (
+      text: string,
+      kind: PopoverState["kind"],
+      e: React.MouseEvent<HTMLElement>,
+      extra?: Pick<PopoverState, "items" | "emptyText">
+    ) => {
       if (!text) return;
       const rect = e.currentTarget.getBoundingClientRect();
       clearHide();
-      setCopied(false);
+      setCopied(null);
       setPop({
         text,
         kind,
+        ...extra,
         left: rect.left + rect.width / 2,
         anchorTop: rect.top,
         anchorBottom: rect.bottom,
@@ -115,6 +148,15 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
     [show, scheduleHide]
   );
 
+  const bindManifests = useCallback<ListBinder>(
+    (title, items, emptyText) => ({
+      onMouseEnter: (e: React.MouseEvent<HTMLElement>) =>
+        show(title, "list", e, { items: items.map((m) => ({ ...m, path: toPath(m.url) })), emptyText }),
+      onMouseLeave: scheduleHide,
+    }),
+    [show, scheduleHide]
+  );
+
   const fallbackCopy = useCallback((text: string) => {
     try {
       const ta = document.createElement("textarea");
@@ -131,13 +173,12 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
     }
   }, []);
 
-  const handleCopy = useCallback(() => {
-    const path = pop?.text;
+  const handleCopy = useCallback((path: string, key: string) => {
     if (!path) return;
     const done = () => {
-      setCopied(true);
+      setCopied(key);
       if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 1500);
+      copyTimer.current = setTimeout(() => setCopied(null), 1500);
     };
     try {
       if (navigator.clipboard?.writeText) {
@@ -156,9 +197,29 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
       fallbackCopy(path);
       done();
     }
-  }, [pop, fallbackCopy]);
+  }, [fallbackCopy]);
 
-  const value = useMemo(() => ({ bindPath, bindText }), [bindPath, bindText]);
+  const value = useMemo(() => ({ bindPath, bindText, bindManifests }), [bindPath, bindText, bindManifests]);
+
+  const copyButton = (path: string, key: string) => (
+    <button
+      onClick={() => handleCopy(path, key)}
+      title="Copy to clipboard"
+      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-[#3A4656] bg-[#24303F] px-2 py-1 text-[11px] font-semibold text-[#DEE4EE] transition-colors hover:bg-[#2E3A47]"
+    >
+      {copied === key ? (
+        <>
+          <Check size={13} className="text-[#4ADE80]" />
+          <span className="text-[#4ADE80]">Copied</span>
+        </>
+      ) : (
+        <>
+          <Copy size={13} />
+          <span>Copy</span>
+        </>
+      )}
+    </button>
+  );
 
   const isAbove = pop?.placement === "above";
 
@@ -190,25 +251,35 @@ export function ManifestPathTooltipProvider({ children }: { children: React.Reac
                     <code className="max-w-[340px] select-all break-all font-mono text-xs leading-relaxed text-[#E2E8F0]">
                       {pop.text}
                     </code>
-                    <button
-                      onClick={handleCopy}
-                      title="Copy to clipboard"
-                      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-[#3A4656] bg-[#24303F] px-2 py-1 text-[11px] font-semibold text-[#DEE4EE] transition-colors hover:bg-[#2E3A47]"
-                    >
-                      {copied ? (
-                        <>
-                          <Check size={13} className="text-[#4ADE80]" />
-                          <span className="text-[#4ADE80]">Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={13} />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
+                    {copyButton(pop.text, "path")}
                   </div>
                 </>
+              ) : pop.kind === "list" ? (
+                <div className="max-w-[440px]">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.07em] text-[#8899A8]">
+                    {pop.text}
+                  </div>
+                  {pop.items?.length ? (
+                    <div className="flex flex-col gap-2.5">
+                      {pop.items.map((m, i) => (
+                        <div key={m.url} className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-semibold text-[#E2E8F0]">{m.label}</span>
+                            <span className={`font-mono ${TONE_TEXT[m.tone]}`}>{m.statusText}</span>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <code className="flex-1 select-all break-all font-mono text-xs leading-relaxed text-[#E2E8F0]">
+                              {m.path}
+                            </code>
+                            {copyButton(m.path, String(i))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-[#E2E8F0]">{pop.emptyText}</div>
+                  )}
+                </div>
               ) : (
                 <div className="max-w-md break-all text-xs leading-relaxed text-[#E2E8F0]">
                   {pop.text}

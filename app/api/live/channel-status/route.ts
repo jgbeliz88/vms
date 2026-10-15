@@ -3,6 +3,7 @@ import { z } from "zod";
 import { fetchCheck } from "@/app/api/_lib/http-check";
 import { mintAkamaiToken } from "@/app/api/_lib/akamai-token";
 import { logInfo, logError } from "@/app/api/_lib/logger";
+import { toOrilinear } from "@/features/live/status";
 
 const LOG_NAME = "app.api.live.channel-status.route";
 
@@ -18,10 +19,6 @@ const CDN_HEADERS = { Origin: "www.mediasetinfinity.es" };
 
 // Short-lived Akamai token TTL for non-DRM CDN main-manifest checks.
 const CDN_CHECK_TOKEN_WINDOW = 300;
-
-function toOrilinear(podName: string): string {
-  return podName.replace(/^usp/, "").replace(/[mb]$/, "");
-}
 
 /** Fold the CDN base URL's pathname prefix (e.g. "/staging") into the ACL path. */
 function buildCdnAcl(cdnBase: string, path: string): string {
@@ -109,40 +106,40 @@ export async function POST(request: Request) {
         originDrmManifests.every((m) => m.httpStatus === 200) &&
         cdnManifests.every((m) => m.httpStatus === 200);
 
+      const origin = originManifests.map((m) => ({ ...m, blocked: originBlocked }));
+      const originDrm = originDrmManifests.map((m) => ({ ...m, blocked: false }));
+      const cdn = cdnManifests.map((m) => ({ ...m, blocked: false }));
+      const originOk = origin.every((m) => m.ok || m.blocked);
+      // Non-DRM linears contribute no DRM manifests, so their Origin (DRM) section is vacuously OK.
+      const originDrmOk = originDrm.every((m) => m.ok);
+      const cdnOk = cdn.every((m) => m.ok);
+
       return {
         orilinear,
+        linearName,
+        drm,
         originBlocked,
-        originManifests: originManifests.map((m) => ({ ...m, blocked: originBlocked })),
-        originDrmManifests: originDrmManifests.map((m) => ({ ...m, blocked: false })),
-        cdnManifests: cdnManifests.map((m) => ({ ...m, blocked: false })),
+        origin: { ok: originOk, manifests: origin },
+        originDrm: { ok: originDrmOk, manifests: originDrm },
+        cdn: { ok: cdnOk, manifests: cdn },
+        ok: originOk && originDrmOk && cdnOk,
       };
     })
   );
-
-  const result = {
-    origin: {
-      ok: podResults.every((p) => p.originManifests.every((m) => m.ok || m.blocked)),
-      pods: podResults.map(({ orilinear, originManifests }) => ({ orilinear, manifests: originManifests })),
-    },
-    originDrm: {
-      ok: podResults.every((p) => p.originDrmManifests.every((m) => m.ok)),
-      // Non-DRM pods contribute no DRM manifests — omit them from the section list.
-      pods: podResults
-        .filter((p) => p.originDrmManifests.length > 0)
-        .map(({ orilinear, originDrmManifests }) => ({ orilinear, manifests: originDrmManifests })),
-    },
-    cdn: {
-      ok: podResults.every((p) => p.cdnManifests.every((m) => m.ok)),
-      pods: podResults.map(({ orilinear, cdnManifests }) => ({ orilinear, manifests: cdnManifests })),
-    },
-  };
 
   logInfo({
     name: LOG_NAME,
     fn: "POST",
     msg: "End of request",
-    data: { origin: result.origin.ok, originDrm: result.originDrm.ok, cdn: result.cdn.ok, uniquePods: uniquePods.length, blockedPods: podResults.filter((p) => p.originBlocked).length },
+    data: {
+      ok: podResults.every((p) => p.ok),
+      origin: podResults.every((p) => p.origin.ok),
+      originDrm: podResults.every((p) => p.originDrm.ok),
+      cdn: podResults.every((p) => p.cdn.ok),
+      uniquePods: uniquePods.length,
+      blockedPods: podResults.filter((p) => p.originBlocked).length,
+    },
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json({ linears: podResults });
 }
