@@ -4,3 +4,6 @@ ci/
 **/Dockerfile*
 **/.git*
 **/README*
+
+.next
+node_modules
