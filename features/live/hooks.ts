@@ -549,23 +549,24 @@ export function useConfigureLinear() {
   });
 }
 
-type UpdateLinearTagsPayload = {
+type UpdateLinearPayload = {
   linearId: number;
-  name: string;
-  tags: string[];
+  tags?: string[];
+  pods?: { name: string; encoders: number[] }[];
 };
 
-export function useUpdateLinearTags() {
+// Only send the fields that changed; undefined keys are dropped by JSON.stringify.
+export function useUpdateLinear() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ linearId, name, tags }: UpdateLinearTagsPayload) => {
+    mutationFn: async ({ linearId, tags, pods }: UpdateLinearPayload) => {
       const token = getToken();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const response = await fetch(`/api/live/linear/${linearId}`, {
-        method: "POST",
+        method: "PUT",
         headers,
-        body: JSON.stringify({ name, tags }),
+        body: JSON.stringify({ tags, pods }),
       });
       if (!response.ok) {
         const json = await response.json().catch(() => ({}));

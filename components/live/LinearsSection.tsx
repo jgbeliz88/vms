@@ -9,11 +9,12 @@ import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils/cn";
 import { usePermission } from "@/lib/auth/usePermission";
 import { PERMISSIONS } from "@/lib/auth/permissions";
-import { useDeleteLinear, useClearLinear, useConfigureLinear, useUpdateLinearTags } from "@/features/live/hooks";
+import { useDeleteLinear, useClearLinear, useConfigureLinear } from "@/features/live/hooks";
 import type { AddLinearData } from "./ActionConfirmModal";
-import { AVAILABLE_TAGS, TAG_ICONS, TagChip } from "@/components/ui/TagChip";
+import { AVAILABLE_TAGS, TagChip } from "@/components/ui/TagChip";
 import { useToast } from "@/components/ui/Toast";
-import { byEncoder, CheckBox } from "./linear-ui";
+import { byEncoder, channelForPod, CheckBox, knownTags, podPayload } from "./linear-ui";
+import { EditLinearModal } from "./EditLinearModal";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,12 +39,6 @@ const DEFAULT_FORM: FormFields = {
   contentId: "",
   tags: [...AVAILABLE_TAGS],
 };
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function channelForPod(podName: string, channels: MediaexcelChannel[]) {
-  return channels.find((c) => c.pods.includes(podName)) ?? null;
-}
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -113,11 +108,11 @@ function IconTrash({ className }: { className?: string }) {
   );
 }
 
-function IconTag({ className }: { className?: string }) {
+function IconPencil({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-3 w-3"} aria-hidden>
-      <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
-      <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+      <path d="m15 5 4 4" />
     </svg>
   );
 }
@@ -486,20 +481,17 @@ function PodRow({ pod, expanded, onToggle }: { pod: EnigmaLinearPod; expanded: b
   );
 }
 
-// Only AVAILABLE_TAGS are shown/editable; anything else Enigma returns is ignored.
-function knownTags(linear: EnigmaLinear): string[] {
-  return AVAILABLE_TAGS.filter((t) => (linear.tags ?? []).includes(t));
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function LinearsSection({
   channel,
   mediaexcelChannels,
+  linkedByPod,
   onCreateLinear,
 }: {
   channel: ResolvedChannel;
   mediaexcelChannels: MediaexcelChannel[];
+  linkedByPod: Map<string, string>;
   onCreateLinear: (data: AddLinearData) => Promise<void>;
 }) {
   const canManageLinears = usePermission([PERMISSIONS.LIVE_MANAGE_LINEARS]);
@@ -507,7 +499,6 @@ export function LinearsSection({
   const deleteLinear = useDeleteLinear();
   const clearLinear = useClearLinear();
   const configureLinear = useConfigureLinear();
-  const updateTags = useUpdateLinearTags();
 
   // Create form state
   const [createOpen, setCreateOpen] = useState(false);
@@ -522,9 +513,8 @@ export function LinearsSection({
   const [configuring, setConfiguring] = useState(false);
   const [showConfigValidation, setShowConfigValidation] = useState(false);
 
-  // Edit tags state
-  const [tagsLinear, setTagsLinear] = useState<EnigmaLinear | null>(null);
-  const [tagsDraft, setTagsDraft] = useState<string[]>([]);
+  // Edit linear (tags + pods) state
+  const [editingLinear, setEditingLinear] = useState<EnigmaLinear | null>(null);
 
   // Tree state
   const [expandedPods, setExpandedPods] = useState<Set<number>>(new Set());
@@ -582,12 +572,7 @@ export function LinearsSection({
     if (duplicatePods.length > 0) return;
     setCreating(true);
     try {
-      const pods = [...selectedPods].map((podName) => ({
-        name: podName,
-        encoders: (channelForPod(podName, mediaexcelChannels)?.id != null
-          ? [channelForPod(podName, mediaexcelChannels)!.id]
-          : []) as number[],
-      }));
+      const pods = [...selectedPods].map((podName) => podPayload(podName, mediaexcelChannels));
       await onCreateLinear({
         pods,
         linearName: form.linearName,
@@ -637,39 +622,6 @@ export function LinearsSection({
     }
   };
 
-  function openTags(linear: EnigmaLinear) {
-    setTagsDraft(knownTags(linear));
-    setTagsLinear(linear);
-  }
-
-  function closeTags() {
-    if (updateTags.isPending) return;
-    setTagsLinear(null);
-    setTagsDraft([]);
-  }
-
-  function toggleTag(tag: string) {
-    if (updateTags.isPending) return;
-    setTagsDraft((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-  }
-
-  const handleUpdateTags = async () => {
-    if (!tagsLinear?.name) return;
-    const tags = AVAILABLE_TAGS.filter((t) => tagsDraft.includes(t));
-    try {
-      await updateTags.mutateAsync({ linearId: tagsLinear.id, name: tagsLinear.name, tags });
-      notify({ title: "Tags updated", description: `${tagsLinear.name} · ${tags.join(", ")}`, variant: "success" });
-      setTagsLinear(null);
-      setTagsDraft([]);
-    } catch (error) {
-      notify({
-        title: "Update tags failed",
-        description: error instanceof Error ? error.message : "Unable to update tags",
-        variant: "error",
-      });
-    }
-  };
-
   const handleConfirmAction = async () => {
     if (!pendingAction) return;
     try {
@@ -698,13 +650,6 @@ export function LinearsSection({
   }
 
   const isCleared = (linear: EnigmaLinear) => linear.name === null;
-
-  const originalTags = tagsLinear ? knownTags(tagsLinear) : [];
-  const addedTags = AVAILABLE_TAGS.filter((t) => tagsDraft.includes(t) && !originalTags.includes(t));
-  const removedTags = AVAILABLE_TAGS.filter((t) => !tagsDraft.includes(t) && originalTags.includes(t));
-  const tagChangeCount = addedTags.length + removedTags.length;
-  const tagsEmpty = tagsDraft.length === 0;
-  const canConfirmTags = tagChangeCount > 0 && !tagsEmpty && !updateTags.isPending;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -897,8 +842,8 @@ export function LinearsSection({
                           </GhostBtn>
                         ) : (
                           <>
-                            <GhostBtn tone="brand-hover" onClick={() => openTags(linear)}>
-                              <IconTag className="h-3 w-3" /> Tags
+                            <GhostBtn tone="brand-hover" onClick={() => setEditingLinear(linear)}>
+                              <IconPencil className="h-3 w-3" /> Edit
                             </GhostBtn>
                             <GhostBtn tone="warn" onClick={() => setPendingAction({ type: "clear", linear })} disabled={isMutating}>
                               <IconEraser className="h-3 w-3" /> Clear
@@ -1035,71 +980,17 @@ export function LinearsSection({
         )}
       </Modal>
 
-      {/* Edit tags modal */}
-      <Modal open={tagsLinear !== null} onClose={closeTags} title="Edit tags" size="md">
-        {tagsLinear && (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Select the tags for linear{" "}
-              <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{tagsLinear.name}</span>.
-            </p>
-            <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-              {AVAILABLE_TAGS.map((tag, i) => {
-                const active = tagsDraft.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    role="checkbox"
-                    aria-checked={active}
-                    onClick={() => toggleTag(tag)}
-                    className={cn(
-                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800",
-                      i > 0 && "border-t border-slate-100 dark:border-slate-800",
-                      active ? "bg-brand-50/50 dark:bg-brand-500/10" : "bg-white dark:bg-slate-900"
-                    )}
-                  >
-                    {active ? (
-                      <span className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded border border-brand-500 bg-brand-500">
-                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
-                          <path d="M1.5 4.5l2 2 4-4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </span>
-                    ) : (
-                      <span className="block h-3.5 w-3.5 shrink-0 rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900" />
-                    )}
-                    <span className={cn("inline-flex shrink-0 [&>svg]:h-4 [&>svg]:w-4", active ? "text-brand-500 dark:text-brand-400" : "text-slate-400")}>
-                      {TAG_ICONS[tag]}
-                    </span>
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{tag}</span>
-                    {addedTags.includes(tag) && (
-                      <span className="ml-auto rounded bg-emerald-50 px-1.5 py-px text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">added</span>
-                    )}
-                    {removedTags.includes(tag) && (
-                      <span className="ml-auto rounded bg-rose-50 px-1.5 py-px text-[11px] font-medium text-rose-700 dark:bg-rose-900/20 dark:text-rose-400">removed</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <span className={cn("text-[11px]", tagsEmpty ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400")}>
-                {tagsEmpty
-                  ? "Select at least one tag."
-                  : tagChangeCount > 0
-                  ? `${tagChangeCount} ${tagChangeCount === 1 ? "change" : "changes"}`
-                  : "No changes"}
-              </span>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={closeTags} disabled={updateTags.isPending}>Cancel</Button>
-                <Button onClick={handleUpdateTags} disabled={!canConfirmTags}>
-                  {updateTags.isPending ? "Saving…" : "Confirm"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* Edit linear modal */}
+      {editingLinear && (
+        <EditLinearModal
+          key={editingLinear.id}
+          linear={editingLinear}
+          channel={channel}
+          mediaexcelChannels={mediaexcelChannels}
+          linkedByPod={linkedByPod}
+          onClose={() => setEditingLinear(null)}
+        />
+      )}
 
       {/* Confirmation modal */}
       <Modal

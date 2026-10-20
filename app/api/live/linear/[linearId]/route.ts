@@ -8,16 +8,27 @@ import { AVAILABLE_TAGS } from "@/components/ui/TagChip";
 
 const LOG_NAME = "app.api.live.linear.[linearId].route";
 
-const schema = z.object({
-  channelId: z.number().int().positive(),
-});
+const moveSchema = z
+  .object({
+    channelId: z.number().int().positive(),
+  })
+  .strict();
 
-const updateTagsSchema = z.object({
-  name: z.string().min(1),
-  tags: z.array(z.enum(AVAILABLE_TAGS)).min(1),
-});
+// Same pod shape as add-linear. Only the fields that changed are sent.
+const updateSchema = z
+  .object({
+    tags: z.array(z.enum(AVAILABLE_TAGS)).min(1).optional(),
+    pods: z
+      .array(z.object({ name: z.string().min(1), encoders: z.array(z.number().int()) }))
+      .min(1)
+      .optional(),
+  })
+  .strict()
+  .refine((d) => d.tags !== undefined || d.pods !== undefined, { message: "Nothing to update" });
 
-// Reassigns a linear to another channel.
+const schema = z.union([moveSchema, updateSchema]);
+
+// Reassigns a linear to another channel ({ channelId }), or updates its tags and/or pods ({ tags?, pods? }).
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ linearId: string }> }
@@ -67,58 +78,5 @@ export async function PUT(
   }
 
   logInfo({ name: LOG_NAME, fn: "PUT", msg: "Enigma response", data: { status: response.status, data } });
-  return NextResponse.json(data);
-}
-
-// Updates a linear's tags. Enigma requires the linear name and checks it matches the linearId.
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ linearId: string }> }
-) {
-  const { linearId } = await params;
-  const body = await request.json().catch(() => null);
-  const parsed = updateTagsSchema.safeParse(body);
-
-  if (!parsed.success) {
-    logError({ name: LOG_NAME, fn: "POST", msg: "Invalid request payload", error: parsed.error });
-    return zodError(parsed.error.issues);
-  }
-
-  const url = `${getEnigmaBaseUrl()}/live/linear/${linearId}`;
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader) headers["Authorization"] = authHeader;
-
-  let response: Response;
-  try {
-    response = await fetchVMS(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(parsed.data),
-    });
-  } catch (error: unknown) {
-    logError({ name: LOG_NAME, fn: "POST", msg: `Fetch failed url=${url}`, error });
-    const msg = error instanceof Error ? error.message : "Request failed";
-    return NextResponse.json({ message: msg }, { status: 500 });
-  }
-
-  const text = await response.text();
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = text;
-  }
-
-  if (!response.ok) {
-    logError({ name: LOG_NAME, fn: "POST", msg: `Non-OK response url=${url}`, error: new Error(`HTTP ${response.status}: ${text}`) });
-    return NextResponse.json(
-      { message: extractUpstreamMessage(text, response.status), data },
-      { status: response.status }
-    );
-  }
-
-  logInfo({ name: LOG_NAME, fn: "POST", msg: "Enigma response", data: { status: response.status, data } });
   return NextResponse.json(data);
 }

@@ -388,6 +388,7 @@ export default function LivePage() {
                   onSaveConfig={handleSaveConfig}
                   savingConfigId={savingConfigId}
                   mediaexcelChannels={mediaexcelChannels}
+                  linkedByPod={linkedByPod}
                   onCreateLinear={handleCreateLinearForChannel}
                   onDeleteLinear={handleDeleteLinearForChannel}
                   onDeletePod={handleDeletePodForChannel}
