@@ -1,4 +1,5 @@
 import type { EnigmaLinear, MediaexcelChannel } from "@/features/live/types";
+import { AVAILABLE_TAGS } from "@/components/ui/TagChip";
 import { cn } from "@/lib/utils/cn";
 
 // Icons and helpers shared by the Channel Commands panel and its modals.
@@ -141,4 +142,20 @@ export function byEncoder(channels: MediaexcelChannel[]) {
     map.get(c.encoderName)!.push(c);
   }
   return order.map((enc) => ({ encoderName: enc, channels: map.get(enc)! }));
+}
+
+export function channelForPod(podName: string, channels: MediaexcelChannel[]) {
+  return channels.find((c) => c.pods.includes(podName)) ?? null;
+}
+
+// Pod entry for add-linear / update-linear payloads. The encoder is the MediaExcel channel the pod
+// belongs to; pods no longer in MediaExcel fall back to the given encoder IDs.
+export function podPayload(podName: string, channels: MediaexcelChannel[], fallbackEncoders: number[] = []) {
+  const ch = channelForPod(podName, channels);
+  return { name: podName, encoders: ch ? [ch.id] : fallbackEncoders };
+}
+
+// Only AVAILABLE_TAGS are shown/editable; anything else Enigma returns is ignored.
+export function knownTags(linear: EnigmaLinear): string[] {
+  return AVAILABLE_TAGS.filter((t) => (linear.tags ?? []).includes(t));
 }

@@ -29,6 +29,7 @@ export function ChannelDetail({
   onSaveConfig,
   savingConfig,
   mediaexcelChannels = [],
+  linkedByPod,
   onCreateLinear,
   onDeleteLinear,
   onDeletePod,
@@ -41,6 +42,7 @@ export function ChannelDetail({
   onSaveConfig?: (channelId: number, rows: ChannelConfigRow[]) => Promise<void>;
   savingConfig?: boolean;
   mediaexcelChannels?: MediaexcelChannel[];
+  linkedByPod: Map<string, string>;
   onCreateLinear?: (data: AddLinearData) => Promise<void>;
   onDeleteLinear?: (pod: ResolvedPod, linearName: string) => Promise<void>;
   onDeletePod?: (pod: ResolvedPod, linearName: string | null) => Promise<void>;
@@ -187,6 +189,7 @@ export function ChannelDetail({
         <LinearsSection
           channel={channel}
           mediaexcelChannels={mediaexcelChannels ?? []}
+          linkedByPod={linkedByPod}
           onCreateLinear={onCreateLinear}
         />
       )}
