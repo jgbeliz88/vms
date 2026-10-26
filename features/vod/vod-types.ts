@@ -3,6 +3,7 @@ export type PaginatedVodResponse<T> = {
   pageIndex: number;
   pageSize: number;
   hasNextPage: boolean;
+  total: number;
 };
 
 export type VodFilters = {

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { LightflowVodContentDetail } from "@/components/vod/LightflowVodContentDetail";
 import { BaseVodTable } from "@/components/vod/BaseVodTable";
 import { formatDate } from "@/lib/utils/date";
+import type { ReactNode } from "react";
 import type { LightflowVodContent } from "@/features/vod/lightflow-types";
 
 const STATUS_OPTIONS = ["", "finished", "running", "error", "failed"];
@@ -16,6 +17,7 @@ const statusTone = (s: string): "success" | "error" | "warning" => {
 
 export function LightflowVodTable({
   items,
+  total,
   selectable,
   selected,
   onSelectionChange,
@@ -23,8 +25,10 @@ export function LightflowVodTable({
   onSortChange,
   sortKey,
   sortDir,
+  footer,
 }: {
   items: LightflowVodContent[];
+  total: number;
   selectable?: boolean;
   selected?: Set<string>;
   onSelectionChange?: (next: Set<string>) => void;
@@ -32,6 +36,7 @@ export function LightflowVodTable({
   onSortChange?: (key: string, dir: "asc" | "desc") => void;
   sortKey?: string | null;
   sortDir?: "asc" | "desc";
+  footer?: ReactNode;
 }) {
   const columns = [
     {
@@ -74,6 +79,7 @@ export function LightflowVodTable({
   return (
     <BaseVodTable
       items={items}
+      total={total}
       getKey={(item) => item.uuid}
       encoderLabel="Lightflow"
       encoderTone="warning"
@@ -86,6 +92,7 @@ export function LightflowVodTable({
       onSortChange={onSortChange}
       sortKey={sortKey}
       sortDir={sortDir}
+      footer={footer}
     />
   );
 }

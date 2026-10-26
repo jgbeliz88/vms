@@ -3,6 +3,7 @@
 import { Fragment, useRef, useEffect, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { formatCount } from "@/lib/utils/number";
 
 type ColumnDef<T> = {
   header: string;
@@ -15,6 +16,7 @@ type ColumnDef<T> = {
 
 type Props<T> = {
   items: T[];
+  total: number;
   getKey: (item: T) => string;
   encoderLabel: string;
   encoderTone: "purple" | "warning";
@@ -27,6 +29,7 @@ type Props<T> = {
   onSortChange?: (key: string, dir: "asc" | "desc") => void;
   sortKey?: string | null;
   sortDir?: "asc" | "desc";
+  footer?: ReactNode;
 };
 
 const inputCls =
@@ -57,6 +60,7 @@ function HeaderCheckbox({
 
 export function BaseVodTable<T>({
   items,
+  total,
   getKey,
   encoderLabel,
   encoderTone,
@@ -69,6 +73,7 @@ export function BaseVodTable<T>({
   onSortChange,
   sortKey,
   sortDir = "asc",
+  footer,
 }: Props<T>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [localInputs, setLocalInputs] = useState<Record<string, string>>({});
@@ -144,7 +149,7 @@ export function BaseVodTable<T>({
         <div className="flex items-center gap-2">
           <Badge label={encoderLabel} tone={encoderTone} />
           <span className="text-xs text-slate-500">
-            {items.length} result{items.length !== 1 ? "s" : ""}
+            {formatCount(total)} result{total !== 1 ? "s" : ""}
           </span>
           {selectable && selected && selected.size > 0 && (
             <span className="text-xs font-medium text-brand-600 dark:text-brand-400">
@@ -289,6 +294,7 @@ export function BaseVodTable<T>({
             </tbody>
           </table>
         </div>
+        {footer}
       </div>
     </div>
   );
