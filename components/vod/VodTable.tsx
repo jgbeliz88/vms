@@ -4,12 +4,14 @@ import { Badge } from "@/components/ui/Badge";
 import { VodContentDetail } from "@/components/vod/VodContentDetail";
 import { BaseVodTable } from "@/components/vod/BaseVodTable";
 import { formatDate } from "@/lib/utils/date";
+import type { ReactNode } from "react";
 import type { VodContent } from "@/features/vod/vod-types";
 
 type EncoderKey = "bitmovin" | "lightflow";
 
 type Props = {
   items: VodContent[];
+  total: number;
   encoder: EncoderKey;
   selectable?: boolean;
   selected?: Set<string>;
@@ -18,6 +20,7 @@ type Props = {
   onSortChange?: (key: string, dir: "asc" | "desc") => void;
   sortKey?: string | null;
   sortDir?: "asc" | "desc";
+  footer?: ReactNode;
 };
 
 const encoderTone: Record<EncoderKey, "purple" | "warning"> = {
@@ -43,7 +46,7 @@ const STATUS_OPTIONS = [
 
 const ERROR_STATUSES = new Set(["FAILED", "COPIED_ERROR", "ENCODING_ERROR", "RENDITION_ERROR", "MANIFEST_ERROR"]);
 
-export function VodTable({ items, encoder, selectable, selected, onSelectionChange, onFilterChange, onSortChange, sortKey, sortDir }: Props) {
+export function VodTable({ items, total, encoder, selectable, selected, onSelectionChange, onFilterChange, onSortChange, sortKey, sortDir, footer }: Props) {
   const columns = [
     {
       header: "ID",
@@ -112,6 +115,7 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
   return (
     <BaseVodTable
       items={items}
+      total={total}
       getKey={(item) => item._id}
       encoderLabel={encoderLabel[encoder]}
       encoderTone={encoderTone[encoder]}
@@ -124,6 +128,7 @@ export function VodTable({ items, encoder, selectable, selected, onSelectionChan
       onSortChange={onSortChange}
       sortKey={sortKey}
       sortDir={sortDir}
+      footer={footer}
     />
   );
 }

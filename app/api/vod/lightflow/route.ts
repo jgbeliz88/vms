@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     if (v) upstream.set(key, v);
   }
   for (const l of sp.getAll("labels")) upstream.append("labels", l);
+  upstream.set("includeTotal", "true");
 
   const endpoint = `${getEnigmaBaseUrl()}/mercury/list?${upstream}`;
   let response: Response;
