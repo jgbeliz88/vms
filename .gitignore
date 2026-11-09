@@ -27,3 +27,13 @@ ci/packer/ansible/roles
 **/plan.tfplan
 **/*.swp
 **/.vscode
+
+# ── BMAD Method ──────────────────────────────────────────────────
+# Tooling de BMAD: cada uno lo instala en local con `npx bmad-method install`
+/_bmad/
+/.claude/skills/bmad-*/
+# _bmad-output: solo se versionan los planes de implementación
+/_bmad-output/*
+!/_bmad-output/planning-artifacts/
+!/_bmad-output/implementation-artifacts/
+!/_bmad-output/specs/
